@@ -77,6 +77,18 @@ export const sideMenuNavigation: SideMenuItem[] = [
     initial: "IM",
     description: "Carga controlada desde Excel/KORE",
   },
+  {
+    href: "/proyecto",
+    label: "Proyecto",
+    initial: "PR",
+    description: "Presentación ejecutiva del sistema",
+  },
+  {
+    href: "/tutorial",
+    label: "Tutorial",
+    initial: "TU",
+    description: "Manual de uso de la plataforma",
+  },
 ];
 
 export const mainNavigation: NavItem[] = [

@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
-import { sideMenuPdfItems, type SideMenuPdfItem } from "@/components/TutorialLink";
+import { useState } from "react";
 import {
   appName,
   homeNavItem,
   isNavItemActive,
   sideMenuNavigation,
-  type SideMenuItem,
 } from "@/lib/navigation";
 
 type NavInitialProps = {
@@ -52,25 +50,6 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-type MenuEntry =
-  | { kind: "route"; item: SideMenuItem }
-  | { kind: "pdf"; item: SideMenuPdfItem };
-
-function buildMenuEntries(): MenuEntry[] {
-  const entries: MenuEntry[] = [];
-
-  for (const item of sideMenuNavigation) {
-    entries.push({ kind: "route", item });
-    if (item.href === "/importar") {
-      for (const pdf of sideMenuPdfItems) {
-        entries.push({ kind: "pdf", item: pdf });
-      }
-    }
-  }
-
-  return entries;
-}
-
 function SideMenuLink({
   href,
   label,
@@ -103,33 +82,9 @@ function SideMenuLink({
   );
 }
 
-function SideMenuPdfLink({
-  href,
-  label,
-  initial,
-  title,
-  collapsed,
-}: SideMenuPdfItem & { collapsed: boolean }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={title}
-      className={`group flex items-center rounded-lg text-sm transition-colors ${
-        collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
-      } text-slate-300 hover:bg-slate-800 hover:text-white`}
-    >
-      <NavInitial initial={initial} active={false} />
-      {!collapsed ? <span className="truncate">{label}</span> : null}
-    </a>
-  );
-}
-
 export function SideMenu() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const menuEntries = useMemo(() => buildMenuEntries(), []);
 
   return (
     <>
@@ -137,27 +92,7 @@ export function SideMenu() {
         aria-label="Navegación principal móvil"
         className="flex gap-1 overflow-x-auto border-b border-slate-800 bg-slate-900/80 p-2 lg:hidden"
       >
-        {menuEntries.map((entry) => {
-          if (entry.kind === "pdf") {
-            const { item } = entry;
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={item.title}
-                className="flex min-w-[3.25rem] shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <NavInitial initial={item.initial} active={false} />
-                <span className="max-w-[4.5rem] truncate text-[10px] font-medium">
-                  {item.label}
-                </span>
-              </a>
-            );
-          }
-
-          const { item } = entry;
+        {sideMenuNavigation.map((item) => {
           const active = isNavItemActive(pathname, item.href);
 
           return (
@@ -226,29 +161,16 @@ export function SideMenu() {
           aria-label="Navegación principal"
           className="flex-1 space-y-1 p-2"
         >
-          {menuEntries.map((entry) => {
-            if (entry.kind === "pdf") {
-              return (
-                <SideMenuPdfLink
-                  key={entry.item.href}
-                  {...entry.item}
-                  collapsed={collapsed}
-                />
-              );
-            }
-
-            const { item } = entry;
-            return (
-              <SideMenuLink
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                initial={item.initial}
-                active={isNavItemActive(pathname, item.href)}
-                collapsed={collapsed}
-              />
-            );
-          })}
+          {sideMenuNavigation.map((item) => (
+            <SideMenuLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              initial={item.initial}
+              active={isNavItemActive(pathname, item.href)}
+              collapsed={collapsed}
+            />
+          ))}
         </nav>
 
         {!collapsed ? (
