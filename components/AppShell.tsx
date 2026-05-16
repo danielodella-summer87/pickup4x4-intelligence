@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { SideMenu } from "@/components/SideMenu";
-import { TutorialLink } from "@/components/TutorialLink";
+import { ProyectoLink } from "@/components/TutorialLink";
 import { getNavItemByPath } from "@/lib/navigation";
 
 type AppShellProps = {
@@ -39,7 +39,7 @@ export function AppShell({
               </h1>
               <p className="mt-1 text-sm text-slate-400">{description}</p>
             </div>
-            <TutorialLink className="shrink-0 self-start" />
+            <ProyectoLink className="shrink-0 self-start" />
           </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>

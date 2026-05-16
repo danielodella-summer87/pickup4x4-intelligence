@@ -1,9 +1,10 @@
-const TUTORIAL_PDF_HREF = "/Pickup_4x4_Intelligence.pdf";
+const PROYECTO_PDF_HREF = "/Pickup_4x4_Intelligence.pdf";
+const TUTORIAL_PDF_HREF = "/Manual-de-Uso-Pickup-4x4-Intelligence.pdf";
 
 const baseClass =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-800/80 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-700";
 
-function TutorialIcon({ className }: { className?: string }) {
+function PdfIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -21,29 +22,72 @@ function TutorialIcon({ className }: { className?: string }) {
   );
 }
 
-type TutorialLinkProps = {
+type PdfMenuLinkProps = {
+  href: string;
+  label: string;
+  collapsedInitials: string;
+  title: string;
   className?: string;
-  /** Solo icono (menú colapsado). */
   iconOnly?: boolean;
 };
 
-export function TutorialLink({ className, iconOnly = false }: TutorialLinkProps) {
+function PdfMenuLink({
+  href,
+  label,
+  collapsedInitials,
+  title,
+  className,
+  iconOnly = false,
+}: PdfMenuLinkProps) {
   return (
     <a
-      href={TUTORIAL_PDF_HREF}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
-      title="Abrir proyecto (PDF)"
+      title={title}
       className={`${baseClass} ${iconOnly ? "h-9 w-9 p-0" : "px-4 py-2"} ${className ?? ""}`}
     >
       {iconOnly ? (
-        <span className="text-xs font-bold">PR</span>
+        <span className="text-xs font-bold">{collapsedInitials}</span>
       ) : (
         <>
-          <TutorialIcon />
-          <span>Proyecto</span>
+          <PdfIcon />
+          <span>{label}</span>
         </>
       )}
     </a>
+  );
+}
+
+type SidebarPdfLinkProps = {
+  className?: string;
+  iconOnly?: boolean;
+};
+
+/** PDF del proyecto (presentación). */
+export function ProyectoLink({ className, iconOnly = false }: SidebarPdfLinkProps) {
+  return (
+    <PdfMenuLink
+      href={PROYECTO_PDF_HREF}
+      label="Proyecto"
+      collapsedInitials="PR"
+      title="Abrir proyecto (PDF)"
+      className={className}
+      iconOnly={iconOnly}
+    />
+  );
+}
+
+/** Manual de uso. */
+export function TutorialLink({ className, iconOnly = false }: SidebarPdfLinkProps) {
+  return (
+    <PdfMenuLink
+      href={TUTORIAL_PDF_HREF}
+      label="Tutorial"
+      collapsedInitials="TU"
+      title="Abrir manual de uso (PDF)"
+      className={className}
+      iconOnly={iconOnly}
+    />
   );
 }

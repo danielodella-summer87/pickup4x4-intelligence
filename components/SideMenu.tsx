@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { TutorialLink } from "@/components/TutorialLink";
+import { ProyectoLink, TutorialLink } from "@/components/TutorialLink";
 import {
   appName,
   homeNavItem,
@@ -175,10 +175,11 @@ export function SideMenu() {
         </nav>
 
         <div
-          className={`border-t border-slate-800 p-2 ${
-            collapsed ? "flex justify-center" : ""
+          className={`space-y-2 border-t border-slate-800 p-2 ${
+            collapsed ? "flex flex-col items-center" : ""
           }`}
         >
+          <ProyectoLink iconOnly={collapsed} className={collapsed ? "" : "w-full"} />
           <TutorialLink iconOnly={collapsed} className={collapsed ? "" : "w-full"} />
         </div>
 
