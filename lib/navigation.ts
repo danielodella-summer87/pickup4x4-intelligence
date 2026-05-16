@@ -18,6 +18,12 @@ export const homeNavItem: NavItem = {
 
 export const sideMenuNavigation: SideMenuItem[] = [
   {
+    href: "/demo",
+    label: "Demo",
+    initial: "DM",
+    description: "Resumen para presentación al cliente",
+  },
+  {
     href: "/dashboard",
     label: "Dashboard",
     initial: "DB",
@@ -39,7 +45,7 @@ export const sideMenuNavigation: SideMenuItem[] = [
     href: "/articulos",
     label: "Artículos",
     initial: "AR",
-    description: "Catálogo y stock",
+    description: "Catálogo y consulta de repuestos",
   },
   {
     href: "/vehiculos",
