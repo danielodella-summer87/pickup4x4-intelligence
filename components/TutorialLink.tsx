@@ -33,11 +33,17 @@ export function TutorialLink({ className, iconOnly = false }: TutorialLinkProps)
       href={TUTORIAL_PDF_HREF}
       target="_blank"
       rel="noopener noreferrer"
-      title="Abrir tutorial (PDF)"
+      title="Abrir proyecto (PDF)"
       className={`${baseClass} ${iconOnly ? "h-9 w-9 p-0" : "px-4 py-2"} ${className ?? ""}`}
     >
-      <TutorialIcon />
-      {!iconOnly ? <span>Tutorial</span> : null}
+      {iconOnly ? (
+        <span className="text-xs font-bold">PR</span>
+      ) : (
+        <>
+          <TutorialIcon />
+          <span>Proyecto</span>
+        </>
+      )}
     </a>
   );
 }
