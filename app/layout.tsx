@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { DatasetProvider } from "@/contexts/DatasetContext";
+import { SolicitudesProvider } from "@/contexts/SolicitudesContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +31,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-slate-950 text-slate-100">
-        <DatasetProvider>{children}</DatasetProvider>
+        <DatasetProvider>
+          <SolicitudesProvider>{children}</SolicitudesProvider>
+        </DatasetProvider>
       </body>
     </html>
   );

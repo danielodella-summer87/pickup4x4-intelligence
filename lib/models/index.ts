@@ -3,6 +3,11 @@ export type { Venta, VentaItem, VentaTipoComprobante } from "./venta";
 export type { Articulo, ArticuloAplicacion } from "./articulo";
 export type { VehiculoMarca, VehiculoModelo } from "./vehiculo";
 export type {
+  CreateSolicitudInput,
+  SolicitudArticuloLocal,
+  SolicitudLocal,
+  SolicitudLocalEstado,
+  SolicitudOrigen,
   SolicitudPresupuesto,
   SolicitudPresupuestoItem,
   SolicitudEstado,

@@ -22,8 +22,8 @@ import {
 } from "@/lib/data/distribuidor-insights";
 import { useActiveDataset } from "@/lib/data/use-active-dataset";
 
-const primaryCtaClass =
-  "inline-flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-emerald-500 px-6 py-4 text-lg font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[16rem]";
+const footerCtaClass =
+  "inline-flex min-h-[3.5rem] w-full items-center justify-center rounded-xl border border-slate-600 bg-slate-800/90 px-6 py-4 text-lg font-semibold text-slate-200 transition hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[16rem]";
 
 const formularioInicial: PresupuestoFormulario = {
   nombre: "",
@@ -199,7 +199,7 @@ export default function DistribuidorPage() {
             type="button"
             disabled={!vehiculoCompleto}
             onClick={() => setModalAbierto(true)}
-            className={primaryCtaClass}
+            className={footerCtaClass}
           >
             Solicitar presupuesto
           </button>
@@ -215,6 +215,10 @@ export default function DistribuidorPage() {
         onCerrar={() => setModalAbierto(false)}
         onChange={setFormulario}
         onQuitarArticulo={quitarArticulo}
+        onGuardado={() => {
+          setFormulario(formularioInicial);
+          setSeleccionados(new Set());
+        }}
       />
     </AppShell>
   );
