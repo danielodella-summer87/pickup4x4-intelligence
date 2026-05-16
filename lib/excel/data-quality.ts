@@ -30,7 +30,19 @@ import type { Venta, VentaItem } from "@/lib/models/venta";
 
 export type DataQualityDataset = "clientes" | "ventas" | "articulos";
 
+/** Severidad para la UI de importación (v1). */
+export type DataQualitySeverity = "critico" | "revisar" | "informativo";
+
 export type DataQualityIssueKind = "critical" | "warning" | "fallback";
+
+export type ClassifiedQualityIssue = {
+  severity: DataQualitySeverity;
+  code: string;
+  message: string;
+  dataset?: DataQualityDataset;
+  rowIndex?: number;
+  campo?: string;
+};
 
 export type DataQualityFallback = {
   dataset: DataQualityDataset;
@@ -77,14 +89,24 @@ export type DataQualitySummary = {
   erroresCriticos: number;
 };
 
+export type DataQualitySeveritySummary = {
+  criticos: number;
+  revisar: number;
+  informativos: number;
+  filasExcluidas: number;
+};
+
 export type TopMotivo = {
   motivo: string;
   count: number;
   kind: DataQualityIssueKind;
+  severity: DataQualitySeverity;
 };
 
 export type DataQualityReport = {
   summary: DataQualitySummary;
+  severity: DataQualitySeveritySummary;
+  issuesBySeverity: Record<DataQualitySeverity, ClassifiedQualityIssue[]>;
   criticalErrors: DataQualityCriticalError[];
   warnings: DataQualityWarning[];
   fallbacks: DataQualityFallback[];
@@ -92,6 +114,133 @@ export type DataQualityReport = {
   topMotivos: TopMotivo[];
   ejemploFilasProblematicas: ProblematicRowExample[];
 };
+
+const WARNING_CODE_SEVERITY: Record<string, DataQualitySeverity> = {
+  IMPORTES_OMITIDOS_V1: "informativo",
+  CLIENTE_SIN_RUC: "informativo",
+  VENTAS_SIN_ARTICULO_RELACIONADO: "revisar",
+  VENTA_ITEMS_SIN_ARTICULO: "revisar",
+  CODIGOS_MULTIPLES_APLICACIONES: "revisar",
+  NORMALIZACION_INTELIGENTE: "revisar",
+  CALIDAD_FALLBACKS: "revisar",
+  CLIENTES_DUPLICADOS: "informativo",
+  VENTAS_SIN_CLIENTE: "critico",
+  CALIDAD_FILAS_EXCLUIDAS: "revisar",
+};
+
+function classifyFallbackSeverity(
+  entry: DataQualityFallback,
+): DataQualitySeverity {
+  const motivo = entry.motivo.toLowerCase();
+  const campo = entry.campo.toLowerCase();
+
+  if (
+    motivo.includes("unificad") ||
+    motivo.includes("similitud") ||
+    motivo.includes("confianza")
+  ) {
+    return "revisar";
+  }
+
+  if (
+    campo.includes("marca") ||
+    campo.includes("modelo") ||
+    campo.includes("localidad")
+  ) {
+    return "revisar";
+  }
+
+  if (motivo.includes("comprobante") && motivo.includes("sintético")) {
+    return "revisar";
+  }
+
+  return "informativo";
+}
+
+export function classifyWarningSeverity(code: string, message: string): DataQualitySeverity {
+  if (WARNING_CODE_SEVERITY[code]) {
+    return WARNING_CODE_SEVERITY[code];
+  }
+
+  const lower = message.toLowerCase();
+  if (lower.includes("moneda") || lower.includes("importe") || lower.includes("precio")) {
+    return "informativo";
+  }
+
+  return "revisar";
+}
+
+export function classifyDataQualityReport(
+  collector: Pick<
+    DataQualityCollector,
+    "criticalErrors" | "warnings" | "fallbacks" | "excludedRows"
+  >,
+): {
+  severity: DataQualitySeveritySummary;
+  issuesBySeverity: Record<DataQualitySeverity, ClassifiedQualityIssue[]>;
+} {
+  const issuesBySeverity: Record<DataQualitySeverity, ClassifiedQualityIssue[]> = {
+    critico: [],
+    revisar: [],
+    informativo: [],
+  };
+
+  const push = (issue: ClassifiedQualityIssue) => {
+    issuesBySeverity[issue.severity].push(issue);
+  };
+
+  for (const row of collector.excludedRows) {
+    push({
+      severity: "critico",
+      code: "FILA_EXCLUIDA",
+      message: row.motivo,
+      dataset: row.dataset,
+      rowIndex: row.rowIndex,
+    });
+  }
+
+  for (const error of collector.criticalErrors) {
+    push({
+      severity: "critico",
+      code: "ERROR_CRITICO",
+      message: error.motivo,
+      dataset: error.dataset,
+      rowIndex: error.rowIndex,
+      campo: error.campo,
+    });
+  }
+
+  for (const warning of collector.warnings) {
+    push({
+      severity: classifyWarningSeverity(warning.code, warning.message),
+      code: warning.code,
+      message: warning.message,
+      dataset: warning.dataset,
+      rowIndex: warning.rowIndex,
+    });
+  }
+
+  for (const fallback of collector.fallbacks) {
+    push({
+      severity: classifyFallbackSeverity(fallback),
+      code: "FALLBACK",
+      message: fallback.motivo,
+      dataset: fallback.dataset,
+      rowIndex: fallback.rowIndex,
+      campo: fallback.campo,
+    });
+  }
+
+  return {
+    severity: {
+      criticos: issuesBySeverity.critico.length,
+      revisar: issuesBySeverity.revisar.length,
+      informativos: issuesBySeverity.informativo.length,
+      filasExcluidas: collector.excludedRows.length,
+    },
+    issuesBySeverity,
+  };
+}
 
 const SIN_CATEGORIA = "Sin categoría";
 const SIN_DESCRIPCION_ARTICULO = "Artículo sin descripción";
@@ -190,7 +339,13 @@ export class DataQualityCollector {
     const topMotivos: TopMotivo[] = [...motivoCounts.entries()]
       .map(([key, value]) => {
         const motivo = key.split("::").slice(1).join("::");
-        return { motivo, count: value.count, kind: value.kind };
+        const severity: DataQualitySeverity =
+          value.kind === "critical"
+            ? "critico"
+            : value.kind === "fallback"
+              ? "revisar"
+              : "revisar";
+        return { motivo, count: value.count, kind: value.kind, severity };
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -201,6 +356,8 @@ export class DataQualityCollector {
       this.fallbacks,
     );
 
+    const { severity, issuesBySeverity } = classifyDataQualityReport(this);
+
     return {
       summary: {
         filasExcluidas: this.excludedRows.length,
@@ -208,6 +365,8 @@ export class DataQualityCollector {
         advertencias: this.warnings.length,
         erroresCriticos: this.criticalErrors.length,
       },
+      severity,
+      issuesBySeverity,
       criticalErrors: this.criticalErrors,
       warnings: this.warnings,
       fallbacks: this.fallbacks,
@@ -561,6 +720,19 @@ export function processVentasWithQuality(
     });
     itemIndex += 1;
   });
+
+  const ventaIdsConArticulo = new Set(ventaItems.map((item) => item.ventaId));
+  const ventasSinArticuloRelacionado = ventas.filter(
+    (venta) => !ventaIdsConArticulo.has(venta.id),
+  ).length;
+
+  if (ventasSinArticuloRelacionado > 0) {
+    collector.addWarning(
+      "ventas",
+      "VENTAS_SIN_ARTICULO_RELACIONADO",
+      "Comprobantes de venta sin línea de artículo en el mismo registro",
+    );
+  }
 
   return {
     ventas,

@@ -14,13 +14,19 @@ import { SectionCard } from "@/components/SectionCard";
 import { StatCard } from "@/components/StatCard";
 import { EXCEL_WORKBOOKS } from "@/lib/excel/column-map";
 import { buildPickupDatasetFromRows } from "@/lib/excel/build-dataset";
-import type { DataQualityReport } from "@/lib/excel/data-quality";
+import type {
+  ClassifiedQualityIssue,
+  DataQualityReport,
+  DataQualitySeverity,
+} from "@/lib/excel/data-quality";
 import type { SmartNormalizationReport } from "@/lib/excel/normalization";
 import {
   buildImportPreview,
   type ColumnCompatibilityStatus,
   type FileColumnDiagnostic,
   type ImportPreview,
+  type ImportPreviewWarning,
+  type ImportReadinessStatus,
 } from "@/lib/excel/import-preview";
 import type {
   Articulo,
@@ -279,10 +285,81 @@ function statusBadgeClass(status: ColumnCompatibilityStatus): string {
   return "bg-rose-500/15 text-rose-300";
 }
 
-function overallSummaryClass(status: "listo" | "ajustes"): string {
-  return status === "listo"
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-    : "border-amber-500/30 bg-amber-500/10 text-amber-200";
+function importReadinessClass(status: ImportReadinessStatus): string {
+  if (status === "valida") {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+  }
+  if (status === "valida_observaciones") {
+    return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+  }
+  return "border-rose-500/30 bg-rose-500/10 text-rose-200";
+}
+
+const severityLabel: Record<DataQualitySeverity, string> = {
+  critico: "Crítico",
+  revisar: "Revisar",
+  informativo: "Informativo",
+};
+
+function SeveritySummaryGrid({
+  criticos,
+  revisar,
+  informativos,
+  filasExcluidas,
+}: {
+  criticos: number;
+  revisar: number;
+  informativos: number;
+  filasExcluidas?: number;
+}) {
+  return (
+    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard label="Críticos" value={String(criticos)} trend={criticos > 0 ? "down" : "neutral"} />
+      <StatCard label="Revisar" value={String(revisar)} trend={revisar > 0 ? "down" : "neutral"} />
+      <StatCard
+        label="Informativos"
+        value={String(informativos)}
+        hint="No bloquean la importación"
+        trend="neutral"
+      />
+      <StatCard
+        label="Filas excluidas"
+        value={filasExcluidas !== undefined ? String(filasExcluidas) : "—"}
+        hint="Datos inválidos omitidos"
+        trend="down"
+      />
+    </div>
+  );
+}
+
+function IssuesList({
+  issues,
+  emptyMessage,
+}: {
+  issues: ClassifiedQualityIssue[] | ImportPreviewWarning[];
+  emptyMessage?: string;
+}) {
+  if (issues.length === 0) {
+    return emptyMessage ? (
+      <p className="text-sm text-slate-500">{emptyMessage}</p>
+    ) : null;
+  }
+
+  return (
+    <ul className="space-y-2 text-sm text-slate-300">
+      {issues.map((issue, index) => {
+        const code = "code" in issue ? issue.code : "—";
+        const message = issue.message;
+        const count = "count" in issue ? issue.count : undefined;
+        return (
+          <li key={`${code}-${index}`} className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+            {message}
+            {count !== undefined ? ` (${count.toLocaleString("es-AR")})` : ""}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 function ColumnDiagnosticBlock({ file }: { file: FileColumnDiagnostic }) {
@@ -331,13 +408,13 @@ function ColumnDiagnosticBlock({ file }: { file: FileColumnDiagnostic }) {
         </div>
       </div>
 
-      {file.missingRequired.length > 0 ? (
+      {file.missingRequiredBlocking.length > 0 ? (
         <div className="mt-4">
           <p className="text-xs font-medium uppercase tracking-wider text-rose-400/90">
-            Columnas obligatorias faltantes
+            Columnas obligatorias faltantes (bloquean importación)
           </p>
           <ul className="mt-2 space-y-1 text-xs text-rose-200/90">
-            {file.missingRequired.map((col) => (
+            {file.missingRequiredBlocking.map((col) => (
               <li key={col.fieldKey}>
                 {col.fieldLabel}{" "}
                 <span className="text-slate-500">
@@ -349,13 +426,20 @@ function ColumnDiagnosticBlock({ file }: { file: FileColumnDiagnostic }) {
         </div>
       ) : null}
 
-      {file.missingRecommended.length > 0 ? (
+      {file.missingRequiredInformativo.length > 0 ? (
+        <p className="mt-3 text-xs text-slate-500">
+          No se usa en v1:{" "}
+          {file.missingRequiredInformativo.map((c) => c.fieldLabel).join(", ")}
+        </p>
+      ) : null}
+
+      {file.missingRecommendedRevisar.length > 0 ? (
         <div className="mt-4">
           <p className="text-xs font-medium uppercase tracking-wider text-amber-400/90">
-            Columnas recomendadas no detectadas
+            Columnas recomendadas a revisar
           </p>
           <ul className="mt-2 space-y-1 text-xs text-amber-100/80">
-            {file.missingRecommended.map((col) => (
+            {file.missingRecommendedRevisar.map((col) => (
               <li key={col.fieldKey}>
                 {col.fieldLabel}{" "}
                 <span className="text-slate-500">
@@ -367,10 +451,17 @@ function ColumnDiagnosticBlock({ file }: { file: FileColumnDiagnostic }) {
         </div>
       ) : null}
 
+      {file.missingRecommendedInformativo.length > 0 ? (
+        <p className="mt-3 text-xs text-slate-500">
+          Opcionales en v1:{" "}
+          {file.missingRecommendedInformativo.map((c) => c.fieldLabel).join(", ")}
+        </p>
+      ) : null}
+
       {file.unrecognized.length > 0 ? (
         <details className="mt-4">
-          <summary className="cursor-pointer text-xs font-medium text-slate-400">
-            {file.unrecognized.length} columnas no reconocidas (expandir)
+          <summary className="cursor-pointer text-xs font-medium text-slate-500">
+            {file.unrecognized.length} columnas del Excel no usadas en v1 (informativo)
           </summary>
           <p className="mt-2 font-mono text-xs leading-relaxed text-slate-500">
             {file.unrecognized.slice(0, 30).join(" · ")}
@@ -523,39 +614,44 @@ const datasetLabel: Record<string, string> = {
 };
 
 function DataQualityBlock({ report }: { report: DataQualityReport }) {
-  const { summary } = report;
+  const { severity } = report;
+  const revisarIssues = report.issuesBySeverity.revisar;
+  const informativoIssues = report.issuesBySeverity.informativo;
 
   return (
     <div className="mt-6 border-t border-slate-800 pt-6">
       <h3 className="text-sm font-semibold text-white">Calidad de datos</h3>
       <p className="mt-1 text-xs text-slate-500">
-        Validación conservadora con trazabilidad de fallbacks y exclusiones.
+        Resumen por severidad. Las filas excluidas no impiden usar el dataset si el
+        resto es válido.
       </p>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Filas excluidas"
-          value={String(summary.filasExcluidas)}
-          hint="Errores críticos"
-          trend="down"
-        />
-        <StatCard
-          label="Fallbacks aplicados"
-          value={String(summary.fallbacksAplicados)}
-          hint="Datos completados"
-          trend="neutral"
-        />
-        <StatCard
-          label="Advertencias"
-          value={String(summary.advertencias)}
-          trend="down"
-        />
-        <StatCard
-          label="Errores críticos"
-          value={String(summary.erroresCriticos)}
-          trend="down"
-        />
-      </div>
+      <SeveritySummaryGrid
+        criticos={severity.criticos}
+        revisar={severity.revisar}
+        informativos={severity.informativos}
+        filasExcluidas={severity.filasExcluidas}
+      />
+
+      {revisarIssues.length > 0 ? (
+        <div className="mt-5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-4">
+          <p className="text-sm font-medium text-amber-200">Puntos a revisar</p>
+          <div className="mt-3">
+            <IssuesList issues={revisarIssues.slice(0, 12)} />
+          </div>
+        </div>
+      ) : null}
+
+      {informativoIssues.length > 0 ? (
+        <details className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+          <summary className="cursor-pointer text-xs font-medium text-slate-400">
+            Observaciones informativas ({informativoIssues.length})
+          </summary>
+          <div className="mt-3">
+            <IssuesList issues={informativoIssues.slice(0, 20)} />
+          </div>
+        </details>
+      ) : null}
 
       {report.topMotivos.length > 0 ? (
         <div className="mt-5">
@@ -578,18 +674,14 @@ function DataQualityBlock({ report }: { report: DataQualityReport }) {
                     <td className="px-3 py-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${
-                          item.kind === "critical"
+                          item.severity === "critico"
                             ? "bg-rose-500/15 text-rose-300"
-                            : item.kind === "fallback"
-                              ? "bg-sky-500/15 text-sky-300"
+                            : item.severity === "informativo"
+                              ? "bg-slate-500/20 text-slate-400"
                               : "bg-amber-500/15 text-amber-300"
                         }`}
                       >
-                        {item.kind === "critical"
-                          ? "Crítico"
-                          : item.kind === "fallback"
-                            ? "Fallback"
-                            : "Advertencia"}
+                        {severityLabel[item.severity]}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right">{item.count}</td>
@@ -770,10 +862,20 @@ export default function ImportarPage() {
 
   const columnDiagnostics = importPreview?.columnDiagnostics;
 
+  const importReadiness = columnDiagnostics?.readiness;
+
   const canBuildDataset =
-    allFilesLoaded &&
-    columnDiagnostics !== undefined &&
-    !columnDiagnostics.files.some((file) => file.status === "incompleto");
+    allFilesLoaded && importReadiness !== undefined && importReadiness.canBuildDataset;
+
+  const previewWarningsRevisar = useMemo(
+    () => importPreview?.advertencias.filter((w) => w.severity === "revisar") ?? [],
+    [importPreview],
+  );
+
+  const previewWarningsInformativo = useMemo(
+    () => importPreview?.advertencias.filter((w) => w.severity === "informativo") ?? [],
+    [importPreview],
+  );
 
   function handleUploadProgress(key: UploadFileKey, state: ExcelUploadProgressState) {
     setUploadProgress((prev) => ({ ...prev, [key]: state }));
@@ -956,14 +1058,21 @@ export default function ImportarPage() {
             description="Encabezados reales del Excel vs aliases en lib/excel/column-map"
           >
             <div
-              className={`mb-5 rounded-lg border p-4 ${overallSummaryClass(columnDiagnostics.overallStatus)}`}
+              className={`mb-5 rounded-lg border p-4 ${importReadinessClass(columnDiagnostics.readiness.status)}`}
             >
-              <p className="text-lg font-semibold">{columnDiagnostics.overallLabel}</p>
+              <p className="text-lg font-semibold">{columnDiagnostics.readiness.label}</p>
               <p className="mt-1 text-sm opacity-90">
-                {columnDiagnostics.overallStatus === "listo"
-                  ? "Los tres archivos tienen las columnas obligatorias para los mappers."
-                  : "Revisá columnas faltantes o no reconocidas antes de una importación definitiva."}
+                {columnDiagnostics.readiness.status === "valida"
+                  ? "Podés generar el dataset y usar dashboard y mostrador."
+                  : columnDiagnostics.readiness.status === "valida_observaciones"
+                    ? "Podés importar; conviene revisar los puntos marcados en amarillo."
+                    : "Faltan columnas obligatorias. Corregí el Excel antes de continuar."}
               </p>
+              <SeveritySummaryGrid
+                criticos={columnDiagnostics.readiness.severity.criticos}
+                revisar={columnDiagnostics.readiness.severity.revisar}
+                informativos={columnDiagnostics.readiness.severity.informativos}
+              />
             </div>
 
             <div className="space-y-4">
@@ -1016,20 +1125,24 @@ export default function ImportarPage() {
             />
           </div>
 
-          {importPreview && importPreview.advertencias.length > 0 ? (
-            <ul className="mt-5 space-y-2 border-t border-slate-800 pt-4 text-sm text-slate-400">
-              {importPreview.advertencias.map((warning) => (
-                <li key={warning.code} className="flex gap-2">
-                  <span className="text-amber-400" aria-hidden>
-                    ⚠
-                  </span>
-                  <span>
-                    {warning.message}
-                    {warning.count !== undefined ? ` (${warning.count})` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {previewWarningsRevisar.length > 0 ? (
+            <div className="mt-5 border-t border-slate-800 pt-4">
+              <p className="text-sm font-medium text-amber-200">Puntos a revisar</p>
+              <div className="mt-3">
+                <IssuesList issues={previewWarningsRevisar} />
+              </div>
+            </div>
+          ) : null}
+
+          {previewWarningsInformativo.length > 0 ? (
+            <details className="mt-4 border-t border-slate-800 pt-4">
+              <summary className="cursor-pointer text-sm font-medium text-slate-400">
+                Observaciones informativas ({previewWarningsInformativo.length})
+              </summary>
+              <div className="mt-3">
+                <IssuesList issues={previewWarningsInformativo} />
+              </div>
+            </details>
           ) : null}
 
           {importPreview && importPreview.codigosRepetidos.length > 0 ? (
@@ -1094,8 +1207,10 @@ export default function ImportarPage() {
             {!allFilesLoaded
               ? "Cargá los 3 archivos Excel para habilitar este paso."
               : !canBuildDataset
-                ? "Corregí columnas obligatorias faltantes (estado incompleto) antes de generar el dataset."
-                : "Construye el dataset normalizado y aplícalo al sistema (se guarda en localStorage de este navegador)."}
+                ? "Faltan columnas obligatorias: la importación está bloqueada hasta corregirlas."
+                : importReadiness?.status === "valida_observaciones"
+                  ? "Podés generar el dataset. Revisá las observaciones cuando tengas tiempo."
+                  : "Construye el dataset normalizado y aplícalo al sistema (se guarda en localStorage de este navegador)."}
           </p>
           {source === "excel" ? (
             <button

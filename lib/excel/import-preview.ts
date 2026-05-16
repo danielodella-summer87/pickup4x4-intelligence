@@ -1,3 +1,4 @@
+import type { DataQualitySeverity } from "@/lib/excel/data-quality";
 import {
   ARTICULOS_COLUMNS,
   CLIENTES_COLUMNS,
@@ -32,6 +33,7 @@ export type ImportPreviewWarning = {
   code: string;
   message: string;
   count?: number;
+  severity: DataQualitySeverity;
 };
 
 export type CodigoRepetidoResumen = {
@@ -77,15 +79,37 @@ export type FileColumnDiagnostic = {
   first20Headers: string[];
   recognized: RecognizedColumn[];
   unrecognized: string[];
+  /** Todas las obligatorias faltantes (bloqueantes + informativas v1). */
   missingRequired: MissingRequiredColumn[];
+  /** Todas las recomendadas faltantes (revisar + informativas v1). */
   missingRecommended: MissingRequiredColumn[];
+  missingRequiredBlocking: MissingRequiredColumn[];
+  missingRequiredInformativo: MissingRequiredColumn[];
+  missingRecommendedRevisar: MissingRequiredColumn[];
+  missingRecommendedInformativo: MissingRequiredColumn[];
   sampleMapSuccessRate: number | null;
 };
 
+export type ImportReadinessStatus = "valida" | "valida_observaciones" | "bloqueada";
+
 export type ColumnDiagnosticsSummary = {
   files: FileColumnDiagnostic[];
+  /** @deprecated Usar readiness.status */
   overallStatus: "listo" | "ajustes";
+  /** @deprecated Usar readiness.label */
   overallLabel: string;
+  readiness: ImportReadiness;
+};
+
+export type ImportReadiness = {
+  status: ImportReadinessStatus;
+  label: string;
+  canBuildDataset: boolean;
+  severity: {
+    criticos: number;
+    revisar: number;
+    informativos: number;
+  };
 };
 
 export type ImportPreview = {
@@ -107,6 +131,117 @@ const HEADER_SAMPLE_ROWS = 30;
 const MAP_SAMPLE_SIZE = 200;
 const PREVIEW_HEADER_LIMIT = 20;
 const LOG_PREFIX = "[Pickup ColumnMatch]";
+
+/** Obligatorias en mapa pero no bloquean importación en v1. */
+const V1_NON_BLOCKING_REQUIRED: Partial<Record<ImportDatasetKey, ReadonlySet<string>>> = {
+  ventas: new Set(["importeTotal"]),
+};
+
+/** Recomendadas / opcionales que en v1 son solo informativas. */
+const V1_INFORMATIVO_FIELDS = new Set([
+  "moneda",
+  "importeTotal",
+  "precioUnitario",
+  "importe",
+  "precioLista",
+  "cuit",
+  "email",
+  "telefono",
+  "fax",
+  "direccion",
+  "domicilio",
+]);
+
+const PREVIEW_WARNING_SEVERITY: Record<string, DataQualitySeverity> = {
+  CLIENTES_SIN_CUENTA: "revisar",
+  VENTAS_SIN_CUENTA: "revisar",
+  VENTAS_SIN_FECHA: "revisar",
+  ARTICULOS_SIN_CODIGO: "revisar",
+  APLICACIONES_SIN_MARCA: "revisar",
+  SIN_APLICACIONES_GENERADAS: "revisar",
+  SIN_DATOS: "critico",
+  CLIENTES_NO_MAPEADOS: "revisar",
+  VENTAS_NO_MAPEADAS: "revisar",
+  CLIENTES_SIN_RAZON_SOCIAL: "informativo",
+  VENTAS_SIN_IMPORTE: "informativo",
+  ARTICULOS_SIN_DESCRIPCION: "informativo",
+  COLUMNAS_REQUIEREN_AJUSTE: "critico",
+  COLUMNAS_V1_INFORMATIVAS: "informativo",
+  COLUMNAS_RECOMENDADAS: "revisar",
+  COLUMNAS_NO_USADAS_V1: "informativo",
+  MAPEO_BAJO: "revisar",
+  CODIGOS_REPETIDOS: "revisar",
+};
+
+function severityForPreviewWarning(
+  code: string,
+  message: string,
+): DataQualitySeverity {
+  if (PREVIEW_WARNING_SEVERITY[code]) {
+    return PREVIEW_WARNING_SEVERITY[code];
+  }
+  const lower = message.toLowerCase();
+  if (lower.includes("importe") || lower.includes("moneda") || lower.includes("precio")) {
+    return "informativo";
+  }
+  return "revisar";
+}
+
+function pushPreviewWarning(
+  list: ImportPreviewWarning[],
+  code: string,
+  message: string,
+  count?: number,
+): void {
+  list.push({
+    code,
+    message,
+    count,
+    severity: severityForPreviewWarning(code, message),
+  });
+}
+
+function partitionMissingRequired(
+  datasetKey: ImportDatasetKey,
+  missingRequired: MissingRequiredColumn[],
+): {
+  blocking: MissingRequiredColumn[];
+  v1Informativo: MissingRequiredColumn[];
+} {
+  const exempt = V1_NON_BLOCKING_REQUIRED[datasetKey] ?? new Set<string>();
+  const blocking: MissingRequiredColumn[] = [];
+  const v1Informativo: MissingRequiredColumn[] = [];
+
+  for (const item of missingRequired) {
+    if (exempt.has(item.fieldKey)) {
+      v1Informativo.push(item);
+    } else {
+      blocking.push(item);
+    }
+  }
+
+  return { blocking, v1Informativo };
+}
+
+function partitionMissingRecommended(
+  missingRecommended: MissingRequiredColumn[],
+): {
+  revisar: MissingRequiredColumn[];
+  informativo: MissingRequiredColumn[];
+} {
+  const revisar: MissingRequiredColumn[] = [];
+  const informativo: MissingRequiredColumn[] = [];
+
+  for (const item of missingRecommended) {
+    if (V1_INFORMATIVO_FIELDS.has(item.fieldKey)) {
+      informativo.push(item);
+    } else {
+      revisar.push(item);
+    }
+  }
+
+  return { revisar, informativo };
+}
 
 function extractDetectedHeaders(rows: Record<string, unknown>[]): string[] {
   const keys = new Set<string>();
@@ -327,19 +462,18 @@ function measureMapSuccessRate(
 }
 
 function resolveFileStatus(
-  missingRequired: MissingRequiredColumn[],
-  missingRecommended: MissingRequiredColumn[],
-  unrecognized: string[],
+  blockingRequired: MissingRequiredColumn[],
+  missingRecommendedRevisar: MissingRequiredColumn[],
   sampleMapSuccessRate: number | null,
 ): { status: ColumnCompatibilityStatus; statusLabel: string } {
-  if (missingRequired.length > 0) {
-    return { status: "incompleto", statusLabel: "Incompleto" };
+  if (blockingRequired.length > 0) {
+    return { status: "incompleto", statusLabel: "Bloqueado" };
   }
 
   const lowMapRate =
     sampleMapSuccessRate !== null && sampleMapSuccessRate < 0.85;
 
-  if (missingRecommended.length > 0 || unrecognized.length > 0 || lowMapRate) {
+  if (missingRecommendedRevisar.length > 0 || lowMapRate) {
     return { status: "revisar", statusLabel: "Revisar" };
   }
 
@@ -379,19 +513,30 @@ export function diagnoseFileColumns(
     };
   };
 
-  const missingRequired = REQUIRED_FIELDS[datasetKey]
+  const missingRequiredRaw = REQUIRED_FIELDS[datasetKey]
     .filter((fieldKey) => !recognizedKeys.has(fieldKey))
     .map((fieldKey) => buildMissing(fieldKey));
 
-  const missingRecommended = RECOMMENDED_FIELDS[datasetKey]
+  const { blocking: missingRequired, v1Informativo: missingRequiredV1 } =
+    partitionMissingRequired(datasetKey, missingRequiredRaw);
+
+  const missingRecommendedRaw = RECOMMENDED_FIELDS[datasetKey]
     .filter((fieldKey) => !recognizedKeys.has(fieldKey))
     .map((fieldKey) => buildMissing(fieldKey));
+
+  const { revisar: missingRecommended, informativo: missingRecommendedV1 } =
+    partitionMissingRecommended(missingRecommendedRaw);
+
+  const missingRequiredForUi = [...missingRequired, ...missingRequiredV1];
+  const missingRecommendedForUi = [
+    ...missingRecommended,
+    ...missingRecommendedV1,
+  ];
 
   const sampleMapSuccessRate = measureMapSuccessRate(datasetKey, rows);
   const { status, statusLabel } = resolveFileStatus(
-    missingRequired,
-    missingRecommended,
-    unrecognized,
+    missingRequiredForUi,
+    missingRecommendedForUi,
     sampleMapSuccessRate,
   );
 
@@ -400,8 +545,8 @@ export function diagnoseFileColumns(
     workbookTitle,
     detectedHeaders,
     recognized,
-    missingRequired,
-    missingRecommended,
+    missingRequiredForUi,
+    missingRecommendedForUi,
   );
 
   return {
@@ -415,9 +560,73 @@ export function diagnoseFileColumns(
     first20Headers: detectedHeaders.slice(0, PREVIEW_HEADER_LIMIT),
     recognized,
     unrecognized,
-    missingRequired,
-    missingRecommended,
+    missingRequired: missingRequiredForUi,
+    missingRecommended: missingRecommendedForUi,
+    missingRequiredBlocking: missingRequired,
+    missingRequiredInformativo: missingRequiredV1,
+    missingRecommendedRevisar: missingRecommended,
+    missingRecommendedInformativo: missingRecommendedV1,
     sampleMapSuccessRate,
+  };
+}
+
+export function resolveImportReadiness(
+  files: FileColumnDiagnostic[],
+  previewWarnings: ImportPreviewWarning[] = [],
+): ImportReadiness {
+  let criticos = 0;
+  let revisar = 0;
+  let informativos = 0;
+
+  const hasBlockingColumns = files.some((f) => f.status === "incompleto");
+
+  for (const file of files) {
+    criticos += file.missingRequiredBlocking.length;
+    informativos += file.missingRequiredInformativo.length;
+    informativos += file.missingRecommendedInformativo.length;
+    revisar += file.missingRecommendedRevisar.length;
+
+    if (file.unrecognized.length > 0) {
+      informativos += 1;
+    }
+
+    if (
+      file.sampleMapSuccessRate !== null &&
+      file.sampleMapSuccessRate < 0.85
+    ) {
+      revisar += 1;
+    }
+  }
+
+  for (const warning of previewWarnings) {
+    if (warning.severity === "critico") criticos += 1;
+    else if (warning.severity === "revisar") revisar += 1;
+    else informativos += 1;
+  }
+
+  let status: ImportReadinessStatus;
+  let label: string;
+
+  const hasBlockingPreview = previewWarnings.some(
+    (w) => w.code === "COLUMNAS_REQUIEREN_AJUSTE" || w.code === "SIN_DATOS",
+  );
+
+  if (hasBlockingColumns || hasBlockingPreview) {
+    status = "bloqueada";
+    label = "Importación bloqueada";
+  } else if (revisar > 0) {
+    status = "valida_observaciones";
+    label = "Importación válida con observaciones";
+  } else {
+    status = "valida";
+    label = "Importación válida";
+  }
+
+  return {
+    status,
+    label,
+    canBuildDataset: !hasBlockingColumns,
+    severity: { criticos, revisar, informativos },
   };
 }
 
@@ -436,16 +645,12 @@ export function buildColumnDiagnostics(
     files.push(diagnoseFileColumns("articulos", input.articulosAplicaciones));
   }
 
-  const hasIncomplete = files.some((file) => file.status === "incompleto");
-  const needsReview = files.some((file) => file.status === "revisar");
+  const readiness = resolveImportReadiness(files);
+  const overallStatus =
+    readiness.status === "bloqueada" ? "ajustes" : "listo";
+  const overallLabel = readiness.label;
 
-  const overallStatus = hasIncomplete || needsReview ? "ajustes" : "listo";
-  const overallLabel =
-    overallStatus === "listo"
-      ? "Listo para mapear"
-      : "Requiere ajustes de columnas";
-
-  return { files, overallStatus, overallLabel };
+  return { files, overallStatus, overallLabel, readiness };
 }
 
 function contarFilasSinCampo(
@@ -513,25 +718,28 @@ export function buildImportPreview(input: ExcelImportRawInput): ImportPreview {
     const sinRazon = contarFilasSinCampo(input.clientes, CLIENTES_COLUMNS.razonSocial);
 
     if (sinCuenta > 0) {
-      advertencias.push({
-        code: "CLIENTES_SIN_CUENTA",
-        message: "Filas de clientes sin número de cuenta",
-        count: sinCuenta,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "CLIENTES_SIN_CUENTA",
+        "Filas de clientes sin número de cuenta",
+        sinCuenta,
+      );
     }
     if (sinRazon > 0) {
-      advertencias.push({
-        code: "CLIENTES_SIN_RAZON_SOCIAL",
-        message: "Filas de clientes sin razón social",
-        count: sinRazon,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "CLIENTES_SIN_RAZON_SOCIAL",
+        "Filas de clientes sin razón social (se completará si hay fantasía)",
+        sinRazon,
+      );
     }
     if (errores > 0) {
-      advertencias.push({
-        code: "CLIENTES_NO_MAPEADOS",
-        message: "Filas de clientes que no pudieron mapearse",
-        count: errores,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "CLIENTES_NO_MAPEADOS",
+        "Filas de clientes que no pudieron mapearse",
+        errores,
+      );
     }
   }
 
@@ -544,32 +752,36 @@ export function buildImportPreview(input: ExcelImportRawInput): ImportPreview {
     const sinImporte = contarFilasSinCampo(input.ventas, VENTAS_COLUMNS.importeTotal);
 
     if (sinCuenta > 0) {
-      advertencias.push({
-        code: "VENTAS_SIN_CUENTA",
-        message: "Filas de ventas sin número de cuenta",
-        count: sinCuenta,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "VENTAS_SIN_CUENTA",
+        "Filas de ventas sin número de cuenta",
+        sinCuenta,
+      );
     }
     if (sinFecha > 0) {
-      advertencias.push({
-        code: "VENTAS_SIN_FECHA",
-        message: "Filas de ventas sin fecha",
-        count: sinFecha,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "VENTAS_SIN_FECHA",
+        "Filas de ventas sin fecha",
+        sinFecha,
+      );
     }
     if (sinImporte > 0) {
-      advertencias.push({
-        code: "VENTAS_SIN_IMPORTE",
-        message: "Filas de ventas sin importe",
-        count: sinImporte,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "VENTAS_SIN_IMPORTE",
+        "Filas de ventas sin importe (no se usa en v1)",
+        sinImporte,
+      );
     }
     if (errores > 0) {
-      advertencias.push({
-        code: "VENTAS_NO_MAPEADAS",
-        message: "Filas de ventas que no pudieron mapearse",
-        count: errores,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "VENTAS_NO_MAPEADAS",
+        "Filas de ventas que no pudieron mapearse",
+        errores,
+      );
     }
   }
 
@@ -601,32 +813,35 @@ export function buildImportPreview(input: ExcelImportRawInput): ImportPreview {
     );
 
     if (sinCodigo > 0) {
-      advertencias.push({
-        code: "ARTICULOS_SIN_CODIGO",
-        message: "Filas de artículos sin código único",
-        count: sinCodigo,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "ARTICULOS_SIN_CODIGO",
+        "Filas de artículos sin código único",
+        sinCodigo,
+      );
     }
     if (sinDescripcion > 0) {
-      advertencias.push({
-        code: "ARTICULOS_SIN_DESCRIPCION",
-        message: "Filas de artículos sin descripción (se usará el código)",
-        count: sinDescripcion,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "ARTICULOS_SIN_DESCRIPCION",
+        "Filas de artículos sin descripción (se usará el código)",
+        sinDescripcion,
+      );
     }
     if (sinMarcaVehiculo > 0) {
-      advertencias.push({
-        code: "APLICACIONES_SIN_MARCA",
-        message: "Filas sin marca de vehículo (no generan aplicación)",
-        count: sinMarcaVehiculo,
-      });
+      pushPreviewWarning(
+        advertencias,
+        "APLICACIONES_SIN_MARCA",
+        "Filas sin marca de vehículo (no generan aplicación)",
+        sinMarcaVehiculo,
+      );
     }
     if (aplicaciones === 0 && filasArticulosAplicaciones > 0) {
-      advertencias.push({
-        code: "SIN_APLICACIONES_GENERADAS",
-        message:
-          "No se generaron aplicaciones; revisar columnas de marca/modelo/años",
-      });
+      pushPreviewWarning(
+        advertencias,
+        "SIN_APLICACIONES_GENERADAS",
+        "No se generaron aplicaciones; revisar columnas de marca/modelo/años",
+      );
     }
   }
 
@@ -635,20 +850,64 @@ export function buildImportPreview(input: ExcelImportRawInput): ImportPreview {
     filasVentas === 0 &&
     filasArticulosAplicaciones === 0
   ) {
-    advertencias.push({
-      code: "SIN_DATOS",
-      message: "No se recibieron filas para previsualizar",
-    });
+    pushPreviewWarning(
+      advertencias,
+      "SIN_DATOS",
+      "No se recibieron filas para previsualizar",
+    );
   }
 
   const columnDiagnostics = buildColumnDiagnostics(input);
 
-  if (columnDiagnostics.overallStatus === "ajustes") {
-    advertencias.push({
-      code: "COLUMNAS_REQUIEREN_AJUSTE",
-      message: columnDiagnostics.overallLabel,
-    });
+  if (columnDiagnostics.readiness.status === "bloqueada") {
+    pushPreviewWarning(
+      advertencias,
+      "COLUMNAS_REQUIEREN_AJUSTE",
+      "Faltan columnas obligatorias para importar",
+    );
   }
+
+  for (const file of columnDiagnostics.files) {
+    if (file.missingRequiredInformativo.length > 0) {
+      pushPreviewWarning(
+        advertencias,
+        "COLUMNAS_V1_INFORMATIVAS",
+        `${file.fileLabel}: columnas no usadas en v1 (${file.missingRequiredInformativo.map((c) => c.fieldLabel).join(", ")})`,
+      );
+    }
+    if (file.unrecognized.length > 0) {
+      pushPreviewWarning(
+        advertencias,
+        "COLUMNAS_NO_USADAS_V1",
+        `${file.fileLabel}: ${file.unrecognized.length} columnas del Excel no se usan en esta versión`,
+        file.unrecognized.length,
+      );
+    }
+    if (
+      file.sampleMapSuccessRate !== null &&
+      file.sampleMapSuccessRate < 0.85
+    ) {
+      pushPreviewWarning(
+        advertencias,
+        "MAPEO_BAJO",
+        `${file.fileLabel}: bajo porcentaje de filas mapeables en muestra`,
+      );
+    }
+  }
+
+  if (codigosRepetidos.length > 0) {
+    pushPreviewWarning(
+      advertencias,
+      "CODIGOS_REPETIDOS",
+      "Códigos con varias aplicaciones (se generará código auxiliar)",
+      codigosRepetidos.length,
+    );
+  }
+
+  columnDiagnostics.readiness = resolveImportReadiness(
+    columnDiagnostics.files,
+    advertencias,
+  );
 
   return {
     filasClientes,

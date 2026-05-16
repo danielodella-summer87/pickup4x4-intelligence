@@ -1,10 +1,12 @@
 import {
   attachRowPreviewsToReport,
+  classifyWarningSeverity,
   DataQualityCollector,
   processArticulosWithQuality,
   processClientesWithQuality,
   processVentasWithQuality,
   type DataQualityReport,
+  type DataQualitySeverity,
 } from "@/lib/excel/data-quality";
 import {
   NormalizationRegistry,
@@ -21,6 +23,7 @@ export type DatasetWarning = {
   code: string;
   message: string;
   count?: number;
+  severity?: DataQualitySeverity;
 };
 
 export type PickupDatasetStats = {
@@ -77,14 +80,17 @@ function pushWarning(
   code: string,
   message: string,
   count?: number,
+  severity?: DataQualitySeverity,
 ): void {
+  const resolvedSeverity = severity ?? classifyWarningSeverity(code, message);
   const existing = warnings.find((item) => item.code === code);
   if (existing && count !== undefined) {
     existing.count = (existing.count ?? 0) + count;
+    existing.severity = resolvedSeverity;
     return;
   }
   if (!existing) {
-    warnings.push({ code, message, count });
+    warnings.push({ code, message, count, severity: resolvedSeverity });
   }
 }
 
@@ -111,18 +117,21 @@ function mergeQualityIntoWarnings(
     pushWarning(
       warnings,
       "CALIDAD_FILAS_EXCLUIDAS",
-      "Filas excluidas por errores críticos de calidad",
+      "Filas excluidas por datos inválidos (el resto del archivo se importó)",
       report.summary.filasExcluidas,
+      "revisar",
     );
   }
   if (report.summary.fallbacksAplicados > 0) {
     pushWarning(
       warnings,
       "CALIDAD_FALLBACKS",
-      "Campos completados por fallback conservador",
+      "Campos completados automáticamente durante la importación",
       report.summary.fallbacksAplicados,
+      "revisar",
     );
   }
+
 }
 
 export function buildPickupDatasetFromRows(
@@ -187,6 +196,7 @@ export function buildPickupDatasetFromRows(
       "VENTAS_SIN_CLIENTE",
       "Ventas excluidas por cliente inválido o ausente en listado",
       ventasSinCliente,
+      "revisar",
     );
   }
 
@@ -195,6 +205,8 @@ export function buildPickupDatasetFromRows(
       warnings,
       "NORMALIZACION_INTELIGENTE",
       "Se unificaron localidades, marcas y modelos con heurísticas de similitud",
+      undefined,
+      "revisar",
     );
   }
 
@@ -202,8 +214,9 @@ export function buildPickupDatasetFromRows(
     pushWarning(
       warnings,
       "VENTA_ITEMS_SIN_ARTICULO",
-      "Ítems de venta con codigoUnico no presente en artículos",
+      "Líneas de venta con código no presente en el catálogo de artículos",
       ventaItemsSinArticulo,
+      "revisar",
     );
   }
 
@@ -214,10 +227,32 @@ export function buildPickupDatasetFromRows(
     pushWarning(
       warnings,
       "CODIGOS_MULTIPLES_APLICACIONES",
-      "Códigos únicos con más de una aplicación (codigoAplicacion auxiliar generado)",
+      "Códigos con varias aplicaciones de vehículo (código auxiliar generado)",
       codigosConMultiplesAplicaciones,
+      "revisar",
     );
   }
+
+  const ventasSinArticuloIssue = dataQuality.issuesBySeverity.revisar.find(
+    (i) => i.code === "VENTAS_SIN_ARTICULO_RELACIONADO",
+  );
+  if (ventasSinArticuloIssue) {
+    pushWarning(
+      warnings,
+      ventasSinArticuloIssue.code,
+      ventasSinArticuloIssue.message,
+      undefined,
+      "revisar",
+    );
+  }
+
+  pushWarning(
+    warnings,
+    "IMPORTES_OMITIDOS_V1",
+    "Versión v1: no se utilizan moneda, precios ni importes del Excel",
+    undefined,
+    "informativo",
+  );
 
   const clientesMapErrors = dataQuality.excludedRows.filter(
     (row) => row.dataset === "clientes",
