@@ -2,6 +2,9 @@ import {
   mockPickupDataToActive,
   type ActivePickupData,
 } from "@/lib/data/pickup-data";
+import type { DatasetWarning } from "@/lib/excel/build-dataset";
+import type { DataQualityReport } from "@/lib/excel/data-quality";
+import type { SmartNormalizationReport } from "@/lib/excel/normalization";
 import type { Articulo, ArticuloAplicacion } from "@/lib/models/articulo";
 import type { Cliente, ClienteEstado } from "@/lib/models/cliente";
 import type { OportunidadComercial, OportunidadPrioridad } from "@/lib/models/oportunidad";
@@ -471,4 +474,443 @@ export function getResumenClientes(data: PickupData = defaultPickupData) {
   const total = calcularCantidadClientes(data);
 
   return { total, activos, dormidos };
+}
+
+// ——— Dashboard comercial v1 (conteos y frecuencia, sin importes) ———
+
+const MESES_CORTOS = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+] as const;
+
+export function formatMesComercial(mesClave: string): string {
+  const [year, month] = mesClave.split("-");
+  const monthIndex = Number(month) - 1;
+  if (!year || monthIndex < 0 || monthIndex > 11) return mesClave;
+  return `${MESES_CORTOS[monthIndex]} ${year}`;
+}
+
+export type RankedCount = {
+  nombre: string;
+  cantidad: number;
+  detalle?: string;
+};
+
+export type ClientesPorLocalidad = {
+  localidad: string;
+  cantidadClientes: number;
+};
+
+export type VentasPorMes = {
+  mes: string;
+  etiqueta: string;
+  cantidadVentas: number;
+};
+
+export type TopClienteCompras = {
+  numeroCuenta: string;
+  razonSocial: string;
+  localidad: string;
+  cantidadCompras: number;
+};
+
+export type TopArticuloFrecuencia = {
+  codigoUnico: string;
+  descripcion: string;
+  vecesEnVentas: number;
+  unidadesTotales: number;
+};
+
+export type AplicacionPorMarcaModelo = {
+  marca: string;
+  modelo: string;
+  cantidadAplicaciones: number;
+};
+
+export type ResumenCalidadDatos = {
+  filasExcluidas: number;
+  fallbacksAplicados: number;
+  advertencias: number;
+  erroresCriticos: number;
+};
+
+export type LecturaComercialRapida = {
+  localidadMasClientes: RankedCount | null;
+  modeloMasAplicaciones: RankedCount | null;
+  clienteMasCompras: RankedCount | null;
+  articuloMasFrecuente: RankedCount | null;
+};
+
+export type CommercialDashboardInsights = {
+  kpis: {
+    totalClientes: number;
+    totalRegistrosVenta: number;
+    totalArticulosUnicos: number;
+    totalAplicaciones: number;
+  };
+  lecturaRapida: LecturaComercialRapida;
+  clientesPorLocalidad: ClientesPorLocalidad[];
+  demandaVehiculo: {
+    topMarcas: RankedCount[];
+    topModelos: RankedCount[];
+    aplicacionesPorMarcaModelo: AplicacionPorMarcaModelo[];
+  };
+  actividadComercial: {
+    ventasPorMes: VentasPorMes[];
+    topClientesPorCompras: TopClienteCompras[];
+    topArticulosPorFrecuencia: TopArticuloFrecuencia[];
+  };
+  calidadYOportunidades: {
+    clientesSinVentas: number;
+    ventasSinArticulo: number;
+    articulosSinAplicaciones: number;
+    alertasNormalizacion: string[];
+    resumenCalidad: ResumenCalidadDatos | null;
+  };
+};
+
+export type CommercialDashboardMeta = {
+  dataQuality?: DataQualityReport;
+  smartNormalization?: SmartNormalizationReport;
+  warnings?: DatasetWarning[];
+};
+
+export function calcularTotalRegistrosVenta(
+  data: PickupData = defaultPickupData,
+): number {
+  return data.ventas.length;
+}
+
+export function calcularTotalArticulosUnicos(
+  data: PickupData = defaultPickupData,
+): number {
+  return data.articulos.length;
+}
+
+export function calcularTotalAplicaciones(
+  data: PickupData = defaultPickupData,
+): number {
+  return data.articuloAplicaciones.length;
+}
+
+export function getClientesPorLocalidad(
+  data: PickupData = defaultPickupData,
+): ClientesPorLocalidad[] {
+  const agrupado = new Map<string, number>();
+
+  for (const cliente of data.clientes) {
+    const localidad = cliente.localidad?.trim() || "Sin localidad";
+    agrupado.set(localidad, (agrupado.get(localidad) ?? 0) + 1);
+  }
+
+  return [...agrupado.entries()]
+    .map(([localidad, cantidadClientes]) => ({ localidad, cantidadClientes }))
+    .sort((a, b) => b.cantidadClientes - a.cantidadClientes);
+}
+
+export function getVentasPorMes(
+  data: PickupData = defaultPickupData,
+): VentasPorMes[] {
+  const agrupado = new Map<string, number>();
+
+  for (const venta of data.ventas) {
+    const mes = venta.fecha.slice(0, 7);
+    if (!mes || mes.length < 7) continue;
+    agrupado.set(mes, (agrupado.get(mes) ?? 0) + 1);
+  }
+
+  return [...agrupado.entries()]
+    .map(([mes, cantidadVentas]) => ({
+      mes,
+      etiqueta: formatMesComercial(mes),
+      cantidadVentas,
+    }))
+    .sort((a, b) => a.mes.localeCompare(b.mes));
+}
+
+export function getTopClientesPorCompras(
+  limit = 5,
+  data: PickupData = defaultPickupData,
+): TopClienteCompras[] {
+  const clienteMap = buildClienteMap(data);
+  const compras = new Map<string, number>();
+
+  for (const venta of data.ventas) {
+    compras.set(venta.numeroCuenta, (compras.get(venta.numeroCuenta) ?? 0) + 1);
+  }
+
+  return [...compras.entries()]
+    .map(([numeroCuenta, cantidadCompras]) => {
+      const cliente = clienteMap.get(numeroCuenta);
+      return {
+        numeroCuenta,
+        razonSocial: cliente?.razonSocial ?? numeroCuenta,
+        localidad: cliente?.localidad ?? "—",
+        cantidadCompras,
+      };
+    })
+    .sort((a, b) => b.cantidadCompras - a.cantidadCompras)
+    .slice(0, limit);
+}
+
+export function getTopArticulosPorFrecuencia(
+  limit = 5,
+  data: PickupData = defaultPickupData,
+): TopArticuloFrecuencia[] {
+  const articuloMap = buildArticuloMap(data);
+  const veces = new Map<string, number>();
+  const unidades = new Map<string, number>();
+
+  for (const item of data.ventaItems) {
+    veces.set(item.codigoUnico, (veces.get(item.codigoUnico) ?? 0) + 1);
+    unidades.set(
+      item.codigoUnico,
+      (unidades.get(item.codigoUnico) ?? 0) + item.cantidad,
+    );
+  }
+
+  return [...veces.entries()]
+    .map(([codigoUnico, vecesEnVentas]) => {
+      const articulo = articuloMap.get(codigoUnico);
+      return {
+        codigoUnico,
+        descripcion: articulo?.descripcion ?? codigoUnico,
+        vecesEnVentas,
+        unidadesTotales: unidades.get(codigoUnico) ?? 0,
+      };
+    })
+    .sort((a, b) => b.vecesEnVentas - a.vecesEnVentas)
+    .slice(0, limit);
+}
+
+function buildMarcaModeloMaps(data: PickupData) {
+  const marcaMap = new Map(data.vehiculoMarcas.map((m) => [m.id, m.nombre]));
+  const modeloMap = new Map(
+    data.vehiculoModelos.map((m) => [
+      m.id,
+      { nombre: m.nombre, marcaId: m.marcaId },
+    ]),
+  );
+  return { marcaMap, modeloMap };
+}
+
+export function getTopMarcasPorAplicaciones(
+  limit = 5,
+  data: PickupData = defaultPickupData,
+): RankedCount[] {
+  const { marcaMap, modeloMap } = buildMarcaModeloMaps(data);
+  const totales = new Map<string, number>();
+
+  for (const ap of data.articuloAplicaciones) {
+    const modelo = modeloMap.get(ap.modeloId);
+    const marcaNombre = modelo
+      ? (marcaMap.get(modelo.marcaId) ?? "Sin marca")
+      : "Sin marca";
+    totales.set(marcaNombre, (totales.get(marcaNombre) ?? 0) + 1);
+  }
+
+  return [...totales.entries()]
+    .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+    .sort((a, b) => b.cantidad - a.cantidad)
+    .slice(0, limit);
+}
+
+export function getTopModelosPorAplicaciones(
+  limit = 5,
+  data: PickupData = defaultPickupData,
+): RankedCount[] {
+  const { marcaMap, modeloMap } = buildMarcaModeloMaps(data);
+  const totales = new Map<string, number>();
+
+  for (const ap of data.articuloAplicaciones) {
+    const modelo = modeloMap.get(ap.modeloId);
+    if (!modelo) continue;
+    const marca = marcaMap.get(modelo.marcaId) ?? "";
+    const nombre = marca ? `${marca} ${modelo.nombre}` : modelo.nombre;
+    totales.set(nombre, (totales.get(nombre) ?? 0) + 1);
+  }
+
+  return [...totales.entries()]
+    .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+    .sort((a, b) => b.cantidad - a.cantidad)
+    .slice(0, limit);
+}
+
+export function getAplicacionesPorMarcaModelo(
+  limit = 8,
+  data: PickupData = defaultPickupData,
+): AplicacionPorMarcaModelo[] {
+  const { marcaMap, modeloMap } = buildMarcaModeloMaps(data);
+  const totales = new Map<string, AplicacionPorMarcaModelo>();
+
+  for (const ap of data.articuloAplicaciones) {
+    const modelo = modeloMap.get(ap.modeloId);
+    if (!modelo) continue;
+    const marca = marcaMap.get(modelo.marcaId) ?? "Sin marca";
+    const key = `${marca}::${modelo.nombre}`;
+    const actual = totales.get(key) ?? {
+      marca,
+      modelo: modelo.nombre,
+      cantidadAplicaciones: 0,
+    };
+    actual.cantidadAplicaciones += 1;
+    totales.set(key, actual);
+  }
+
+  return [...totales.values()]
+    .sort((a, b) => b.cantidadAplicaciones - a.cantidadAplicaciones)
+    .slice(0, limit);
+}
+
+export function contarClientesSinVentas(
+  data: PickupData = defaultPickupData,
+): number {
+  return getClientesSinVentas(data).length;
+}
+
+export function getClientesSinVentas(
+  data: PickupData = defaultPickupData,
+): Cliente[] {
+  const cuentasConVentas = new Set(data.ventas.map((v) => v.numeroCuenta));
+  return data.clientes.filter((c) => !cuentasConVentas.has(c.numeroCuenta));
+}
+
+export function contarVentasSinArticulo(
+  data: PickupData = defaultPickupData,
+): number {
+  const ventasConItems = new Set(data.ventaItems.map((item) => item.ventaId));
+  return data.ventas.filter((venta) => !ventasConItems.has(venta.id)).length;
+}
+
+export function contarArticulosSinAplicaciones(
+  data: PickupData = defaultPickupData,
+): number {
+  const codigosConAplicacion = new Set(
+    data.articuloAplicaciones.map((ap) => ap.codigoUnico),
+  );
+  return data.articulos.filter((a) => !codigosConAplicacion.has(a.codigoUnico))
+    .length;
+}
+
+function pickTopRanked(items: RankedCount[]): RankedCount | null {
+  return items.length > 0 ? items[0] : null;
+}
+
+function buildLecturaComercialRapida(
+  data: PickupData,
+): LecturaComercialRapida {
+  const porLocalidad = getClientesPorLocalidad(data);
+  const topLocalidad = porLocalidad[0];
+
+  const topModelos = getTopModelosPorAplicaciones(1, data);
+  const topClientes = getTopClientesPorCompras(1, data);
+  const topArticulos = getTopArticulosPorFrecuencia(1, data);
+
+  return {
+    localidadMasClientes: topLocalidad
+      ? {
+          nombre: topLocalidad.localidad,
+          cantidad: topLocalidad.cantidadClientes,
+        }
+      : null,
+    modeloMasAplicaciones: pickTopRanked(topModelos),
+    clienteMasCompras: topClientes[0]
+      ? {
+          nombre: topClientes[0].razonSocial,
+          cantidad: topClientes[0].cantidadCompras,
+        }
+      : null,
+    articuloMasFrecuente: topArticulos[0]
+      ? {
+          nombre: topArticulos[0].descripcion,
+          cantidad: topArticulos[0].vecesEnVentas,
+          detalle: topArticulos[0].codigoUnico,
+        }
+      : null,
+  };
+}
+
+function buildAlertasNormalizacion(meta?: CommercialDashboardMeta): string[] {
+  const alertas: string[] = [];
+
+  if (meta?.smartNormalization) {
+    const { localidadesUnificadas, marcasUnificadas, modelosUnificados } =
+      meta.smartNormalization;
+    const unificados =
+      localidadesUnificadas + marcasUnificadas + modelosUnificados;
+    if (unificados > 0) {
+      alertas.push(
+        `Se unificaron ${unificados} grupos de nombres (localidades, marcas o modelos) para leer mejor los datos.`,
+      );
+    }
+    if (meta.smartNormalization.topEquivalencias.length > 0) {
+      const ejemplo = meta.smartNormalization.topEquivalencias[0];
+      alertas.push(
+        `Ejemplo: variantes como «${ejemplo.variants.slice(0, 2).join("», «")}» se leyeron como «${ejemplo.canonical}».`,
+      );
+    }
+  }
+
+  for (const warning of meta?.warnings ?? []) {
+    if (
+      warning.code === "NORMALIZACION_INTELIGENTE" ||
+      warning.code === "IMPORTES_OMITIDOS_V1"
+    ) {
+      alertas.push(warning.message);
+    }
+  }
+
+  return [...new Set(alertas)];
+}
+
+export function buildCommercialDashboardInsights(
+  data: PickupData = defaultPickupData,
+  meta?: CommercialDashboardMeta,
+): CommercialDashboardInsights {
+  const resumenCalidad = meta?.dataQuality
+    ? {
+        filasExcluidas: meta.dataQuality.summary.filasExcluidas,
+        fallbacksAplicados: meta.dataQuality.summary.fallbacksAplicados,
+        advertencias: meta.dataQuality.summary.advertencias,
+        erroresCriticos: meta.dataQuality.summary.erroresCriticos,
+      }
+    : null;
+
+  return {
+    kpis: {
+      totalClientes: calcularCantidadClientes(data),
+      totalRegistrosVenta: calcularTotalRegistrosVenta(data),
+      totalArticulosUnicos: calcularTotalArticulosUnicos(data),
+      totalAplicaciones: calcularTotalAplicaciones(data),
+    },
+    lecturaRapida: buildLecturaComercialRapida(data),
+    clientesPorLocalidad: getClientesPorLocalidad(data),
+    demandaVehiculo: {
+      topMarcas: getTopMarcasPorAplicaciones(5, data),
+      topModelos: getTopModelosPorAplicaciones(5, data),
+      aplicacionesPorMarcaModelo: getAplicacionesPorMarcaModelo(8, data),
+    },
+    actividadComercial: {
+      ventasPorMes: getVentasPorMes(data),
+      topClientesPorCompras: getTopClientesPorCompras(5, data),
+      topArticulosPorFrecuencia: getTopArticulosPorFrecuencia(5, data),
+    },
+    calidadYOportunidades: {
+      clientesSinVentas: contarClientesSinVentas(data),
+      ventasSinArticulo: contarVentasSinArticulo(data),
+      articulosSinAplicaciones: contarArticulosSinAplicaciones(data),
+      alertasNormalizacion: buildAlertasNormalizacion(meta),
+      resumenCalidad,
+    },
+  };
 }
