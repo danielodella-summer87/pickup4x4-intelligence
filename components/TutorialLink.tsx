@@ -1,5 +1,27 @@
-const PROYECTO_PDF_HREF = "/Pickup_4x4_Intelligence.pdf";
-const TUTORIAL_PDF_HREF = "/Manual-de-Uso-Pickup-4x4-Intelligence.pdf";
+export const PROYECTO_PDF_HREF = "/Pickup_4x4_Intelligence.pdf";
+export const TUTORIAL_PDF_HREF = "/Manual-de-Uso-Pickup-4x4-Intelligence.pdf";
+
+export type SideMenuPdfItem = {
+  href: string;
+  label: string;
+  initial: string;
+  title: string;
+};
+
+export const sideMenuPdfItems: SideMenuPdfItem[] = [
+  {
+    href: PROYECTO_PDF_HREF,
+    label: "Proyecto",
+    initial: "PR",
+    title: "Abrir proyecto (PDF)",
+  },
+  {
+    href: TUTORIAL_PDF_HREF,
+    label: "Tutorial",
+    initial: "TU",
+    title: "Abrir manual de uso (PDF)",
+  },
+];
 
 const baseClass =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-800/80 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-700";
