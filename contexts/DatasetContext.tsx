@@ -6,10 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { DatasetWarning, PickupDataset } from "@/lib/excel/build-dataset";
+import { parseLoadDatasetApiBody } from "@/lib/data/coerce-pickup-dataset";
 import {
   clearSessionExcelDataset,
   type DatasetPersistResult,
@@ -29,7 +31,6 @@ import {
   type SupabaseDatasetSaveResult,
 } from "@/lib/data/supabase-dataset";
 import { verifySupabaseConnection, type SupabaseConnectionStatus } from "@/lib/supabase/connection";
-import { isSupabaseServiceConfigured } from "@/lib/supabase/env";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 
 export type DatasetSource = "mock" | "excel" | "supabase";
@@ -61,56 +62,42 @@ type DatasetContextValue = {
 
 const DatasetContext = createContext<DatasetContextValue | null>(null);
 
-function devLog(message: string, detail?: unknown): void {
-  if (process.env.NODE_ENV === "development") {
-    if (detail !== undefined) {
-      console.info(`[DatasetContext] ${message}`, detail);
-    } else {
-      console.info(`[DatasetContext] ${message}`);
-    }
+/** Logs de hidratación visibles también en producción (DevTools). */
+function logHydration(message: string, detail?: unknown): void {
+  if (detail !== undefined) {
+    console.info(`[DatasetContext] ${message}`, detail);
+  } else {
+    console.info(`[DatasetContext] ${message}`);
   }
 }
 
-function readInitialContextState(): {
-  dataset: PickupDataset | null;
-  source: DatasetSource;
+function applySupabaseDataset(
+  loaded: PickupDataset,
+  generatedAt: Date | null,
+  oportunidades: OportunidadDetectada[],
+): {
+  dataset: PickupDataset;
   generatedAt: Date | null;
   warnings: DatasetWarning[];
-  hasLocalPersistence: boolean;
+  oportunidades: OportunidadDetectada[];
 } {
-  const snapshot = getSessionExcelSnapshot();
-  if (!snapshot) {
-    return {
-      dataset: null,
-      source: "mock",
-      generatedAt: null,
-      warnings: [],
-      hasLocalPersistence: false,
-    };
-  }
-
   return {
-    dataset: snapshot.dataset,
-    source: "excel",
-    generatedAt: snapshot.generatedAt,
-    warnings: snapshot.warnings,
-    hasLocalPersistence: hasDurableExcelStorage(),
+    dataset: loaded,
+    generatedAt,
+    warnings: loaded.warnings ?? [],
+    oportunidades,
   };
 }
 
 export function DatasetProvider({ children }: { children: ReactNode }) {
-  const initial = useMemo(() => readInitialContextState(), []);
-
-  const [dataset, setDatasetState] = useState<PickupDataset | null>(initial.dataset);
-  const [source, setSource] = useState<DatasetSource>(initial.source);
-  const [generatedAt, setGeneratedAt] = useState<Date | null>(initial.generatedAt);
-  const [warnings, setWarnings] = useState<DatasetWarning[]>(initial.warnings);
+  const [dataset, setDatasetState] = useState<PickupDataset | null>(null);
+  const [source, setSource] = useState<DatasetSource>("mock");
+  const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [warnings, setWarnings] = useState<DatasetWarning[]>([]);
   const [oportunidadesSupabase, setOportunidadesSupabase] = useState<
     OportunidadDetectada[] | null
   >(null);
-  const [hasLocalPersistence, setHasLocalPersistence] = useState(
-    initial.hasLocalPersistence,
-  );
+  const [hasLocalPersistence, setHasLocalPersistence] = useState(false);
   const [hasSupabasePersistence, setHasSupabasePersistence] = useState(false);
   const [isStorageHydrated, setIsStorageHydrated] = useState(false);
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(false);
@@ -123,60 +110,93 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     useState<SupabaseDatasetSaveResult | null>(null);
   const [isSavingToSupabase, setIsSavingToSupabase] = useState(false);
 
+  const supabaseResolvedRef = useRef(false);
+
   useEffect(() => {
-    if (isSupabaseServiceConfigured()) {
-      void verifySupabaseConnection().then(setSupabaseConnection);
-    } else {
-      setSupabaseConnection({
-        configured: false,
-        connected: false,
-        message: "API Supabase: falta SUPABASE_SERVICE_ROLE_KEY en el servidor",
-      });
-    }
+    void verifySupabaseConnection().then(setSupabaseConnection);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      devLog("Hidratando: 1 Supabase → 2 local → 3 mock");
+      logHydration("intentando cargar Supabase");
 
-      if (isSupabaseServiceConfigured()) {
-        const supabaseLoad = await loadDatasetFromSupabase();
+      try {
+        const res = await fetch("/api/supabase/load-dataset", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const body: unknown = await res.json();
+
         if (cancelled) return;
 
-        if (supabaseLoad.ok && supabaseLoad.dataset) {
-          setDatasetState(supabaseLoad.dataset);
+        const parsed = parseLoadDatasetApiBody(body);
+
+        logHydration("respuesta load-dataset", {
+          httpStatus: res.status,
+          ok: parsed.ok,
+          hasDataset: Boolean(parsed.dataset),
+          clientes: parsed.dataset?.clientes.length,
+          articulos: parsed.dataset?.articulos.length,
+          aplicaciones: parsed.dataset?.aplicaciones.length,
+        });
+
+        if (res.ok && parsed.ok && parsed.dataset) {
+          const oportunidades = parsed.oportunidades as OportunidadDetectada[];
+          const applied = applySupabaseDataset(
+            parsed.dataset,
+            parsed.generatedAt ?? new Date(),
+            oportunidades,
+          );
+
+          supabaseResolvedRef.current = true;
+          setDatasetState(applied.dataset);
           setSource("supabase");
-          setGeneratedAt(supabaseLoad.generatedAt);
-          setWarnings(supabaseLoad.dataset.warnings);
-          setOportunidadesSupabase(supabaseLoad.oportunidades);
+          setGeneratedAt(applied.generatedAt);
+          setWarnings(applied.warnings);
+          setOportunidadesSupabase(applied.oportunidades);
           setHasSupabasePersistence(true);
           setHasLocalPersistence(false);
           setIsSupabaseLoaded(true);
           setSupabaseError(null);
           setSessionExcelDataset(
-            supabaseLoad.dataset,
-            supabaseLoad.generatedAt ?? new Date(),
+            applied.dataset,
+            applied.generatedAt ?? new Date(),
           );
-          devLog("Dataset desde Supabase", {
-            clientes: supabaseLoad.dataset.clientes.length,
-          });
           setIsStorageHydrated(true);
+
+          logHydration("Supabase OK", {
+            clientes: applied.dataset.clientes.length,
+            ventas: applied.dataset.ventas.length,
+            articulos: applied.dataset.articulos.length,
+            aplicaciones: applied.dataset.aplicaciones.length,
+          });
+          logHydration("usando Supabase");
           return;
         }
 
-        if (!supabaseLoad.ok) {
-          setSupabaseError(supabaseLoad.errorMessage ?? "Error al cargar Supabase");
-          devLog("Supabase falló, fallback local", supabaseLoad.errorMessage);
+        if (!res.ok || !parsed.ok) {
+          const errMsg = parsed.errorMessage ?? `HTTP ${res.status}`;
+          setSupabaseError(errMsg);
+          logHydration("Supabase falló", errMsg);
+        } else if (parsed.ok && !parsed.dataset) {
+          logHydration("Supabase vacío — sin dataset en la respuesta");
         } else {
-          setSupabaseError(null);
-          devLog("Supabase vacío, probando almacenamiento local");
+          logHydration("Supabase sin datos utilizables");
         }
+      } catch (error) {
+        if (cancelled) return;
+        const msg = error instanceof Error ? error.message : "Error de red";
+        setSupabaseError(msg);
+        logHydration("Supabase error de red", msg);
       }
 
+      if (cancelled || supabaseResolvedRef.current) return;
+
       const session = getSessionExcelSnapshot();
-      if (session && !cancelled) {
+      if (session) {
+        logHydration("fallback local (memoria de sesión)");
         setDatasetState(session.dataset);
         setSource("excel");
         setGeneratedAt(session.generatedAt);
@@ -190,9 +210,10 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = await hydrateExcelDataset();
-      if (cancelled) return;
+      if (cancelled || supabaseResolvedRef.current) return;
 
       if (payload) {
+        logHydration("fallback local (IndexedDB / localStorage)");
         setDatasetState(payload.dataset);
         setSource("excel");
         setGeneratedAt(new Date(payload.generatedAt));
@@ -201,12 +222,19 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         setHasLocalPersistence(hasDurableExcelStorage());
         setHasSupabasePersistence(false);
         setIsSupabaseLoaded(false);
-        devLog("Dataset desde almacenamiento local");
-      } else {
-        setSource("mock");
-        devLog("Sin datos — mock");
+        setIsStorageHydrated(true);
+        return;
       }
 
+      logHydration("fallback mock");
+      setDatasetState(null);
+      setSource("mock");
+      setGeneratedAt(null);
+      setWarnings([]);
+      setOportunidadesSupabase(null);
+      setHasLocalPersistence(false);
+      setHasSupabasePersistence(false);
+      setIsSupabaseLoaded(false);
       setIsStorageHydrated(true);
     })();
 
@@ -217,7 +245,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
 
   const setDataset = useCallback(async (next: PickupDataset) => {
     const at = new Date();
-    devLog("setDataset (solo local)", {
+    logHydration("setDataset (solo local)", {
       clientes: next.clientes.length,
       ventas: next.ventas.length,
     });
@@ -266,7 +294,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       const result = await saveDatasetToSupabase(dataset, generatedAt);
       setLastSupabaseResult(result);
 
-      if (result.ok) {
+      if (result.ok === true) {
         setSource("supabase");
         setHasSupabasePersistence(true);
         setIsSupabaseLoaded(true);
@@ -275,9 +303,17 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         setOportunidadesSupabase(
           detectarOportunidadesComerciales(active, "excel"),
         );
-        devLog("Guardado en Supabase OK", result);
+        logHydration("Guardado en Supabase OK", result);
       } else {
-        setSupabaseError(result.errorMessage ?? "No se pudo guardar en Supabase");
+        const errText = [
+          result.errorMessage,
+          result.httpStatus ? `(HTTP ${result.httpStatus})` : null,
+          result.technicalDetail,
+        ]
+          .filter(Boolean)
+          .join(" — ");
+        setSupabaseError(errText || "No se pudo guardar en Supabase");
+        logHydration("Guardado en Supabase falló", result);
       }
 
       return result;
@@ -287,7 +323,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   }, [dataset, generatedAt]);
 
   const clearDataset = useCallback(() => {
-    devLog("clearDataset");
+    logHydration("clearDataset");
     setDatasetState(null);
     setSource("mock");
     setGeneratedAt(null);

@@ -47,6 +47,164 @@ const primaryCtaClass =
 const secondaryCtaClass =
   "inline-flex items-center justify-center rounded-lg border border-slate-600 bg-slate-800/80 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
 
+type DatasetGenerateSummary = {
+  generatedAt: Date;
+  clientes: number;
+  ventas: number;
+  articulos: number;
+  aplicaciones: number;
+};
+
+type SupabaseSaveFeedback =
+  | { status: "idle" }
+  | { status: "saving" }
+  | {
+      status: "success";
+      counts: {
+        clientes: number;
+        ventas: number;
+        articulos: number;
+        aplicaciones: number;
+      };
+      durationMs: number;
+    }
+  | {
+      status: "error";
+      httpStatus?: number;
+      message: string;
+      technicalDetail?: string;
+      recommendation: string;
+    };
+
+function DatasetGenerateSuccessPanel({ summary }: { summary: DatasetGenerateSummary }) {
+  return (
+    <div className="mt-4 rounded-lg border border-emerald-500/35 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+      <p className="text-base font-semibold text-emerald-200">
+        Dataset interno generado correctamente
+      </p>
+      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+        <li>
+          <span className="text-emerald-400/80">Clientes:</span>{" "}
+          <span className="font-medium text-white">
+            {summary.clientes.toLocaleString("es-AR")}
+          </span>
+        </li>
+        <li>
+          <span className="text-emerald-400/80">Ventas:</span>{" "}
+          <span className="font-medium text-white">
+            {summary.ventas.toLocaleString("es-AR")}
+          </span>
+        </li>
+        <li>
+          <span className="text-emerald-400/80">Artículos:</span>{" "}
+          <span className="font-medium text-white">
+            {summary.articulos.toLocaleString("es-AR")}
+          </span>
+        </li>
+        <li>
+          <span className="text-emerald-400/80">Aplicaciones:</span>{" "}
+          <span className="font-medium text-white">
+            {summary.aplicaciones.toLocaleString("es-AR")}
+          </span>
+        </li>
+      </ul>
+      <p className="mt-3 text-xs text-emerald-300/90">
+        Generado el{" "}
+        {summary.generatedAt.toLocaleString("es-AR", {
+          dateStyle: "full",
+          timeStyle: "short",
+        })}
+      </p>
+      <p className="mt-2 text-xs text-emerald-200/80">
+        Ya podés usar el dashboard en este navegador. Para Vercel u otros equipos, tocá{" "}
+        <strong>Guardar en Supabase</strong>.
+      </p>
+    </div>
+  );
+}
+
+function SupabaseSaveFeedbackPanel({ feedback }: { feedback: SupabaseSaveFeedback }) {
+  if (feedback.status === "idle") return null;
+
+  if (feedback.status === "saving") {
+    return (
+      <p className="mt-4 rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-200">
+        Guardando en Supabase…
+      </p>
+    );
+  }
+
+  if (feedback.status === "success") {
+    return (
+      <div className="mt-4 rounded-lg border border-emerald-500/35 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+        <p className="text-base font-semibold text-emerald-200">
+          Dataset guardado en Supabase correctamente
+        </p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          <li>
+            Clientes insertados:{" "}
+            <span className="font-medium text-white">
+              {feedback.counts.clientes.toLocaleString("es-AR")}
+            </span>
+          </li>
+          <li>
+            Ventas insertadas:{" "}
+            <span className="font-medium text-white">
+              {feedback.counts.ventas.toLocaleString("es-AR")}
+            </span>
+          </li>
+          <li>
+            Artículos insertados:{" "}
+            <span className="font-medium text-white">
+              {feedback.counts.articulos.toLocaleString("es-AR")}
+            </span>
+          </li>
+          <li>
+            Aplicaciones insertadas:{" "}
+            <span className="font-medium text-white">
+              {feedback.counts.aplicaciones.toLocaleString("es-AR")}
+            </span>
+          </li>
+        </ul>
+        <p className="mt-2 text-xs text-emerald-300/80">
+          Tiempo: {(feedback.durationMs / 1000).toFixed(1)} s · Revisá el Table Editor de
+          Supabase para confirmar las filas.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-rose-500/35 bg-rose-950/40 p-4 text-sm text-rose-100">
+      <p className="text-base font-semibold text-rose-200">Error al guardar en Supabase</p>
+      <dl className="mt-3 space-y-2 text-xs">
+        {feedback.httpStatus ? (
+          <div>
+            <dt className="font-medium text-rose-300/90">HTTP</dt>
+            <dd>{feedback.httpStatus}</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="font-medium text-rose-300/90">Mensaje</dt>
+          <dd>{feedback.message}</dd>
+        </div>
+        {feedback.technicalDetail ? (
+          <div>
+            <dt className="font-medium text-rose-300/90">Detalle técnico</dt>
+            <dd className="font-mono text-[11px] leading-relaxed opacity-90">
+              {feedback.technicalDetail}
+            </dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="font-medium text-rose-300/90">Qué hacer</dt>
+          <dd>{feedback.recommendation}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 const uploadConfigs = [
   {
     id: "clientes" as const,
@@ -1029,16 +1187,19 @@ export default function ImportarPage() {
     hasLocalPersistence,
     hasSupabasePersistence,
     lastPersistResult,
-    lastSupabaseResult,
     supabaseConnection,
-    supabaseError,
     isSavingToSupabase,
     saveToSupabase,
     setDataset,
     clearDataset,
     clearLocalDataset,
   } = useDataset();
-  const [supabaseSaveMessage, setSupabaseSaveMessage] = useState<string | null>(null);
+  const [generateSummary, setGenerateSummary] = useState<DatasetGenerateSummary | null>(
+    null,
+  );
+  const [supabaseFeedback, setSupabaseFeedback] = useState<SupabaseSaveFeedback>({
+    status: "idle",
+  });
   const [applyError, setApplyError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadedFiles>({
     clientes: null,
@@ -1138,6 +1299,8 @@ export default function ImportarPage() {
     });
 
     setApplyError(null);
+    setGenerateSummary(null);
+    setSupabaseFeedback({ status: "idle" });
 
     try {
       const dataset = buildPickupDatasetFromRows({
@@ -1156,18 +1319,24 @@ export default function ImportarPage() {
       }
 
       const persistResult = await setDataset(dataset);
+      const at = new Date();
+
+      setGenerateSummary({
+        generatedAt: at,
+        clientes: dataset.clientes.length,
+        ventas: dataset.ventas.length,
+        articulos: dataset.articulos.length,
+        aplicaciones: dataset.aplicaciones.length,
+      });
 
       if (process.env.NODE_ENV === "development") {
         console.info("[Importar] setDataset completado", persistResult);
       }
 
-      setSupabaseSaveMessage(null);
       setDatasetBuildProgress({
-        active: true,
+        active: false,
         percent: 100,
-        message: persistResult.persistedDurably
-          ? "Dataset aplicado y persistido localmente"
-          : "Dataset aplicado en memoria",
+        message: "",
       });
     } catch (error) {
       const message =
@@ -1260,18 +1429,6 @@ export default function ImportarPage() {
               Supabase configurado pero sin conexión: {supabaseConnection.message}
             </p>
           ) : null}
-          {supabaseSaveMessage ? (
-            <p className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-200">
-              {supabaseSaveMessage}
-            </p>
-          ) : null}
-          {(supabaseError || (lastSupabaseResult && !lastSupabaseResult.ok)) ? (
-            <p className="mt-2 text-sm text-amber-300/90">
-              No se pudo guardar en Supabase:{" "}
-              {supabaseError ?? lastSupabaseResult?.errorMessage}
-            </p>
-          ) : null}
-
           {(source === "excel" || source === "supabase") && generatedDataset ? (
             <div className="mt-4 flex flex-wrap gap-3">
               <button
@@ -1504,16 +1661,39 @@ export default function ImportarPage() {
             type="button"
             disabled={!generatedDataset || isSavingToSupabase || isBuildingDataset}
             onClick={async () => {
-              setSupabaseSaveMessage(null);
+              setSupabaseFeedback({ status: "saving" });
               const result = await saveToSupabase();
-              if (result.ok) {
-                setSupabaseSaveMessage("Dataset guardado en Supabase");
+              if (result.ok === true) {
+                setSupabaseFeedback({
+                  status: "success",
+                  counts: {
+                    clientes: result.counts.clientes,
+                    ventas: result.counts.ventas,
+                    articulos: result.counts.articulos,
+                    aplicaciones: result.counts.aplicaciones,
+                  },
+                  durationMs: result.durationMs,
+                });
+              } else {
+                setSupabaseFeedback({
+                  status: "error",
+                  httpStatus: result.httpStatus,
+                  message: result.errorMessage ?? "Error desconocido",
+                  technicalDetail: result.technicalDetail,
+                  recommendation:
+                    result.recommendation ??
+                    "Supabase rechazó la inserción. Revisá permisos, columnas o service role.",
+                });
               }
             }}
             className={`${secondaryCtaClass} mt-3 sm:mt-0 sm:ml-3`}
           >
-            {isSavingToSupabase ? "Guardando en Supabase…" : "Guardar en Supabase"}
+            {isSavingToSupabase || supabaseFeedback.status === "saving"
+              ? "Guardando en Supabase…"
+              : "Guardar en Supabase"}
           </button>
+          {generateSummary ? <DatasetGenerateSuccessPanel summary={generateSummary} /> : null}
+          <SupabaseSaveFeedbackPanel feedback={supabaseFeedback} />
           {isBuildingDataset ? (
             <p className="mt-3 text-sm font-medium text-violet-300">
               {datasetBuildProgress.message || "Normalizando datos…"}

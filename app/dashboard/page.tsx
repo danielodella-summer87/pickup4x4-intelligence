@@ -102,12 +102,21 @@ function RankedTable({
 }
 
 export default function DashboardPage() {
-  const { dataset, source, hasLocalPersistence, hasSupabasePersistence } = useDataset();
-  const { data } = useActiveDataset();
-  const sourceHint = formatDatasetSourceLabel(source, {
+  const {
+    dataset,
+    source,
+    hasLocalPersistence,
+    hasSupabasePersistence,
+    isStorageHydrated,
+  } = useDataset();
+  const { data, source: activeSource, isSupabase } = useActiveDataset();
+  const sourceHint = formatDatasetSourceLabel(activeSource, {
     persistedLocally: hasLocalPersistence,
     inMemoryOnly:
-      source === "excel" && !hasLocalPersistence && !hasSupabasePersistence && dataset !== null,
+      activeSource === "excel" &&
+      !hasLocalPersistence &&
+      !hasSupabasePersistence &&
+      dataset !== null,
   });
 
   const insights = useMemo(
@@ -136,16 +145,19 @@ export default function DashboardPage() {
             Fuente:{" "}
             <span
               className={
-                source === "supabase"
+                isSupabase || activeSource === "supabase"
                   ? "font-medium text-violet-400"
-                  : source === "excel"
+                  : activeSource === "excel"
                     ? "font-medium text-emerald-400"
                     : "font-medium text-slate-400"
               }
             >
               {sourceHint}
             </span>
-            {source === "mock" ? (
+            {!isStorageHydrated ? (
+              <span className="ml-2 text-slate-600">· cargando datos…</span>
+            ) : null}
+            {activeSource === "mock" && isStorageHydrated ? (
               <span className="ml-2 text-slate-600">
                 · datos de ejemplo hasta importar Excel
               </span>

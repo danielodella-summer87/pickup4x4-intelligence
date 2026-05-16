@@ -37,6 +37,9 @@ export type SupabaseDatasetSaveResult = {
     oportunidades: number;
   };
   errorMessage?: string;
+  httpStatus?: number;
+  technicalDetail?: string;
+  recommendation?: string;
   durationMs: number;
 };
 
@@ -55,6 +58,14 @@ function logImport(message: string, detail?: unknown): void {
     console.info(`[SupabaseImport] ${message}`, detail);
   } else {
     console.info(`[SupabaseImport] ${message}`);
+  }
+}
+
+function logApi(message: string, detail?: unknown): void {
+  if (detail !== undefined) {
+    console.info(`[API ImportDataset] ${message}`, detail);
+  } else {
+    console.info(`[API ImportDataset] ${message}`);
   }
 }
 
@@ -83,6 +94,42 @@ function requireServiceClient(): SupabaseClient<Database> {
     throw new Error("No se pudo crear el cliente Supabase (service role)");
   }
   return client;
+}
+
+const LOAD_PAGE_SIZE = 1000;
+
+type DbTableName = keyof Database["public"]["Tables"];
+type DbRow<T extends DbTableName> = Database["public"]["Tables"][T]["Row"];
+
+/** PostgREST devuelve como máximo 1000 filas por consulta; paginamos para cargar todo. */
+async function fetchAllTableRows<T extends DbTableName>(
+  client: SupabaseClient<Database>,
+  table: T,
+): Promise<{ data: DbRow<T>[]; error: { message: string } | null }> {
+  const all: DbRow<T>[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await client
+      .from(table)
+      .select("*")
+      .range(from, from + LOAD_PAGE_SIZE - 1);
+
+    if (error) {
+      return { data: all, error };
+    }
+
+    const page = (data ?? []) as unknown as DbRow<T>[];
+    all.push(...page);
+
+    if (page.length < LOAD_PAGE_SIZE) {
+      break;
+    }
+
+    from += LOAD_PAGE_SIZE;
+  }
+
+  return { data: all, error: null };
 }
 
 async function chunkInsert<T extends Record<string, unknown>>(
@@ -190,12 +237,17 @@ export async function saveDatasetToSupabaseServer(
     aplicaciones: dataset.aplicaciones.length,
   });
 
+  logApi("clear tables");
   const cleared = await clearSupabaseDatasetServer();
   if (!cleared.ok) {
+    logApi("error", cleared.errorMessage);
     return {
       ok: false,
       counts: emptyCounts,
-      errorMessage: cleared.errorMessage,
+      errorMessage: cleared.errorMessage ?? "No se pudieron limpiar las tablas",
+      technicalDetail: cleared.errorMessage,
+      recommendation:
+        "Supabase rechazó la inserción. Revisá permisos GRANT en las tablas o la service role.",
       durationMs: Date.now() - started,
     };
   }
@@ -223,12 +275,17 @@ export async function saveDatasetToSupabaseServer(
   ];
 
   for (const step of steps) {
+    logApi(`insert ${step.label}`, { rows: step.rows.length });
     const inserted = await chunkInsert(client, step.table, step.rows, step.label);
     if (!inserted.ok) {
+      logApi("error", inserted.errorMessage);
       return {
         ok: false,
         counts: emptyCounts,
-        errorMessage: inserted.errorMessage,
+        errorMessage: inserted.errorMessage ?? `Error al insertar ${step.label}`,
+        technicalDetail: inserted.errorMessage,
+        recommendation:
+          "Supabase rechazó la inserción. Revisá permisos, columnas del esquema o service role.",
         durationMs: Date.now() - started,
       };
     }
@@ -274,21 +331,63 @@ export async function saveDatasetToSupabaseServer(
     };
   }
 
+  const counts = {
+    clientes: clientesRows.length,
+    ventas: ventasRows.length,
+    articulos: articulosRows.length,
+    aplicaciones: aplicacionesRows.length,
+    oportunidades: oportunidadesRows.length,
+  };
+
+  const totalInserted =
+    counts.clientes + counts.ventas + counts.articulos + counts.aplicaciones;
+
+  if (totalInserted === 0) {
+    logApi("error", "Inserción completada pero 0 filas en tablas operativas");
+    return {
+      ok: false,
+      counts,
+      errorMessage: "No se insertó ninguna fila en Supabase",
+      technicalDetail: "El mapeo produjo 0 filas insertables (revisá ventaItems y aplicaciones).",
+      recommendation: "Generá el dataset de nuevo y verificá que los Excel tengan datos válidos.",
+      durationMs: Date.now() - started,
+    };
+  }
+
   const durationMs = Date.now() - started;
+  logApi("conteos", counts);
   logImport("saveDatasetToSupabase completado", { importacionId, durationMs });
 
   return {
     ok: true,
     importacionId,
-    counts: {
-      clientes: clientesRows.length,
-      ventas: ventasRows.length,
-      articulos: articulosRows.length,
-      aplicaciones: aplicacionesRows.length,
-      oportunidades: oportunidadesRows.length,
-    },
+    counts,
     durationMs,
   };
+}
+
+/** Validación de conteos antes de persistir (usado por la API). */
+export function validateDatasetCountsForImport(
+  dataset: PickupDataset,
+): { ok: true } | { ok: false; errorMessage: string; technicalDetail: string } {
+  const empty: string[] = [];
+  if (dataset.clientes.length === 0) empty.push("clientes");
+  if (dataset.ventas.length === 0 && dataset.ventaItems.length === 0) {
+    empty.push("ventas (cabeceras o líneas)");
+  }
+  if (dataset.articulos.length === 0) empty.push("artículos");
+  if (dataset.aplicaciones.length === 0) empty.push("aplicaciones");
+
+  if (empty.length > 0) {
+    const detail = `Recibido: clientes=${dataset.clientes.length}, ventas=${dataset.ventas.length}, ventaItems=${dataset.ventaItems.length}, articulos=${dataset.articulos.length}, aplicaciones=${dataset.aplicaciones.length}`;
+    return {
+      ok: false,
+      errorMessage: `Dataset vacío en: ${empty.join(", ")}`,
+      technicalDetail: detail,
+    };
+  }
+
+  return { ok: true };
 }
 
 export async function loadDatasetFromSupabaseServer(): Promise<SupabaseDatasetLoadResult> {
@@ -336,12 +435,20 @@ export async function loadDatasetFromSupabaseServer(): Promise<SupabaseDatasetLo
     { data: aplicacionesRows, error: aplicacionesError },
     { data: oportunidadesRows, error: oportunidadesError },
   ] = await Promise.all([
-    client.from("clientes").select("*"),
-    client.from("ventas").select("*"),
-    client.from("articulos").select("*"),
-    client.from("aplicaciones").select("*"),
-    client.from("oportunidades").select("*"),
+    fetchAllTableRows(client, "clientes"),
+    fetchAllTableRows(client, "ventas"),
+    fetchAllTableRows(client, "articulos"),
+    fetchAllTableRows(client, "aplicaciones"),
+    fetchAllTableRows(client, "oportunidades"),
   ]);
+
+  logLoad("filas cargadas (paginado)", {
+    clientes: clientesRows.length,
+    ventas: ventasRows.length,
+    articulos: articulosRows.length,
+    aplicaciones: aplicacionesRows.length,
+    oportunidades: oportunidadesRows.length,
+  });
 
   const firstError =
     clientesError ?? ventasError ?? articulosError ?? aplicacionesError ?? oportunidadesError;

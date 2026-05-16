@@ -1,21 +1,25 @@
 import type { PickupDataset } from "@/lib/excel/build-dataset";
 import type { ActivePickupData } from "@/lib/data/pickup-data";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
+import type { SupabaseDatasetSaveResult } from "@/lib/data/supabase-dataset-server";
 
-export type {
-  SupabaseDatasetSaveResult,
-  SupabaseDatasetLoadResult,
-} from "@/lib/data/supabase-dataset-server";
+export type { SupabaseDatasetSaveResult, SupabaseDatasetLoadResult } from "@/lib/data/supabase-dataset-server";
 
 export { slimDatasetForLocalStorage } from "@/lib/data/excel-dataset-persistence";
 
-function logLoad(message: string, detail?: unknown): void {
-  if (process.env.NODE_ENV === "development") {
-    if (detail !== undefined) {
-      console.info(`[SupabaseLoad] ${message}`, detail);
-    } else {
-      console.info(`[SupabaseLoad] ${message}`);
-    }
+function logImport(message: string, detail?: unknown): void {
+  if (detail !== undefined) {
+    console.info(`[SupabaseImport] ${message}`, detail);
+  } else {
+    console.info(`[SupabaseImport] ${message}`);
+  }
+}
+
+function logImportError(message: string, detail?: unknown): void {
+  if (detail !== undefined) {
+    console.error(`[SupabaseImport] ${message}`, detail);
+  } else {
+    console.error(`[SupabaseImport] ${message}`);
   }
 }
 
@@ -29,19 +33,29 @@ type LoadApiResponse = {
   errorMessage?: string;
 };
 
-type ImportApiResponse = {
-  ok: boolean;
-  importacionId?: string;
-  counts?: {
-    clientes: number;
-    ventas: number;
-    articulos: number;
-    aplicaciones: number;
-    oportunidades: number;
-  };
-  errorMessage?: string;
-  durationMs?: number;
+type ImportApiResponse = SupabaseDatasetSaveResult & {
+  httpStatus?: number;
 };
+
+function recommendationForFailure(
+  httpStatus: number,
+  errorMessage: string,
+): string {
+  if (httpStatus === 503) {
+    return "Configurá NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en .env.local o Vercel y redeploy.";
+  }
+  if (httpStatus === 400) {
+    return "Generá el dataset interno de nuevo y verificá que los 3 Excel tengan datos válidos.";
+  }
+  const lower = errorMessage.toLowerCase();
+  if (lower.includes("permission") || lower.includes("42501") || lower.includes("denied")) {
+    return "Supabase rechazó la inserción. Revisá permisos GRANT en las tablas o la service role.";
+  }
+  if (lower.includes("payload") || lower.includes("too large")) {
+    return "El dataset es muy grande para una sola petición. Contactá soporte o reducí el volumen de prueba.";
+  }
+  return "Supabase rechazó la inserción. Revisá permisos, columnas del esquema o service role.";
+}
 
 /**
  * Carga el dataset desde la API server-side (service role).
@@ -54,7 +68,7 @@ export async function loadDatasetFromSupabase(): Promise<{
   importacionId?: string;
   errorMessage?: string;
 }> {
-  logLoad("Solicitando GET /api/supabase/load-dataset");
+  logImport("GET /api/supabase/load-dataset");
 
   try {
     const res = await fetch("/api/supabase/load-dataset", {
@@ -63,6 +77,8 @@ export async function loadDatasetFromSupabase(): Promise<{
     });
 
     const body = (await res.json()) as LoadApiResponse;
+    logImport("respuesta load status", res.status);
+    logImport("respuesta load body", body);
 
     if (!res.ok || !body.ok) {
       return {
@@ -75,7 +91,7 @@ export async function loadDatasetFromSupabase(): Promise<{
     }
 
     if (!body.dataset) {
-      logLoad("Supabase vacío");
+      logImport("Supabase vacío (ok sin dataset)");
       return {
         ok: true,
         dataset: null,
@@ -83,6 +99,13 @@ export async function loadDatasetFromSupabase(): Promise<{
         generatedAt: null,
       };
     }
+
+    logImport("dataset recibido", {
+      clientes: body.dataset.clientes?.length,
+      ventas: body.dataset.ventas?.length,
+      articulos: body.dataset.articulos?.length,
+      aplicaciones: body.dataset.aplicaciones?.length,
+    });
 
     return {
       ok: true,
@@ -92,6 +115,7 @@ export async function loadDatasetFromSupabase(): Promise<{
       importacionId: body.importacionId,
     };
   } catch (error) {
+    logImportError("error load", error);
     return {
       ok: false,
       dataset: null,
@@ -108,7 +132,7 @@ export async function loadDatasetFromSupabase(): Promise<{
 export async function saveDatasetToSupabase(
   dataset: PickupDataset,
   generatedAt: Date,
-): Promise<import("@/lib/data/supabase-dataset-server").SupabaseDatasetSaveResult> {
+): Promise<SupabaseDatasetSaveResult> {
   const emptyCounts = {
     clientes: 0,
     ventas: 0,
@@ -116,6 +140,15 @@ export async function saveDatasetToSupabase(
     aplicaciones: 0,
     oportunidades: 0,
   };
+
+  logImport("enviando dataset", {
+    clientes: dataset.clientes.length,
+    ventas: dataset.ventas.length,
+    ventaItems: dataset.ventaItems.length,
+    articulos: dataset.articulos.length,
+    aplicaciones: dataset.aplicaciones.length,
+    generatedAt: generatedAt.toISOString(),
+  });
 
   try {
     const res = await fetch("/api/supabase/import-dataset", {
@@ -127,13 +160,60 @@ export async function saveDatasetToSupabase(
       }),
     });
 
-    const body = (await res.json()) as ImportApiResponse;
+    logImport("respuesta status", res.status);
 
-    if (!res.ok || !body.ok) {
+    let body: ImportApiResponse;
+    const rawText = await res.text();
+    try {
+      body = JSON.parse(rawText) as ImportApiResponse;
+    } catch (parseError) {
+      logImportError("respuesta body no es JSON", rawText.slice(0, 500));
+      return {
+        ok: false,
+        counts: emptyCounts,
+        httpStatus: res.status,
+        errorMessage: `Respuesta inválida del servidor (HTTP ${res.status})`,
+        technicalDetail: rawText.slice(0, 300) || "Body vacío",
+        recommendation: recommendationForFailure(res.status, ""),
+        durationMs: 0,
+      };
+    }
+
+    logImport("respuesta body", body);
+
+    const httpStatus = body.httpStatus ?? res.status;
+
+    if (!res.ok || body.ok !== true) {
+      const errorMessage =
+        body.errorMessage ?? `Error HTTP ${httpStatus} al guardar en Supabase`;
+      logImportError("error", { httpStatus, errorMessage, body });
       return {
         ok: false,
         counts: body.counts ?? emptyCounts,
-        errorMessage: body.errorMessage ?? `HTTP ${res.status}`,
+        httpStatus,
+        errorMessage,
+        technicalDetail: body.technicalDetail ?? errorMessage,
+        recommendation:
+          body.recommendation ?? recommendationForFailure(httpStatus, errorMessage),
+        durationMs: body.durationMs ?? 0,
+      };
+    }
+
+    const total =
+      (body.counts?.clientes ?? 0) +
+      (body.counts?.ventas ?? 0) +
+      (body.counts?.articulos ?? 0) +
+      (body.counts?.aplicaciones ?? 0);
+
+    if (total === 0) {
+      logImportError("error", "API respondió ok pero sin filas insertadas");
+      return {
+        ok: false,
+        counts: body.counts ?? emptyCounts,
+        httpStatus,
+        errorMessage: "La API no reportó filas insertadas",
+        technicalDetail: JSON.stringify(body.counts),
+        recommendation: recommendationForFailure(500, ""),
         durationMs: body.durationMs ?? 0,
       };
     }
@@ -142,14 +222,19 @@ export async function saveDatasetToSupabase(
       ok: true,
       importacionId: body.importacionId,
       counts: body.counts ?? emptyCounts,
+      httpStatus,
       durationMs: body.durationMs ?? 0,
     };
   } catch (error) {
+    logImportError("error", error);
+    const message =
+      error instanceof Error ? error.message : "Error de red al guardar en Supabase";
     return {
       ok: false,
       counts: emptyCounts,
-      errorMessage:
-        error instanceof Error ? error.message : "Error de red al guardar en Supabase",
+      errorMessage: message,
+      technicalDetail: error instanceof Error ? error.stack?.slice(0, 400) : undefined,
+      recommendation: recommendationForFailure(0, message),
       durationMs: 0,
     };
   }

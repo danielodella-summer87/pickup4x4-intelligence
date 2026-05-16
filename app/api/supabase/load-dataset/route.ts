@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { loadDatasetFromSupabaseServer } from "@/lib/data/supabase-dataset-server";
-import { isSupabaseServiceConfigured } from "@/lib/supabase/env";
+import { validateSupabaseServiceEnv } from "@/lib/supabase/validate-service-env";
 
 export const maxDuration = 60;
 
 export async function GET() {
-  if (!isSupabaseServiceConfigured()) {
+  const envCheck = validateSupabaseServiceEnv();
+  if (!envCheck.ok) {
     return NextResponse.json(
       {
         ok: false,
@@ -13,8 +14,7 @@ export async function GET() {
         activeData: null,
         oportunidades: [],
         generatedAt: null,
-        errorMessage:
-          "SUPABASE_SERVICE_ROLE_KEY o NEXT_PUBLIC_SUPABASE_URL no configurados en Vercel",
+        errorMessage: envCheck.message,
       },
       { status: 503 },
     );

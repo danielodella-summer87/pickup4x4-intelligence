@@ -10,11 +10,11 @@ import {
 } from "@/lib/data/pickup-data";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 
-function devWarnExcelWithoutDataset(): void {
-  if (process.env.NODE_ENV === "development") {
-    console.warn(
-      "[useActiveDataset] source=excel|supabase pero dataset=null — usando mock temporalmente",
-    );
+function logActiveDataset(message: string, detail?: unknown): void {
+  if (detail !== undefined) {
+    console.info(`[useActiveDataset] ${message}`, detail);
+  } else {
+    console.info(`[useActiveDataset] ${message}`);
   }
 }
 
@@ -26,7 +26,6 @@ export type ActiveDataset = {
   isMock: boolean;
   isExcel: boolean;
   isSupabase: boolean;
-  /** Dataset Excel restaurado o guardado en localStorage / IndexedDB */
   isPersistedLocally: boolean;
   isPersistedInSupabase: boolean;
   isStorageHydrated: boolean;
@@ -42,30 +41,41 @@ export function useActiveDataset(): ActiveDataset {
     hasLocalPersistence,
     hasSupabasePersistence,
     isStorageHydrated,
+    isSupabaseLoaded,
     oportunidadesSupabase,
   } = useDataset();
 
   const data = useMemo(() => {
+    if (source === "supabase" && dataset) {
+      return pickupDatasetToActiveData(dataset);
+    }
+
     if (dataset) {
       return pickupDatasetToActiveData(dataset);
     }
-    if (source === "excel" || source === "supabase") {
-      devWarnExcelWithoutDataset();
+
+    if (!isStorageHydrated) {
+      return mockPickupDataToActive();
     }
+
+    if (source === "excel" || source === "supabase") {
+      logActiveDataset("source real pero dataset=null — mock temporal", { source });
+    }
+
     return mockPickupDataToActive();
-  }, [dataset, source]);
+  }, [dataset, source, isStorageHydrated]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
-    console.info("[useActiveDataset]", {
+    logActiveDataset("source actual y conteos", {
       source,
+      isStorageHydrated,
+      isSupabaseLoaded,
       hasDataset: dataset !== null,
       isMock: source === "mock",
       isExcel: source === "excel",
       isSupabase: source === "supabase",
       isPersistedLocally: source === "excel" && hasLocalPersistence,
       isPersistedInSupabase: source === "supabase" && hasSupabasePersistence,
-      isStorageHydrated,
       counts: dataset
         ? {
             clientes: dataset.clientes.length,
@@ -75,7 +85,14 @@ export function useActiveDataset(): ActiveDataset {
           }
         : null,
     });
-  }, [dataset, source, hasLocalPersistence, hasSupabasePersistence, isStorageHydrated]);
+  }, [
+    dataset,
+    source,
+    hasLocalPersistence,
+    hasSupabasePersistence,
+    isStorageHydrated,
+    isSupabaseLoaded,
+  ]);
 
   return {
     data,

@@ -1,4 +1,4 @@
-import { isSupabaseServiceConfigured } from "@/lib/supabase/env";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 
 export type SupabaseConnectionStatus = {
   configured: boolean;
@@ -21,12 +21,11 @@ function logLoad(message: string, detail?: unknown): void {
  * Verifica conectividad vía API server-side (service role).
  */
 export async function verifySupabaseConnection(): Promise<SupabaseConnectionStatus> {
-  if (!isSupabaseServiceConfigured()) {
+  if (!getSupabaseUrl()) {
     return {
       configured: false,
       connected: false,
-      message:
-        "Faltan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (Vercel / .env.local)",
+      message: "Falta NEXT_PUBLIC_SUPABASE_URL en el entorno del cliente",
     };
   }
 
