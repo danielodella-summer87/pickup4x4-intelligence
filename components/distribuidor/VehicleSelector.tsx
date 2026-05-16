@@ -2,22 +2,16 @@
 
 import type { VehiculoMarca, VehiculoModelo } from "@/lib/models/vehiculo";
 
-const touchButtonBase =
-  "min-h-[3.25rem] rounded-xl border px-4 py-3 text-left text-base font-medium transition active:scale-[0.98] sm:min-h-[3.5rem]";
-
-const touchButtonIdle =
-  "border-slate-700 bg-slate-950/80 text-slate-200 hover:border-slate-500 hover:bg-slate-900";
-
-const touchButtonActive =
-  "border-emerald-500/60 bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-500/30";
+const selectClass =
+  "min-h-[3.25rem] w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-base text-white focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50";
 
 type VehicleSelectorProps = {
   marcas: VehiculoMarca[];
   modelos: VehiculoModelo[];
   marcaId: string | null;
   modeloId: string | null;
-  onSelectMarca: (marcaId: string) => void;
-  onSelectModelo: (modeloId: string) => void;
+  onMarcaChange: (marcaId: string) => void;
+  onModeloChange: (modeloId: string) => void;
 };
 
 export function VehicleSelector({
@@ -25,65 +19,69 @@ export function VehicleSelector({
   modelos,
   marcaId,
   modeloId,
-  onSelectMarca,
-  onSelectModelo,
+  onMarcaChange,
+  onModeloChange,
 }: VehicleSelectorProps) {
+  const modeloDeshabilitado = !marcaId;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wider text-slate-500">
-          1. Elegí la marca
-        </p>
+    <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-slate-300">
+          Marca del vehículo
+        </span>
         {marcas.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">
-            No hay marcas con aplicaciones cargadas. Importá el catálogo en
-            Importar datos.
+          <p className="text-sm text-slate-500">
+            No hay marcas con aplicaciones cargadas. Importá el catálogo en Importar
+            datos.
           </p>
         ) : (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <select
+            value={marcaId ?? ""}
+            onChange={(e) => onMarcaChange(e.target.value)}
+            className={selectClass}
+            aria-label="Marca del vehículo"
+          >
+            <option value="">Elegí una marca…</option>
             {marcas.map((marca) => (
-              <button
-                key={marca.id}
-                type="button"
-                onClick={() => onSelectMarca(marca.id)}
-                className={`${touchButtonBase} ${
-                  marcaId === marca.id ? touchButtonActive : touchButtonIdle
-                }`}
-              >
+              <option key={marca.id} value={marca.id}>
                 {marca.nombre}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         )}
-      </div>
+      </label>
 
-      {marcaId ? (
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wider text-slate-500">
-            2. Elegí el modelo
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-slate-300">
+          Modelo del vehículo
+        </span>
+        <select
+          value={modeloId ?? ""}
+          onChange={(e) => onModeloChange(e.target.value)}
+          disabled={modeloDeshabilitado}
+          className={selectClass}
+          aria-label="Modelo del vehículo"
+        >
+          <option value="">
+            {modeloDeshabilitado
+              ? "Primero elegí una marca"
+              : modelos.length === 0
+                ? "Sin modelos para esta marca"
+                : "Elegí un modelo…"}
+          </option>
+          {modelos.map((modelo) => (
+            <option key={modelo.id} value={modelo.id}>
+              {modelo.nombre}
+            </option>
+          ))}
+        </select>
+        {marcaId && modelos.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-500">
+            Esta marca no tiene modelos con accesorios cargados.
           </p>
-          {modelos.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">
-              Esta marca no tiene modelos con accesorios cargados.
-            </p>
-          ) : (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {modelos.map((modelo) => (
-                <button
-                  key={modelo.id}
-                  type="button"
-                  onClick={() => onSelectModelo(modelo.id)}
-                  className={`${touchButtonBase} ${
-                    modeloId === modelo.id ? touchButtonActive : touchButtonIdle
-                  }`}
-                >
-                  {modelo.nombre}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
+        ) : null}
+      </label>
     </div>
   );
 }

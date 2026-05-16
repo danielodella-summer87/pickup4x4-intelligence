@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
-import { sideMenuNavigation } from "@/lib/navigation";
 import {
   formatDatasetSourceLabel,
   useActiveDataset,
@@ -15,241 +15,446 @@ const primaryCtaClass =
 const secondaryLinkClass =
   "inline-flex items-center justify-center rounded-lg border border-slate-600 bg-slate-800/80 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-700";
 
-const flujoPasos = [
-  { paso: "1", titulo: "Excel / KORE", detalle: "Planillas históricas o export del ERP" },
-  { paso: "2", titulo: "Normalización", detalle: "Limpieza, validación y calidad de datos" },
-  { paso: "3", titulo: "Dashboard", detalle: "Lectura comercial ejecutiva" },
-  { paso: "4", titulo: "Mostrador", detalle: "Búsqueda táctil por vehículo" },
-  { paso: "5", titulo: "Solicitudes", detalle: "Presupuestos armados en el dispositivo" },
+const CHECKLIST_INICIAL = [
+  "Confirmar que la demo usa datos reales (Excel importado) o avisar que es ejemplo",
+  "Tener los 3 Excel listos por si el cliente pregunta el origen",
+  "Abrir /importar en otra pestaña por si hace falta mostrar carga",
+  "Reservar 10–15 minutos sin interrupciones",
+  "Cerrar con próximo paso: KORE API + base central + envío de solicitudes",
 ] as const;
 
-const estadoActual = [
-  { listo: true, titulo: "Importación Excel", detalle: "Carga, preview y persistencia en el navegador" },
-  { listo: true, titulo: "Dashboard comercial", detalle: "KPIs y rankings sin importes en v1" },
-  { listo: true, titulo: "Buscador táctil", detalle: "Mostrador por marca, modelo y repuesto" },
-  { listo: true, titulo: "Solicitudes locales", detalle: "Armado y listado de presupuestos pendientes" },
-  { listo: true, titulo: "Filtros de consulta", detalle: "Clientes, ventas, artículos y vehículos" },
+const frasesParaCliente = [
+  "Hoy la información está dispersa en planillas: acá la vemos ordenada y lista para decidir.",
+  "No es solo un listado: el sistema cruza clientes, ventas y qué repuesto va en qué camioneta.",
+  "El mostrador es para el vendedor de piso: elige el vehículo y arma el pedido en segundos.",
+  "Las oportunidades las detecta solo: le dice dónde hay plata dormida o catálogo flojo.",
+  "Esta versión corre en el navegador con sus datos; el siguiente paso es conectarlo a KORE en vivo.",
 ] as const;
 
-const limitaciones = [
-  "Los datos viven en localStorage del navegador (no hay servidor propio).",
-  "No hay base de datos centralizada ni sincronización entre dispositivos.",
-  "No existe conexión API KORE todavía: se trabaja con Excel exportado.",
-  "Las solicitudes no se envían por mail ni WhatsApp: quedan guardadas localmente.",
+const noMostrarTodavia = [
+  "No prometer precios, stock en tiempo real ni facturación: no están en esta versión.",
+  "No decir que las solicitudes ya se envían por mail o WhatsApp: quedan guardadas en el dispositivo.",
+  "No hablar de usuarios, permisos ni multi-sucursal sincronizado: viene con Supabase y roles.",
+  "Si preguntan por importes totales: el dashboard v1 muestra actividad y volumen, no montos.",
+  "Aclarar que aplicaciones «a revisar» son utilizables en mostrador, pero conviene validar marcas dudosas.",
 ] as const;
 
-const proximosPasos = [
-  "Supabase como base de datos y persistencia compartida.",
-  "Conexión API KORE para stock, precios y comprobantes en vivo.",
-  "Usuarios y permisos por rol (mostrador, gerencia, admin).",
-  "Envío real de solicitudes y presupuestos al cliente.",
-  "Reportes avanzados, alertas y oportunidades automatizadas.",
+type PasoDemo = {
+  id: string;
+  numero: string;
+  titulo: string;
+  href: string;
+  duracion: string;
+  queMostrar: string[];
+  valor: string;
+};
+
+const pasosDemo: PasoDemo[] = [
+  {
+    id: "importar",
+    numero: "1",
+    titulo: "Importación de datos",
+    href: "/importar",
+    duracion: "2–3 min",
+    queMostrar: [
+      "Los 3 archivos Excel (clientes, ventas, artículos con aplicaciones)",
+      "Vista previa y números reales antes de aplicar",
+      "Mensaje de dataset aplicado y persistido en este navegador",
+    ],
+    valor:
+      "Muestra que no dependen de cargar planillas a mano cada semana: un proceso controlado transforma KORE/Excel en un catálogo consultable.",
+  },
+  {
+    id: "dashboard",
+    numero: "2",
+    titulo: "Dashboard comercial",
+    href: "/dashboard",
+    duracion: "2–3 min",
+    queMostrar: [
+      "Cantidad de clientes, ventas, artículos y aplicaciones",
+      "Lectura rápida: ciudad fuerte, modelo con más aplicaciones, cliente que más compra",
+      "Bloque «Calidad del catálogo» si hay datos importados",
+    ],
+    valor:
+      "Es la foto del negocio para gerencia: dónde está la cartera, la demanda por vehículo y si el catálogo está sano.",
+  },
+  {
+    id: "oportunidades",
+    numero: "3",
+    titulo: "Oportunidades comerciales",
+    href: "/oportunidades",
+    duracion: "2 min",
+    queMostrar: [
+      "Clientes en cartera sin ventas",
+      "Artículos universales y los que más salen",
+      "Aplicaciones a revisar y vehículos con poca cobertura",
+      "Ciudades con cartera fuerte o con potencial sin desarrollar",
+    ],
+    valor:
+      "Traduce los datos en tareas concretas para vendedores: a quién llamar, qué empujar y qué validar en el catálogo.",
+  },
+  {
+    id: "distribuidor",
+    numero: "4",
+    titulo: "Mostrador táctil",
+    href: "/distribuidor",
+    duracion: "2–3 min",
+    queMostrar: [
+      "Elegir marca y modelo del cliente en el mostrador",
+      "Listado de accesorios con alta rotación o «universal»",
+      "Badge «Aplicación a revisar» sin bloquear la venta",
+      "Armado de presupuesto / solicitud en el acto",
+    ],
+    valor:
+      "Es la experiencia del vendedor en el piso: menos tiempo buscando en planillas, más tiempo cerrando.",
+  },
+  {
+    id: "solicitudes",
+    numero: "5",
+    titulo: "Solicitudes y seguimiento",
+    href: "/solicitudes",
+    duracion: "1–2 min",
+    queMostrar: [
+      "Solicitudes generadas desde el mostrador",
+      "Estados: nueva, en revisión, enviada, descartada",
+      "Detalle de artículos y datos del cliente",
+    ],
+    valor:
+      "Cierra el ciclo en el local: lo armado en mostrador queda registrado para seguimiento interno.",
+  },
+];
+
+const yaFunciona = [
+  "Importación de Excel con normalización y persistencia local",
+  "Dashboard comercial con KPIs y rankings",
+  "Oportunidades automáticas sobre datos reales",
+  "Mostrador táctil por vehículo",
+  "Solicitudes guardadas en el navegador",
+  "Consultas de clientes, ventas, artículos y vehículos",
 ] as const;
 
-const modulosDemo = sideMenuNavigation.filter(
-  (item) => !["/demo", "/importar"].includes(item.href),
-);
+const faltaProduccion = [
+  "Conexión API KORE (stock, precios y movimientos en vivo)",
+  "Base de datos central (Supabase) y sincronización entre sucursales",
+  "Usuarios, roles y permisos",
+  "Envío real de solicitudes al cliente (mail, WhatsApp, PDF)",
+  "Reportes programados y alertas por mail",
+] as const;
 
-function StatusDot({ listo }: { listo: boolean }) {
+function CheckIcon({ checked }: { checked: boolean }) {
   return (
     <span
-      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-        listo ? "bg-emerald-400" : "bg-slate-600"
+      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs ${
+        checked
+          ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-300"
+          : "border-slate-600 bg-slate-900 text-transparent"
       }`}
       aria-hidden
-    />
+    >
+      ✓
+    </span>
   );
 }
 
 export default function DemoPage() {
-  const { source, isExcel, isPersistedLocally, isMock } = useActiveDataset();
+  const { data, source, isExcel, isPersistedLocally, isMock } = useActiveDataset();
   const sourceLabel = formatDatasetSourceLabel(source, {
     persistedLocally: isPersistedLocally,
   });
 
+  const [checklist, setChecklist] = useState<boolean[]>(() =>
+    CHECKLIST_INICIAL.map(() => false),
+  );
+
+  const checklistCompleto = checklist.every(Boolean);
+  const checklistProgreso = checklist.filter(Boolean).length;
+
+  const resumenDatos = useMemo(() => {
+    if (!isExcel || isMock) return null;
+    return {
+      clientes: data.clientes.length,
+      ventas: data.ventas.length,
+      articulos: data.articulos.length,
+      aplicaciones: data.articuloAplicaciones.length,
+    };
+  }, [data, isExcel, isMock]);
+
+  function toggleCheck(index: number) {
+    setChecklist((prev) => prev.map((v, i) => (i === index ? !v : v)));
+  }
+
   return (
     <AppShell
-      moduleTitle="Guía de demo"
-      moduleDescription="Resumen para presentar Pickup 4x4 Intelligence al cliente"
+      moduleTitle="Guía de presentación"
+      moduleDescription="Ruta comercial de 10–15 minutos para mostrar Pickup 4x4 Intelligence"
     >
       <div className="space-y-6">
-        <section className="rounded-xl border border-slate-700/80 bg-gradient-to-br from-slate-900 to-emerald-950/15 p-6 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-400">
-            Resumen ejecutivo
-          </p>
-          <h2 className="mt-3 text-xl font-bold text-white sm:text-2xl">
-            Qué es Pickup 4x4 Intelligence
+        {/* Apertura ejecutiva */}
+        <section className="rounded-xl border border-slate-700/80 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/20 p-6 sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-400">
+              Apertura ejecutiva
+            </p>
+            <span className="rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1 text-xs text-slate-400">
+              Duración estimada: 10–15 min
+            </span>
+          </div>
+
+          <h2 className="mt-4 text-xl font-bold text-white sm:text-2xl">
+            Pickup 4x4 Intelligence en una frase
           </h2>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
-            Es una plataforma comercial pensada para distribuidores de repuestos y
-            accesorios 4x4. Centraliza la lectura de ventas y clientes, el catálogo
-            con aplicaciones por vehículo y una experiencia de mostrador para armar
-            solicitudes en el punto de venta.
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
+            Ordena la información comercial del distribuidor — clientes, ventas y qué
+            repuesto aplica a cada camioneta — y la pone al servicio del mostrador y
+            de la gerencia, sin depender de planillas sueltas.
           </p>
+
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Qué hace el sistema
+              <p className="text-xs font-medium uppercase tracking-wider text-rose-400/90">
+                Problema que resuelve
               </p>
               <p className="mt-2 text-sm text-slate-300">
-                Ordena la información comercial y la hace consultable para
-                decisiones diarias y atención en mostrador.
+                Datos repartidos en Excel, poca visibilidad de cartera dormida, catálogo
+                difícil de consultar en el mostrador y pedidos que no quedan registrados.
               </p>
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Qué datos usa hoy
+              <p className="text-xs font-medium uppercase tracking-wider text-sky-400/90">
+                Qué información usa
               </p>
               <p className="mt-2 text-sm text-slate-300">
+                Export de{" "}
+                <span className="font-medium text-white">KORE / Excel</span>: listado
+                de clientes, diario de ventas y maestro de artículos con aplicaciones por
+                vehículo.
+              </p>
+              <p className="mt-2 text-xs">
+                Fuente activa:{" "}
                 <span
                   className={
-                    isExcel ? "font-medium text-emerald-400" : "font-medium text-slate-300"
+                    isExcel ? "font-semibold text-emerald-400" : "text-slate-400"
                   }
                 >
                   {sourceLabel}
                 </span>
-                {isMock
-                  ? " — datos de ejemplo hasta importar Excel."
-                  : " — datos cargados en esta sesión."}
               </p>
+              {resumenDatos ? (
+                <p className="mt-2 text-xs text-emerald-400/90">
+                  Demo con datos reales: {resumenDatos.clientes.toLocaleString("es-AR")}{" "}
+                  clientes · {resumenDatos.ventas.toLocaleString("es-AR")} ventas ·{" "}
+                  {resumenDatos.aplicaciones.toLocaleString("es-AR")} aplicaciones
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-amber-400/90">
+                  Importá Excel antes de la reunión para mostrar números reales.
+                </p>
+              )}
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Versión actual
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
+                Valor que genera
               </p>
               <p className="mt-2 text-sm text-slate-300">
-                Demo local en navegador. Sin backend ni usuarios: ideal para validar
-                flujo y pantallas con el equipo comercial.
+                Gerencia ve el panorama; vendedores encuentran repuestos por vehículo;
+                el sistema sugiere dónde actuar para vender más y cuidar el catálogo.
               </p>
             </div>
           </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/dashboard" className={primaryCtaClass}>
-              Abrir dashboard comercial
-            </Link>
-            <Link href="/importar" className={secondaryLinkClass}>
-              Importar Excel
+
+          <div className="mt-6">
+            <Link href="/importar" className={primaryCtaClass}>
+              Comenzar presentación (Paso 1)
             </Link>
           </div>
         </section>
 
+        {/* Checklist */}
         <SectionCard
-          title="Flujo del sistema"
-          description="De la planilla al mostrador en cinco pasos"
+          title="Checklist antes de entrar"
+          description={`${checklistProgreso} de ${CHECKLIST_INICIAL.length} listos${
+            checklistCompleto ? " · Listo para presentar" : ""
+          }`}
         >
-          <ol className="grid gap-3 sm:grid-cols-5">
-            {flujoPasos.map((item, index) => (
-              <li
-                key={item.paso}
-                className="relative rounded-lg border border-slate-800 bg-slate-950/50 p-4"
-              >
-                {index < flujoPasos.length - 1 ? (
+          <ul className="space-y-3">
+            {CHECKLIST_INICIAL.map((texto, index) => (
+              <li key={texto}>
+                <label className="flex cursor-pointer gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3 transition hover:border-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={checklist[index]}
+                    onChange={() => toggleCheck(index)}
+                    className="sr-only"
+                  />
+                  <CheckIcon checked={checklist[index]} />
                   <span
-                    className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-slate-600 sm:block"
-                    aria-hidden
+                    className={`text-sm ${
+                      checklist[index] ? "text-slate-400 line-through" : "text-slate-200"
+                    }`}
                   >
-                    →
+                    {texto}
                   </span>
-                ) : null}
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-400">
-                  {item.paso}
-                </span>
-                <p className="mt-3 text-sm font-semibold text-white">{item.titulo}</p>
-                <p className="mt-1 text-xs text-slate-500">{item.detalle}</p>
-              </li>
-            ))}
-          </ol>
-        </SectionCard>
-
-        <SectionCard
-          title="Módulos disponibles"
-          description="Navegación lateral — todo usable en esta demo"
-        >
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {modulosDemo.map((modulo) => (
-              <li key={modulo.href}>
-                <Link
-                  href={modulo.href}
-                  className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4 transition hover:border-emerald-500/30 hover:bg-slate-900"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-800 text-xs font-bold text-emerald-400">
-                    {modulo.initial}
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold text-white">
-                      {modulo.label}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      {modulo.description}
-                    </span>
-                  </span>
-                </Link>
+                </label>
               </li>
             ))}
           </ul>
         </SectionCard>
 
+        {/* Pasos guiados */}
+        <SectionCard
+          title="Ruta de la demo"
+          description="Seguí el orden; cada paso tiene link directo al módulo"
+        >
+          <ol className="space-y-4">
+            {pasosDemo.map((paso) => (
+              <li
+                key={paso.id}
+                className="rounded-xl border border-slate-800 bg-slate-950/50 p-5 sm:p-6"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-4">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-bold text-emerald-400">
+                      {paso.numero}
+                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{paso.titulo}</h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Tiempo sugerido: {paso.duracion}
+                      </p>
+                    </div>
+                  </div>
+                  <Link href={paso.href} className={secondaryLinkClass}>
+                    Abrir módulo
+                  </Link>
+                </div>
+
+                <p className="mt-4 text-sm text-slate-400">{paso.valor}</p>
+
+                <p className="mt-4 text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Qué mostrar
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {paso.queMostrar.map((item) => (
+                    <li key={item} className="flex gap-2 text-sm text-slate-300">
+                      <span className="text-emerald-500" aria-hidden>
+                        →
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+        </SectionCard>
+
+        {/* Frases y no mostrar */}
         <div className="grid gap-6 lg:grid-cols-2">
           <SectionCard
-            title="Estado actual"
-            description="Funcionalidades listas para mostrar hoy"
+            title="Frases para decirle al cliente"
+            description="Lenguaje simple; adaptá con ejemplos de su operación"
           >
             <ul className="space-y-3">
-              {estadoActual.map((item) => (
-                <li key={item.titulo} className="flex gap-3">
-                  <StatusDot listo={item.listo} />
-                  <span>
-                    <span className="block text-sm font-medium text-white">
-                      {item.titulo}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      {item.detalle}
-                    </span>
-                  </span>
+              {frasesParaCliente.map((frase) => (
+                <li
+                  key={frase}
+                  className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-sm italic leading-relaxed text-emerald-100/90"
+                >
+                  «{frase}»
                 </li>
               ))}
             </ul>
           </SectionCard>
 
           <SectionCard
-            title="Limitaciones actuales"
-            description="Transparencia para alinear expectativas con el cliente"
+            title="No mostrar todavía / aclarar"
+            description="Evita expectativas incorrectas en la reunión"
           >
-            <ul className="space-y-2.5 text-sm text-slate-300">
-              {limitaciones.map((texto) => (
-                <li key={texto} className="flex gap-2">
-                  <span className="text-amber-400/90" aria-hidden>
-                    ·
+            <ul className="space-y-3">
+              {noMostrarTodavia.map((item) => (
+                <li
+                  key={item}
+                  className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-100/90"
+                >
+                  <span className="shrink-0 text-amber-400" aria-hidden>
+                    ⚠
                   </span>
-                  {texto}
+                  {item}
                 </li>
               ))}
             </ul>
           </SectionCard>
         </div>
 
-        <SectionCard
-          title="Próximos pasos hacia producción"
-          description="Roadmap acordado para la siguiente fase"
-        >
-          <ol className="space-y-3">
-            {proximosPasos.map((paso, index) => (
-              <li
-                key={paso}
-                className="flex gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-3"
-              >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-700 text-xs font-semibold text-slate-400">
-                  {index + 1}
-                </span>
-                <span className="text-sm text-slate-300">{paso}</span>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-4 text-xs text-slate-500">
-            Esta demo no requiere conexión a internet permanente ni credenciales:
-            basta con el navegador y, opcionalmente, un Excel de KORE exportado.
+        {/* Cierre */}
+        <section className="rounded-xl border border-slate-700/80 bg-slate-900/80 p-6 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+            Cierre de reunión
           </p>
-        </SectionCard>
+          <h2 className="mt-3 text-lg font-bold text-white">
+            Qué cerrar con el cliente
+          </h2>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
+                Ya funciona hoy
+              </p>
+              <ul className="mt-3 space-y-2">
+                {yaFunciona.map((item) => (
+                  <li key={item} className="flex gap-2 text-sm text-slate-300">
+                    <span className="text-emerald-400" aria-hidden>
+                      ✓
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-amber-400/90">
+                Falta para producción
+              </p>
+              <ul className="mt-3 space-y-2">
+                {faltaProduccion.map((item) => (
+                  <li key={item} className="flex gap-2 text-sm text-slate-300">
+                    <span className="text-slate-500" aria-hidden>
+                      ○
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-4">
+            <p className="text-sm font-semibold text-emerald-200">
+              Próximo paso recomendado
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-emerald-100/90">
+              Conectar{" "}
+              <span className="font-medium text-white">API KORE</span> para datos en
+              vivo, centralizar en{" "}
+              <span className="font-medium text-white">Supabase</span> y habilitar el{" "}
+              <span className="font-medium text-white">envío real de solicitudes</span>{" "}
+              al cliente. Esta demo demuestra el flujo completo con Excel; producción
+              elimina la carga manual y unifica sucursales.
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/dashboard" className={secondaryLinkClass}>
+              Ir al dashboard
+            </Link>
+            <Link href="/oportunidades" className={secondaryLinkClass}>
+              Ver oportunidades
+            </Link>
+            <Link href="/distribuidor" className={secondaryLinkClass}>
+              Probar mostrador
+            </Link>
+          </div>
+        </section>
       </div>
     </AppShell>
   );

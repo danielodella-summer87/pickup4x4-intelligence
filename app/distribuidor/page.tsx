@@ -22,14 +22,21 @@ import {
 } from "@/lib/data/distribuidor-insights";
 import { useActiveDataset } from "@/lib/data/use-active-dataset";
 
-const footerCtaClass =
-  "inline-flex min-h-[3.5rem] w-full items-center justify-center rounded-xl border border-slate-600 bg-slate-800/90 px-6 py-4 text-lg font-semibold text-slate-200 transition hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[16rem]";
+const presupuestoCtaClass =
+  "inline-flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-emerald-500 px-6 py-4 text-lg font-semibold text-slate-950 transition hover:bg-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[16rem]";
+
+const emptyStateClass =
+  "rounded-2xl border border-dashed border-slate-700 bg-slate-900/30 p-8 text-center text-base text-slate-400";
 
 const formularioInicial: PresupuestoFormulario = {
   nombre: "",
   telefono: "",
   observaciones: "",
 };
+
+function MensajeEstado({ children }: { children: string }) {
+  return <p className={emptyStateClass}>{children}</p>;
+}
 
 export default function DistribuidorPage() {
   const { data } = useActiveDataset();
@@ -81,22 +88,40 @@ export default function DistribuidorPage() {
       .filter((a): a is ArticuloMostrador => Boolean(a));
   }, [articulosBase, seleccionados]);
 
-  const handleSelectMarca = useCallback((id: string) => {
-    setMarcaId(id);
-    setModeloId(null);
+  const limpiarFiltrosYSeleccion = useCallback(() => {
     setBusqueda("");
     setCategoria("");
     setRubro("");
     setSeleccionados(new Set());
   }, []);
 
-  const handleSelectModelo = useCallback((id: string) => {
-    setModeloId(id);
-    setBusqueda("");
-    setCategoria("");
-    setRubro("");
-    setSeleccionados(new Set());
-  }, []);
+  const handleMarcaChange = useCallback(
+    (value: string) => {
+      if (!value) {
+        setMarcaId(null);
+        setModeloId(null);
+        limpiarFiltrosYSeleccion();
+        return;
+      }
+      setMarcaId(value);
+      setModeloId(null);
+      limpiarFiltrosYSeleccion();
+    },
+    [limpiarFiltrosYSeleccion],
+  );
+
+  const handleModeloChange = useCallback(
+    (value: string) => {
+      if (!value) {
+        setModeloId(null);
+        limpiarFiltrosYSeleccion();
+        return;
+      }
+      setModeloId(value);
+      limpiarFiltrosYSeleccion();
+    },
+    [limpiarFiltrosYSeleccion],
+  );
 
   const toggleArticulo = useCallback((codigoUnico: string) => {
     setSeleccionados((prev) => {
@@ -125,6 +150,8 @@ export default function DistribuidorPage() {
   }, []);
 
   const vehiculoCompleto = Boolean(marcaId && modeloId);
+  const sinAccesorios = vehiculoCompleto && articulosBase.length === 0;
+  const hayAccesorios = vehiculoCompleto && articulosBase.length > 0;
 
   return (
     <AppShell
@@ -135,7 +162,7 @@ export default function DistribuidorPage() {
         <DistribuidorSummary
           marcaNombre={marcaNombre}
           modeloNombre={modeloNombre}
-          cantidadAccesorios={articulosFiltrados.length}
+          cantidadAccesorios={vehiculoCompleto ? articulosFiltrados.length : 0}
           cantidadSeleccionados={seleccionados.size}
         />
 
@@ -144,11 +171,21 @@ export default function DistribuidorPage() {
           modelos={modelos}
           marcaId={marcaId}
           modeloId={modeloId}
-          onSelectMarca={handleSelectMarca}
-          onSelectModelo={handleSelectModelo}
+          onMarcaChange={handleMarcaChange}
+          onModeloChange={handleModeloChange}
         />
 
-        {vehiculoCompleto ? (
+        {!marcaId ? (
+          <MensajeEstado>Elegí una marca para comenzar.</MensajeEstado>
+        ) : !modeloId ? (
+          <MensajeEstado>
+            Ahora elegí un modelo disponible para esa marca.
+          </MensajeEstado>
+        ) : sinAccesorios ? (
+          <MensajeEstado>
+            No encontramos accesorios asociados para este vehículo.
+          </MensajeEstado>
+        ) : hayAccesorios ? (
           <>
             <DistribuidorFilters
               busqueda={busqueda}
@@ -168,24 +205,22 @@ export default function DistribuidorPage() {
                   ? "No hay accesorios con estos filtros para este vehículo."
                   : `${articulosFiltrados.length} accesorio${articulosFiltrados.length === 1 ? "" : "s"} — tocá para agregar a la solicitud`}
               </p>
-              <ul className="space-y-4">
-                {articulosFiltrados.map((articulo) => (
-                  <li key={articulo.codigoUnico}>
-                    <ArticuloMostradorCard
-                      articulo={articulo}
-                      seleccionado={seleccionados.has(articulo.codigoUnico)}
-                      onToggle={() => toggleArticulo(articulo.codigoUnico)}
-                    />
-                  </li>
-                ))}
-              </ul>
+              {articulosFiltrados.length > 0 ? (
+                <ul className="space-y-4">
+                  {articulosFiltrados.map((articulo) => (
+                    <li key={articulo.codigoUnico}>
+                      <ArticuloMostradorCard
+                        articulo={articulo}
+                        seleccionado={seleccionados.has(articulo.codigoUnico)}
+                        onToggle={() => toggleArticulo(articulo.codigoUnico)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </section>
           </>
-        ) : (
-          <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/30 p-8 text-center text-base text-slate-400">
-            Elegí marca y modelo para ver los accesorios compatibles.
-          </p>
-        )}
+        ) : null}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950/95 px-4 py-4 backdrop-blur lg:left-64">
@@ -199,7 +234,7 @@ export default function DistribuidorPage() {
             type="button"
             disabled={!vehiculoCompleto}
             onClick={() => setModalAbierto(true)}
-            className={footerCtaClass}
+            className={presupuestoCtaClass}
           >
             Solicitar presupuesto
           </button>
