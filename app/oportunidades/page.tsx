@@ -61,7 +61,13 @@ function confianzaLabel(valor: number): string {
   return `${pct}% · conviene validar`;
 }
 
-function OportunidadCard({ oportunidad }: { oportunidad: OportunidadDetectada }) {
+function OportunidadCard({
+  oportunidad,
+  fuenteLabel,
+}: {
+  oportunidad: OportunidadDetectada;
+  fuenteLabel: string;
+}) {
   return (
     <article className="rounded-xl border border-slate-800 bg-slate-950/50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -101,26 +107,33 @@ function OportunidadCard({ oportunidad }: { oportunidad: OportunidadDetectada })
           </span>
         ) : null}
         <span>{confianzaLabel(oportunidad.confianza)}</span>
-        <span className="capitalize">
-          Fuente: {oportunidad.fuenteDatos === "excel" ? "Excel importado" : "Demo"}
-        </span>
+        <span className="capitalize">Fuente: {fuenteLabel}</span>
       </div>
     </article>
   );
 }
 
 export default function OportunidadesPage() {
-  const { data, source, isExcel, isPersistedLocally } = useActiveDataset();
+  const {
+    data,
+    source,
+    isExcel,
+    isSupabase,
+    isPersistedLocally,
+    oportunidadesSupabase,
+  } = useActiveDataset();
   const sourceLabel = formatDatasetSourceLabel(source, {
     persistedLocally: isPersistedLocally,
   });
 
   const [filtros, setFiltros] = useState<OportunidadesFiltros>(filtrosIniciales);
 
-  const oportunidades = useMemo(
-    () => detectarOportunidadesComerciales(data, source),
-    [data, source],
-  );
+  const oportunidades = useMemo(() => {
+    if (oportunidadesSupabase && oportunidadesSupabase.length > 0) {
+      return oportunidadesSupabase;
+    }
+    return detectarOportunidadesComerciales(data, source);
+  }, [data, source, oportunidadesSupabase]);
 
   const filtradas = useMemo(
     () => filterOportunidades(oportunidades, filtros),
@@ -136,6 +149,12 @@ export default function OportunidadesPage() {
   const hayFiltros =
     filtros.busqueda.trim() !== "" || filtros.prioridad !== "" || filtros.tipo !== "";
 
+  const fuenteOportunidadLabel = isSupabase
+    ? "Supabase"
+    : isExcel
+      ? "Excel importado"
+      : "Demo";
+
   const sinDatosComerciales =
     data.clientes.length === 0 &&
     data.ventas.length === 0 &&
@@ -147,7 +166,10 @@ export default function OportunidadesPage() {
       moduleDescription="Ideas accionables detectadas en tu base — sin depender de sistemas externos"
     >
       <div className="space-y-6">
-        <FuenteDatosLabel sourceLabel={sourceLabel} isExcel={isExcel} />
+        <FuenteDatosLabel
+          sourceLabel={sourceLabel}
+          isExcel={isExcel || isSupabase}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
@@ -265,7 +287,10 @@ export default function OportunidadesPage() {
             <ul className="mt-6 space-y-4">
               {filtradas.map((oportunidad) => (
                 <li key={oportunidad.id}>
-                  <OportunidadCard oportunidad={oportunidad} />
+                  <OportunidadCard
+                    oportunidad={oportunidad}
+                    fuenteLabel={fuenteOportunidadLabel}
+                  />
                 </li>
               ))}
             </ul>

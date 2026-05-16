@@ -102,11 +102,12 @@ function RankedTable({
 }
 
 export default function DashboardPage() {
-  const { dataset, source, hasLocalPersistence } = useDataset();
+  const { dataset, source, hasLocalPersistence, hasSupabasePersistence } = useDataset();
   const { data } = useActiveDataset();
   const sourceHint = formatDatasetSourceLabel(source, {
     persistedLocally: hasLocalPersistence,
-    inMemoryOnly: source === "excel" && !hasLocalPersistence && dataset !== null,
+    inMemoryOnly:
+      source === "excel" && !hasLocalPersistence && !hasSupabasePersistence && dataset !== null,
   });
 
   const insights = useMemo(
@@ -135,9 +136,11 @@ export default function DashboardPage() {
             Fuente:{" "}
             <span
               className={
-                source === "excel"
-                  ? "font-medium text-emerald-400"
-                  : "font-medium text-slate-400"
+                source === "supabase"
+                  ? "font-medium text-violet-400"
+                  : source === "excel"
+                    ? "font-medium text-emerald-400"
+                    : "font-medium text-slate-400"
               }
             >
               {sourceHint}

@@ -62,7 +62,7 @@ const TIPO_LABELS: Record<OportunidadDetectadaTipo, string> = {
 };
 
 function fuenteFromSource(source: DatasetSource): OportunidadFuenteDatos {
-  return source === "excel" ? "excel" : "mock";
+  return source === "mock" ? "mock" : "excel";
 }
 
 function baseConfianza(fuente: OportunidadFuenteDatos): number {

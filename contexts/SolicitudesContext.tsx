@@ -14,6 +14,13 @@ import type {
   SolicitudLocal,
   SolicitudLocalEstado,
 } from "@/lib/models/solicitud";
+import {
+  deleteSolicitudFromSupabase,
+  insertSolicitudInSupabase,
+  loadSolicitudesFromSupabase,
+  updateSolicitudEstadoInSupabase,
+} from "@/lib/data/supabase-solicitudes";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 const STORAGE_KEY = "pickup4x4:solicitudes";
 const STORAGE_VERSION = 1;
@@ -26,6 +33,7 @@ type PersistedSolicitudesPayload = {
 type SolicitudesContextValue = {
   solicitudes: SolicitudLocal[];
   isHydrated: boolean;
+  usesSupabase: boolean;
   createSolicitud: (input: CreateSolicitudInput) => SolicitudLocal;
   updateSolicitudEstado: (id: string, estado: SolicitudLocalEstado) => void;
   deleteSolicitud: (id: string) => void;
@@ -117,10 +125,35 @@ function generateSolicitudId(): string {
 export function SolicitudesProvider({ children }: { children: ReactNode }) {
   const [solicitudes, setSolicitudes] = useState<SolicitudLocal[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [usesSupabase, setUsesSupabase] = useState(false);
 
   useEffect(() => {
-    setSolicitudes(readSolicitudesFromStorage());
-    setIsHydrated(true);
+    let cancelled = false;
+
+    void (async () => {
+      if (isSupabaseConfigured()) {
+        const remote = await loadSolicitudesFromSupabase();
+        if (cancelled) return;
+
+        if (remote.ok && remote.solicitudes.length > 0) {
+          setSolicitudes(remote.solicitudes);
+          setUsesSupabase(true);
+          writeSolicitudesToStorage(remote.solicitudes);
+          setIsHydrated(true);
+          return;
+        }
+      }
+
+      if (!cancelled) {
+        setSolicitudes(readSolicitudesFromStorage());
+        setUsesSupabase(false);
+        setIsHydrated(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const persist = useCallback((next: SolicitudLocal[]) => {
@@ -154,6 +187,12 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
         return next;
       });
 
+      if (isSupabaseConfigured()) {
+        void insertSolicitudInSupabase(solicitud).then((result) => {
+          if (result.ok) setUsesSupabase(true);
+        });
+      }
+
       return solicitud;
     },
     [],
@@ -166,6 +205,10 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
         writeSolicitudesToStorage(next);
         return next;
       });
+
+      if (isSupabaseConfigured()) {
+        void updateSolicitudEstadoInSupabase(id, estado);
+      }
     },
     [],
   );
@@ -176,6 +219,10 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
       writeSolicitudesToStorage(next);
       return next;
     });
+
+    if (isSupabaseConfigured()) {
+      void deleteSolicitudFromSupabase(id);
+    }
   }, []);
 
   const clearSolicitudes = useCallback(() => {
@@ -186,6 +233,7 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
     () => ({
       solicitudes,
       isHydrated,
+      usesSupabase,
       createSolicitud,
       updateSolicitudEstado,
       deleteSolicitud,
@@ -194,6 +242,7 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
     [
       solicitudes,
       isHydrated,
+      usesSupabase,
       createSolicitud,
       updateSolicitudEstado,
       deleteSolicitud,

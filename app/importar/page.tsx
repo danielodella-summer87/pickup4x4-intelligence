@@ -1027,11 +1027,18 @@ export default function ImportarPage() {
     source,
     generatedAt,
     hasLocalPersistence,
+    hasSupabasePersistence,
     lastPersistResult,
+    lastSupabaseResult,
+    supabaseConnection,
+    supabaseError,
+    isSavingToSupabase,
+    saveToSupabase,
     setDataset,
     clearDataset,
     clearLocalDataset,
   } = useDataset();
+  const [supabaseSaveMessage, setSupabaseSaveMessage] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadedFiles>({
     clientes: null,
@@ -1154,11 +1161,12 @@ export default function ImportarPage() {
         console.info("[Importar] setDataset completado", persistResult);
       }
 
+      setSupabaseSaveMessage(null);
       setDatasetBuildProgress({
         active: true,
         percent: 100,
         message: persistResult.persistedDurably
-          ? "Dataset aplicado y persistido"
+          ? "Dataset aplicado y persistido localmente"
           : "Dataset aplicado en memoria",
       });
     } catch (error) {
@@ -1191,26 +1199,27 @@ export default function ImportarPage() {
             Preparación de carga
           </p>
           <p className="mt-3 max-w-3xl text-sm text-slate-300 sm:text-base">
-            Carga controlada desde Excel/KORE hacia Pickup 4x4 Intelligence. Los
-            archivos se procesan solo en tu navegador; no se envían al servidor ni
-            se guardan en base de datos.
+            Carga controlada desde Excel/KORE hacia Pickup 4x4 Intelligence. El
+            procesamiento del Excel ocurre en tu navegador. Después de generar el
+            dataset, usá <strong className="font-medium text-sky-200">Guardar en Supabase</strong>{" "}
+            para que Vercel y otros dispositivos vean los mismos datos.
           </p>
 
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/95">
-            <strong className="font-semibold text-amber-200">
-              Persistencia local temporal:
-            </strong>{" "}
-            estos datos viven solo en este navegador y no sustituyen una base de
-            datos.
+          <div className="mt-4 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100/95">
+            <strong className="font-semibold text-sky-200">Respaldo en la nube:</strong>{" "}
+            la copia local del navegador no reemplaza a Supabase. Sin guardar en la nube,
+            el despliegue en Vercel seguirá en Mock.
           </div>
 
           <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-400">
             <span>Fuente activa del sistema:</span>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                source === "excel"
-                  ? "bg-emerald-500/15 text-emerald-300"
-                  : "bg-slate-700/80 text-slate-300"
+                source === "supabase"
+                  ? "bg-violet-500/15 text-violet-300"
+                  : source === "excel"
+                    ? "bg-emerald-500/15 text-emerald-300"
+                    : "bg-slate-700/80 text-slate-300"
               }`}
             >
               {formatDatasetSourceLabel(source, {
@@ -1221,6 +1230,11 @@ export default function ImportarPage() {
                   !hasLocalPersistence,
               })}
             </span>
+            {hasSupabasePersistence ? (
+              <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-semibold text-violet-300">
+                Fuente: Supabase
+              </span>
+            ) : null}
             {hasLocalPersistence ? (
               <span className="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-semibold text-sky-300">
                 Excel persistido localmente
@@ -1241,7 +1255,24 @@ export default function ImportarPage() {
             ) : null}
           </p>
 
-          {source === "excel" && generatedDataset ? (
+          {supabaseConnection && !supabaseConnection.connected && supabaseConnection.configured ? (
+            <p className="mt-3 text-sm text-amber-300/90">
+              Supabase configurado pero sin conexión: {supabaseConnection.message}
+            </p>
+          ) : null}
+          {supabaseSaveMessage ? (
+            <p className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-200">
+              {supabaseSaveMessage}
+            </p>
+          ) : null}
+          {(supabaseError || (lastSupabaseResult && !lastSupabaseResult.ok)) ? (
+            <p className="mt-2 text-sm text-amber-300/90">
+              No se pudo guardar en Supabase:{" "}
+              {supabaseError ?? lastSupabaseResult?.errorMessage}
+            </p>
+          ) : null}
+
+          {(source === "excel" || source === "supabase") && generatedDataset ? (
             <div className="mt-4 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -1469,6 +1500,20 @@ export default function ImportarPage() {
           >
             {isBuildingDataset ? "Generando dataset…" : "Generar dataset interno"}
           </button>
+          <button
+            type="button"
+            disabled={!generatedDataset || isSavingToSupabase || isBuildingDataset}
+            onClick={async () => {
+              setSupabaseSaveMessage(null);
+              const result = await saveToSupabase();
+              if (result.ok) {
+                setSupabaseSaveMessage("Dataset guardado en Supabase");
+              }
+            }}
+            className={`${secondaryCtaClass} mt-3 sm:mt-0 sm:ml-3`}
+          >
+            {isSavingToSupabase ? "Guardando en Supabase…" : "Guardar en Supabase"}
+          </button>
           {isBuildingDataset ? (
             <p className="mt-3 text-sm font-medium text-violet-300">
               {datasetBuildProgress.message || "Normalizando datos…"}
@@ -1501,7 +1546,7 @@ export default function ImportarPage() {
           </div>
         ) : null}
 
-        {generatedDataset && source === "excel" ? (
+        {generatedDataset && (source === "excel" || source === "supabase") ? (
           <SectionCard
             title="Dataset interno generado"
             description={`Procesado en ${generatedDataset.stats.buildTimeMs} ms`}
