@@ -52,6 +52,11 @@ export function ArticuloMostradorCard({
           {articulo.cantidadAplicacionesVehiculo} aplicación
           {articulo.cantidadAplicacionesVehiculo === 1 ? "" : "es"} para este auto
         </span>
+        {articulo.requiereRevisionAplicacion ? (
+          <span className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200">
+            Aplicación a revisar
+          </span>
+        ) : null}
         {articulo.esAltaRotacion ? (
           <span className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200">
             Alta rotación

@@ -61,6 +61,28 @@ export {
 } from "@/lib/excel/read-workbook";
 
 export {
+  COMMERCIAL_CONFIDENCE_HIGH,
+  COMMERCIAL_CONFIDENCE_MEDIUM,
+  MIN_NORM_CONFIDENCE,
+  countApplicationsByValidationStatus,
+  resolveApplicationValidation,
+  REVIEW_REASON_MANUAL_VALIDATION,
+  isObviousGarbageVehicleText,
+  isUsableVehicleMarcaText,
+  isUsableVehicleModeloText,
+  normalizeVehicleDisplayText,
+  withDefaultApplicationConfidenceFields,
+} from "@/lib/excel/application-confidence";
+
+export {
+  buildApplicationAudit,
+  type ApplicationAuditReport,
+  type ApplicationAuditRankedItem,
+  type ApplicationAuditReference,
+  type ExcludedApplicationExample,
+} from "@/lib/excel/application-audit";
+
+export {
   buildPickupDatasetFromRows,
   type BuildPickupDatasetParams,
   type DatasetWarning,

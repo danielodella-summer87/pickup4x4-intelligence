@@ -180,6 +180,46 @@ export default function DashboardPage() {
           />
         </div>
 
+        {dataset?.applicationAudit ? (
+          <SectionCard
+            title="Calidad del catálogo"
+            description="Confianza comercial de aplicaciones vehículo ↔ artículo (sin bloquear el uso)"
+          >
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                label="Aplicaciones válidas"
+                value={dataset.applicationAudit.aplicacionesAltaConfianza.toLocaleString(
+                  "es-AR",
+                )}
+                hint="Alta confianza (≥ 85%)"
+                trend="up"
+              />
+              <StatCard
+                label="Aplicaciones en revisión"
+                value={dataset.applicationAudit.aplicacionesRevision.toLocaleString(
+                  "es-AR",
+                )}
+                hint="Confianza media (55–85%)"
+                trend="neutral"
+              />
+              <StatCard
+                label="Aplicaciones excluidas"
+                value={dataset.applicationAudit.aplicacionesExcluidas.toLocaleString(
+                  "es-AR",
+                )}
+                hint="Confianza baja (< 55%)"
+                trend="down"
+              />
+              <StatCard
+                label="% aprovechamiento real"
+                value={`${dataset.applicationAudit.porcentajeAprovechamientoReal}%`}
+                hint={`${dataset.applicationAudit.aplicacionesUtilizables.toLocaleString("es-AR")} utilizables vs preview`}
+                trend="up"
+              />
+            </div>
+          </SectionCard>
+        ) : null}
+
         <SectionCard
           title="Lectura comercial rápida"
           description="Lo más destacado de tu base actual, en lenguaje de negocio"

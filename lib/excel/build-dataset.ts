@@ -1,3 +1,8 @@
+import { countApplicationsByValidationStatus } from "@/lib/excel/application-confidence";
+import {
+  buildApplicationAudit,
+  type ApplicationAuditReport,
+} from "@/lib/excel/application-audit";
 import {
   attachRowPreviewsToReport,
   classifyWarningSeverity,
@@ -40,6 +45,8 @@ export type PickupDatasetStats = {
   articulosInputRows: number;
   articulosUnicos: number;
   aplicacionesGenerated: number;
+  aplicacionesAltaConfianza?: number;
+  aplicacionesRevision?: number;
   marcasDetectadas: number;
   modelosDetectados: number;
   codigosConMultiplesAplicaciones: number;
@@ -66,6 +73,7 @@ export type PickupDataset = {
   warnings: DatasetWarning[];
   dataQuality: DataQualityReport;
   smartNormalization: SmartNormalizationReport;
+  applicationAudit?: ApplicationAuditReport;
   stats: PickupDatasetStats;
 };
 
@@ -152,6 +160,15 @@ export function buildPickupDatasetFromRows(
     collector,
     normRegistry,
   );
+
+  const aplicacionesPorConfianza =
+    countApplicationsByValidationStatus(aplicaciones);
+
+  const applicationAudit = buildApplicationAudit(params.articulosRows, normRegistry, {
+    totalUtilizables: aplicacionesPorConfianza.totalUtilizables,
+    altaConfianza: aplicacionesPorConfianza.validas,
+    revision: aplicacionesPorConfianza.revision,
+  });
 
   const articuloCodigos = new Set(articulos.map((item) => item.codigoUnico));
 
@@ -244,6 +261,16 @@ export function buildPickupDatasetFromRows(
     );
   }
 
+  if (aplicacionesPorConfianza.revision > 0) {
+    pushWarning(
+      warnings,
+      "APLICACIONES_CONFIANZA_MEDIA",
+      "Aplicaciones con confianza media incluidas; revisar marca/modelo sin bloquear importación",
+      aplicacionesPorConfianza.revision,
+      "revisar",
+    );
+  }
+
   const ventasSinArticuloIssue = dataQuality.issuesBySeverity.revisar.find(
     (i) => i.code === "VENTAS_SIN_ARTICULO_RELACIONADO",
   );
@@ -287,6 +314,7 @@ export function buildPickupDatasetFromRows(
     warnings,
     dataQuality,
     smartNormalization,
+    applicationAudit,
     stats: {
       clientesInputRows: params.clientesRows.length,
       clientesNormalized: clientes.length,
@@ -301,6 +329,8 @@ export function buildPickupDatasetFromRows(
       articulosInputRows: params.articulosRows.length,
       articulosUnicos: articulos.length,
       aplicacionesGenerated: aplicaciones.length,
+      aplicacionesAltaConfianza: aplicacionesPorConfianza.validas,
+      aplicacionesRevision: aplicacionesPorConfianza.revision,
       marcasDetectadas: marcas.length,
       modelosDetectados: modelos.length,
       codigosConMultiplesAplicaciones,

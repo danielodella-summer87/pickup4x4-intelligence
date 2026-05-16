@@ -37,6 +37,8 @@ export type ArticuloMostrador = {
   cantidadAplicacionesTotal: number;
   esAltaRotacion: boolean;
   esUniversal: boolean;
+  /** Alguna aplicación para este vehículo tiene confianza media (revisión). */
+  requiereRevisionAplicacion: boolean;
 };
 
 export type FiltrosMostrador = {
@@ -142,6 +144,7 @@ function toArticuloMostrador(
   aplicacionesTotales: Map<string, number>,
   modelosDistintos: Map<string, number>,
   altaRotacion: Set<string>,
+  requiereRevisionAplicacion: boolean,
 ): ArticuloMostrador | null {
   if (!isDescripcionUsable(articulo.descripcion)) return null;
   if (!articulo.activo) return null;
@@ -158,6 +161,7 @@ function toArticuloMostrador(
     cantidadAplicacionesTotal: totalApps,
     esAltaRotacion: altaRotacion.has(codigo),
     esUniversal: esArticuloUniversal(codigo, aplicacionesTotales, modelosDistintos),
+    requiereRevisionAplicacion,
   };
 }
 
@@ -232,10 +236,14 @@ export function getArticulosPorVehiculo(
   const altaRotacion = getArticulosAltaRotacion(data);
 
   const porCodigo = new Map<string, number>();
+  const revisionPorCodigo = new Map<string, boolean>();
 
   for (const ap of getAplicacionesValidas(data)) {
     if (ap.marcaId !== marcaId || ap.modeloId !== modeloId) continue;
     porCodigo.set(ap.codigoUnico, (porCodigo.get(ap.codigoUnico) ?? 0) + 1);
+    if (ap.requiresReview || ap.validationStatus === "review") {
+      revisionPorCodigo.set(ap.codigoUnico, true);
+    }
   }
 
   const resultados: ArticuloMostrador[] = [];
@@ -250,6 +258,7 @@ export function getArticulosPorVehiculo(
       aplicacionesTotales,
       modelosDistintos,
       altaRotacion,
+      revisionPorCodigo.get(codigo) ?? false,
     );
     if (!mostrador) continue;
 

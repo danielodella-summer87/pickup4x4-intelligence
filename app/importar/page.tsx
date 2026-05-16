@@ -14,6 +14,7 @@ import { SectionCard } from "@/components/SectionCard";
 import { StatCard } from "@/components/StatCard";
 import { EXCEL_WORKBOOKS } from "@/lib/excel/column-map";
 import { buildPickupDatasetFromRows } from "@/lib/excel/build-dataset";
+import type { ApplicationAuditReport } from "@/lib/excel/application-audit";
 import type {
   ClassifiedQualityIssue,
   DataQualityReport,
@@ -622,6 +623,195 @@ const datasetLabel: Record<string, string> = {
   ventas: "Diario de ventas",
   articulos: "Artículos y aplicaciones",
 };
+
+function ApplicationAuditBlock({ audit }: { audit: ApplicationAuditReport }) {
+  return (
+    <div className="mt-6 border-t border-slate-800 pt-6">
+      <h3 className="text-sm font-semibold text-white">Auditoría de aplicaciones</h3>
+      <p className="mt-1 text-xs text-slate-500">
+        Alta confianza (≥ 85% con match canónico). Revisión: marca/modelo legibles aunque
+        no canonice (incluidas sin bloquear). Excluidas: vacías o basura evidente.
+      </p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <StatCard
+          label="Total leído (filas)"
+          value={audit.filasOriginales.toLocaleString("es-AR")}
+          hint={`${audit.aplicacionesAntesFiltros.toLocaleString("es-AR")} en preview`}
+        />
+        <StatCard
+          label="Alta confianza"
+          value={audit.aplicacionesAltaConfianza.toLocaleString("es-AR")}
+          hint={`${audit.porcentajeAltaConfianza}% del preview`}
+        />
+        <StatCard
+          label="Revisión"
+          value={audit.aplicacionesRevision.toLocaleString("es-AR")}
+          hint={`${audit.porcentajeRevision}% · incluidas en dataset`}
+        />
+        <StatCard
+          label="Excluidas"
+          value={audit.aplicacionesExcluidas.toLocaleString("es-AR")}
+          hint={`${audit.porcentajeExcluidas}% · confianza baja`}
+        />
+        <StatCard
+          label="% aprovechamiento real"
+          value={`${audit.porcentajeAprovechamientoReal}%`}
+          hint={`${audit.aplicacionesUtilizables.toLocaleString("es-AR")} utilizables`}
+        />
+      </div>
+
+      <p className="mt-4 text-xs text-slate-500">
+        Filas vacías: {audit.filasVacias.toLocaleString("es-AR")} · sin código:{" "}
+        {audit.filasSinCodigo.toLocaleString("es-AR")} · sin marca/modelo en preview:{" "}
+        {audit.filasSinMarcaModeloEnPreview.toLocaleString("es-AR")}
+      </p>
+
+      {audit.topMotivosRevision.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-amber-500/90">
+            Top motivos en revisión
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-amber-500/20">
+            <table className="w-full min-w-[480px] text-left text-xs">
+              <thead>
+                <tr className="bg-slate-950/80 text-slate-400">
+                  <th className="px-3 py-2 font-medium">Motivo</th>
+                  <th className="px-3 py-2 text-right font-medium">Casos</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-200">
+                {audit.topMotivosRevision.map((item) => (
+                  <tr key={item.label} className="border-t border-slate-800">
+                    <td className="max-w-lg truncate px-3 py-2">{item.label}</td>
+                    <td className="px-3 py-2 text-right">{item.count.toLocaleString("es-AR")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {audit.topMotivos.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            Top motivos de exclusión
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
+            <table className="w-full min-w-[480px] text-left text-xs">
+              <thead>
+                <tr className="bg-slate-950/80 text-slate-400">
+                  <th className="px-3 py-2 font-medium">Motivo</th>
+                  <th className="px-3 py-2 text-right font-medium">Casos</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-200">
+                {audit.topMotivos.map((item) => (
+                  <tr key={item.label} className="border-t border-slate-800">
+                    <td className="max-w-lg px-3 py-2">{item.label}</td>
+                    <td className="px-3 py-2 text-right">{item.count.toLocaleString("es-AR")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {audit.topMarcasExcluidas.length > 0 ? (
+        <details className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+          <summary className="cursor-pointer text-xs font-medium text-slate-400">
+            Top 20 marcas originales en filas excluidas
+          </summary>
+          <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-300">
+            {audit.topMarcasExcluidas.map((item) => (
+              <li key={item.label} className="flex justify-between gap-4">
+                <span className="truncate">{item.label}</span>
+                <span className="shrink-0 text-slate-500">{item.count}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {audit.topModelosExcluidos.length > 0 ? (
+        <details className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+          <summary className="cursor-pointer text-xs font-medium text-slate-400">
+            Top 20 modelos originales en filas excluidas
+          </summary>
+          <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-300">
+            {audit.topModelosExcluidos.map((item) => (
+              <li key={item.label} className="flex justify-between gap-4">
+                <span className="truncate">{item.label}</span>
+                <span className="shrink-0 text-slate-500">{item.count}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {audit.ejemplosFilasExcluidas.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            Ejemplos de filas excluidas (hasta 20)
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
+            <table className="w-full min-w-[720px] text-left text-xs">
+              <thead>
+                <tr className="bg-slate-950/80 text-slate-400">
+                  <th className="px-3 py-2 font-medium">Fila</th>
+                  <th className="px-3 py-2 font-medium">Código</th>
+                  <th className="px-3 py-2 font-medium">Descripción</th>
+                  <th className="px-3 py-2 font-medium">Marca orig.</th>
+                  <th className="px-3 py-2 font-medium">Modelo orig.</th>
+                  <th className="px-3 py-2 font-medium">Motivo</th>
+                  <th className="px-3 py-2 font-medium">Conf.</th>
+                  <th className="px-3 py-2 font-medium">Preview</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-200">
+                {audit.ejemplosFilasExcluidas.map((row) => (
+                  <tr
+                    key={`${row.rowIndex}-${row.motivo}`}
+                    className="border-t border-slate-800"
+                  >
+                    <td className="px-3 py-2">{row.rowIndex + 1}</td>
+                    <td className="px-3 py-2 font-mono text-slate-300">
+                      {row.codigoUnico ?? "—"}
+                    </td>
+                    <td className="max-w-[140px] truncate px-3 py-2">
+                      {row.descripcion ?? "—"}
+                    </td>
+                    <td className="max-w-[100px] truncate px-3 py-2">
+                      {row.marcaOriginal ?? "—"}
+                    </td>
+                    <td className="max-w-[100px] truncate px-3 py-2">
+                      {row.modeloOriginal ?? "—"}
+                    </td>
+                    <td className="max-w-[200px] px-3 py-2">{row.motivo}</td>
+                    <td className="px-3 py-2">
+                      {row.confianza !== undefined
+                        ? row.confianza.toFixed(2)
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.teniaAplicacionPreview ? (
+                        <span className="text-amber-300">Sí</span>
+                      ) : (
+                        <span className="text-slate-500">No</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function DataQualityBlock({ report }: { report: DataQualityReport }) {
   const { severity } = report;
@@ -1367,6 +1557,35 @@ export default function ImportarPage() {
                 )}
                 hint={`${generatedDataset.stats.codigosConMultiplesAplicaciones} códigos repetidos`}
               />
+            </div>
+
+            {generatedDataset.applicationAudit ? (
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <StatCard
+                  label="Alta confianza"
+                  value={generatedDataset.applicationAudit.aplicacionesAltaConfianza.toLocaleString(
+                    "es-AR",
+                  )}
+                  hint="≥ 85% confianza"
+                />
+                <StatCard
+                  label="Revisión"
+                  value={generatedDataset.applicationAudit.aplicacionesRevision.toLocaleString(
+                    "es-AR",
+                  )}
+                  hint="Incluidas · conviene revisar"
+                />
+                <StatCard
+                  label="Excluidas"
+                  value={generatedDataset.applicationAudit.aplicacionesExcluidas.toLocaleString(
+                    "es-AR",
+                  )}
+                  hint="Confianza &lt; 55%"
+                />
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <StatCard
                 label="Marcas detectadas"
                 value={String(generatedDataset.stats.marcasDetectadas)}
@@ -1399,6 +1618,9 @@ export default function ImportarPage() {
             ) : null}
 
             <DataQualityBlock report={generatedDataset.dataQuality} />
+            {generatedDataset.applicationAudit ? (
+              <ApplicationAuditBlock audit={generatedDataset.applicationAudit} />
+            ) : null}
             <SmartNormalizationBlock report={generatedDataset.smartNormalization} />
 
             {codigosRepetidosGenerados.length > 0 ? (

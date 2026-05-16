@@ -1,4 +1,5 @@
 import { buildCodigoAplicacion } from "@/lib/excel/application-code";
+import { withDefaultApplicationConfidenceFields } from "@/lib/excel/application-confidence";
 import {
   ARTICULOS_COLUMNS,
   CLIENTES_COLUMNS,
@@ -220,15 +221,20 @@ export function mapArticuloAplicacionRows(
     const index = aplicacionIndexPorCodigo.get(codigoUnico) ?? 0;
     aplicacionIndexPorCodigo.set(codigoUnico, index + 1);
 
-    aplicaciones.push({
-      codigoAplicacion: buildCodigoAplicacion(codigoUnico, index),
-      codigoUnico,
-      marcaId,
-      modeloId,
-      anioDesde: anioDesde ?? 0,
-      anioHasta: anioHasta ?? anioDesde ?? 0,
-      observaciones: normalizeText(pickRowValue(row, ARTICULOS_COLUMNS.observaciones)),
-    });
+    aplicaciones.push(
+      withDefaultApplicationConfidenceFields({
+        codigoAplicacion: buildCodigoAplicacion(codigoUnico, index),
+        codigoUnico,
+        marcaId,
+        modeloId,
+        anioDesde: anioDesde ?? 0,
+        anioHasta: anioHasta ?? anioDesde ?? 0,
+        observaciones: normalizeText(pickRowValue(row, ARTICULOS_COLUMNS.observaciones)),
+        confidence: 1,
+        validationStatus: "valid",
+        requiresReview: false,
+      }),
+    );
   }
 
   return {

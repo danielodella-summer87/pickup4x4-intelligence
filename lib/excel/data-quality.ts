@@ -1,5 +1,9 @@
 import { buildCodigoAplicacion } from "@/lib/excel/application-code";
 import {
+  MIN_NORM_CONFIDENCE,
+  resolveApplicationValidation,
+} from "@/lib/excel/application-confidence";
+import {
   ARTICULOS_COLUMNS,
   CLIENTES_COLUMNS,
   VENTAS_COLUMNS,
@@ -246,7 +250,7 @@ export function classifyDataQualityReport(
 
 const SIN_CATEGORIA = "Sin categoría";
 const SIN_DESCRIPCION_ARTICULO = "Artículo sin descripción";
-const MIN_NORM_CONFIDENCE = 0.75;
+export { MIN_NORM_CONFIDENCE };
 
 function slugId(prefix: string, raw: string): string {
   const slug = raw
@@ -838,29 +842,27 @@ export function processArticulosWithQuality(
 
     const marcaRaw = normalizeText(pickRowValue(row, ARTICULOS_COLUMNS.marcaVehiculo));
     const marcaNorm = normalizeMarca(marcaRaw, normRegistry);
-    if (!marcaNorm.canonical || marcaNorm.confidence < MIN_NORM_CONFIDENCE) {
-      collector.excludeRow(
-        "articulos",
-        rowIndex,
-        ["marcaVehiculo"],
-        marcaRaw
-          ? `Marca ambigua o basura: "${marcaRaw}"`
-          : "Marca de vehículo ausente",
-      );
-      normRegistry.incrementExclusions();
-      return;
-    }
 
     const modeloRaw = normalizeText(pickRowValue(row, ARTICULOS_COLUMNS.modeloVehiculo));
-    const modeloNorm = normalizeModelo(modeloRaw, marcaNorm.canonical, normRegistry);
-    if (!modeloNorm.canonical || modeloNorm.confidence < MIN_NORM_CONFIDENCE) {
+    const modeloNorm = normalizeModelo(
+      modeloRaw,
+      marcaNorm.canonical ?? undefined,
+      normRegistry,
+    );
+
+    const validation = resolveApplicationValidation(
+      marcaNorm,
+      modeloNorm,
+      marcaRaw,
+      modeloRaw,
+    );
+
+    if (!validation.include) {
       collector.excludeRow(
         "articulos",
         rowIndex,
-        ["modeloVehiculo"],
-        modeloRaw
-          ? `Modelo ambiguo o basura: "${modeloRaw}"`
-          : "Modelo de vehículo ausente",
+        validation.campos,
+        validation.motivo,
       );
       normRegistry.incrementExclusions();
       return;
@@ -872,7 +874,7 @@ export function processArticulosWithQuality(
         rowIndex,
         campo: "marcaVehiculo",
         valorOriginal: marcaRaw ?? null,
-        valorFinal: marcaNorm.canonical,
+        valorFinal: marcaNorm.canonical ?? marcaRaw ?? "",
         motivo: `Marca unificada (${marcaNorm.method})`,
       });
     }
@@ -883,13 +885,13 @@ export function processArticulosWithQuality(
         rowIndex,
         campo: "modeloVehiculo",
         valorOriginal: modeloRaw ?? null,
-        valorFinal: modeloNorm.canonical,
+        valorFinal: modeloNorm.canonical ?? modeloRaw ?? "",
         motivo: `Modelo unificado (${modeloNorm.method})`,
       });
     }
 
-    const marcaNombre = marcaNorm.canonical;
-    const modeloNombre = modeloNorm.canonical;
+    const marcaNombre = validation.marcaNombre;
+    const modeloNombre = validation.modeloNombre;
 
     const marcaId = slugId("marca", marcaNombre);
     const modeloId = slugId("modelo", `${marcaNombre}-${modeloNombre}`);
@@ -914,6 +916,12 @@ export function processArticulosWithQuality(
       anioDesde: anioDesde ?? 0,
       anioHasta: anioHasta ?? anioDesde ?? 0,
       observaciones: normalizeText(pickRowValue(row, ARTICULOS_COLUMNS.observaciones)),
+      confidence: validation.confidence,
+      validationStatus: validation.validationStatus,
+      requiresReview: validation.requiresReview,
+      reviewReason: validation.reviewReason,
+      marcaLegible: validation.marcaLegible,
+      modeloLegible: validation.modeloLegible,
     });
   });
 
