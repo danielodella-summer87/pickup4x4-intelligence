@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { SideMenu } from "@/components/SideMenu";
+import { TutorialLink } from "@/components/TutorialLink";
 import { getNavItemByPath } from "@/lib/navigation";
 
 type AppShellProps = {
@@ -28,13 +29,18 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b border-slate-800 bg-slate-900/50 px-4 py-4 sm:px-6">
-          <p className="text-xs uppercase tracking-wider text-slate-500">
-            Módulo activo
-          </p>
-          <h1 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-            {title}
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">{description}</p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wider text-slate-500">
+                Módulo activo
+              </p>
+              <h1 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
+                {title}
+              </h1>
+              <p className="mt-1 text-sm text-slate-400">{description}</p>
+            </div>
+            <TutorialLink className="shrink-0 self-start" />
+          </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
