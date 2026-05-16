@@ -1,6 +1,12 @@
 import type { ActivePickupData } from "@/lib/data/pickup-data";
 import { formatClienteEstado, formatMesComercial } from "@/lib/data/insights";
 import type { Cliente, ClienteEstado } from "@/lib/models/cliente";
+import {
+  formatVentaFechaDisplay,
+  getMesClaveFromVentaFecha,
+  isVentaFechaConfiable,
+  ventasTienenFechasConfiables,
+} from "@/lib/models/venta-fecha";
 
 export const MODULE_LIST_LIMIT = 100;
 
@@ -169,8 +175,10 @@ export type VentasFiltros = {
 export type VentasKpis = {
   totalRegistros: number;
   mesesConActividad: number;
+  comprobantesUnicos: number;
   conArticulo: number;
   sinArticulo: number;
+  fechasConfiables: boolean;
 };
 
 export function buildVentasConsulta(data: ActivePickupData): VentaConsultaFila[] {
@@ -188,8 +196,9 @@ export function buildVentasConsulta(data: ActivePickupData): VentaConsultaFila[]
     const cliente = clienteMap.get(venta.numeroCuenta);
     const clienteNombre = cliente?.razonSocial ?? venta.numeroCuenta;
     const localidad = cliente?.localidad?.trim() || "Sin localidad";
-    const mesClave = venta.fecha.slice(0, 7);
-    const mesEtiqueta = mesClave.length >= 7 ? formatMesComercial(mesClave) : venta.fecha;
+    const mesClave = getMesClaveFromVentaFecha(venta.fecha) ?? "";
+    const mesEtiqueta =
+      mesClave.length >= 7 ? formatMesComercial(mesClave) : "Sin fecha";
     const items = itemsPorVenta.get(venta.id) ?? [];
 
     if (items.length === 0) {
@@ -241,22 +250,41 @@ export function buildVentasConsulta(data: ActivePickupData): VentaConsultaFila[]
     }
   }
 
-  return filas.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return filas.sort((a, b) => {
+    const aOk = isVentaFechaConfiable(a.fecha);
+    const bOk = isVentaFechaConfiable(b.fecha);
+    if (aOk && bOk) return b.fecha.localeCompare(a.fecha);
+    if (aOk) return -1;
+    if (bOk) return 1;
+    return a.comprobante.localeCompare(b.comprobante, "es");
+  });
+}
+
+export function ventasConsultaTienenFechasConfiables(
+  filas: VentaConsultaFila[],
+): boolean {
+  return filas.some((f) => isVentaFechaConfiable(f.fecha));
 }
 
 export function getVentasKpis(filas: VentaConsultaFila[]): VentasKpis {
-  const meses = new Set(filas.map((f) => f.mesClave));
+  const meses = new Set(
+    filas.map((f) => f.mesClave).filter((m) => m.length >= 7),
+  );
   let conArticulo = 0;
   let sinArticulo = 0;
   for (const f of filas) {
     if (f.tieneArticulo) conArticulo += 1;
     else sinArticulo += 1;
   }
+  const fechasConfiables = ventasConsultaTienenFechasConfiables(filas);
+  const comprobantesUnicos = new Set(filas.map((f) => f.comprobante)).size;
   return {
     totalRegistros: filas.length,
-    mesesConActividad: meses.size,
+    mesesConActividad: fechasConfiables ? meses.size : 0,
+    comprobantesUnicos,
     conArticulo,
     sinArticulo,
+    fechasConfiables,
   };
 }
 
@@ -264,10 +292,13 @@ export function getVentasOpcionesFiltro(filas: VentaConsultaFila[]) {
   const meses = new Map<string, string>();
   const localidades = new Set<string>();
   for (const f of filas) {
-    meses.set(f.mesClave, f.mesEtiqueta);
+    if (f.mesClave.length >= 7) {
+      meses.set(f.mesClave, f.mesEtiqueta);
+    }
     localidades.add(f.localidad);
   }
   return {
+    fechasConfiables: ventasConsultaTienenFechasConfiables(filas),
     meses: [...meses.entries()]
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([clave, etiqueta]) => ({ clave, etiqueta })),
@@ -594,7 +625,7 @@ export function filterVehiculos(
 }
 
 export function formatFechaCorta(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  if (!year || !month || !day) return iso;
-  return `${day}/${month}/${year}`;
+  return formatVentaFechaDisplay(iso);
 }
+
+export { ventasTienenFechasConfiables };

@@ -160,6 +160,7 @@ export function buildPickupDatasetFromRows(
     ventaItems,
     ventasSinCliente,
     ventaItemsSinArticulo,
+    ventasSinFecha,
   } = processVentasWithQuality(
     params.ventasRows,
     clientesByCuenta,
@@ -197,6 +198,16 @@ export function buildPickupDatasetFromRows(
       "Ventas excluidas por cliente inválido o ausente en listado",
       ventasSinCliente,
       "revisar",
+    );
+  }
+
+  if (ventasSinFecha > 0) {
+    pushWarning(
+      warnings,
+      "VENTAS_SIN_FECHA",
+      "Ventas importadas sin fecha (se muestran como «Sin fecha»)",
+      ventasSinFecha,
+      "informativo",
     );
   }
 

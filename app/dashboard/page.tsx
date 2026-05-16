@@ -292,11 +292,12 @@ export default function DashboardPage() {
           description="Ritmo de ventas y quién compra con más frecuencia"
         >
           <p className="mb-4 text-xs font-medium uppercase tracking-wider text-slate-500">
-            Ventas por mes
+            Actividad comercial registrada
           </p>
-          {actividadComercial.ventasPorMes.length === 0 ? (
+          {actividadComercial.totalComprobantes === 0 ? (
             <p className="text-sm text-slate-500">Sin registros de venta.</p>
-          ) : (
+          ) : actividadComercial.fechasConfiables &&
+            actividadComercial.ventasPorMes.length > 0 ? (
             <div className="mb-6 flex flex-wrap gap-2">
               {actividadComercial.ventasPorMes.map((row) => (
                 <div
@@ -307,9 +308,27 @@ export default function DashboardPage() {
                   <p className="text-lg font-semibold text-white">
                     {row.cantidadVentas}
                   </p>
-                  <p className="text-[10px] text-slate-600">ventas</p>
+                  <p className="text-[10px] text-slate-600">comprobantes</p>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="mb-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+                <p className="text-xs text-slate-500">Comprobantes registrados</p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {actividadComercial.totalComprobantes.toLocaleString("es-AR")}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+                <p className="text-xs text-slate-500">Líneas de venta</p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {actividadComercial.totalLineasVenta.toLocaleString("es-AR")}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-600">
+                  Sin fechas en el Excel — no se agrupa por mes
+                </p>
+              </div>
             </div>
           )}
 

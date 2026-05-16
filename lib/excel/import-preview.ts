@@ -9,6 +9,8 @@ import {
   normalizeColumnName,
   RECOMMENDED_FIELDS,
   REQUIRED_FIELDS,
+  V1_SCHEMA_MINIMUM_FIELDS,
+  V1_SCHEMA_MINIMUM_LABELS,
   sanitizeExcelHeader,
   type ColumnMap,
   type ColumnMatchKind,
@@ -92,6 +94,22 @@ export type FileColumnDiagnostic = {
 
 export type ImportReadinessStatus = "valida" | "valida_observaciones" | "bloqueada";
 
+export type SchemaCriticalIssue = {
+  datasetKey: ImportDatasetKey;
+  fileLabel: string;
+  fieldKey: string;
+  fieldLabel: string;
+  expectedLabels: string[];
+  diagnosticSummary: string;
+};
+
+export type RowQualityIssue = {
+  code: string;
+  message: string;
+  count?: number;
+  severity: DataQualitySeverity;
+};
+
 export type ColumnDiagnosticsSummary = {
   files: FileColumnDiagnostic[];
   /** @deprecated Usar readiness.status */
@@ -105,10 +123,18 @@ export type ImportReadiness = {
   status: ImportReadinessStatus;
   label: string;
   canBuildDataset: boolean;
+  /** Solo columnas mínimas faltantes en el encabezado del Excel. */
+  schemaCriticalIssues: SchemaCriticalIssue[];
+  /** Filas o mapeos problemáticos: no bloquean la importación en v1. */
+  rowQualityIssues: RowQualityIssue[];
+  blockReason: string | null;
+  estimatedRowsExcluded: number;
   severity: {
-    criticos: number;
+    /** Cantidad de problemas de esquema (bloquean). */
+    schemaCriticos: number;
     revisar: number;
     informativos: number;
+    filasExcluidasEstimadas: number;
   };
 };
 
@@ -132,9 +158,9 @@ const MAP_SAMPLE_SIZE = 200;
 const PREVIEW_HEADER_LIMIT = 20;
 const LOG_PREFIX = "[Pickup ColumnMatch]";
 
-/** Obligatorias en mapa pero no bloquean importación en v1. */
-const V1_NON_BLOCKING_REQUIRED: Partial<Record<ImportDatasetKey, ReadonlySet<string>>> = {
-  ventas: new Set(["importeTotal"]),
+/** Campos legacy en REQUIRED_FIELDS que ya no son mínimos v1 (solo informativo si faltan). */
+const V1_LEGACY_OPTIONAL_REQUIRED: Partial<Record<ImportDatasetKey, ReadonlySet<string>>> = {
+  ventas: new Set(["importeTotal", "fecha"]),
 };
 
 /** Recomendadas / opcionales que en v1 son solo informativas. */
@@ -155,7 +181,7 @@ const V1_INFORMATIVO_FIELDS = new Set([
 const PREVIEW_WARNING_SEVERITY: Record<string, DataQualitySeverity> = {
   CLIENTES_SIN_CUENTA: "revisar",
   VENTAS_SIN_CUENTA: "revisar",
-  VENTAS_SIN_FECHA: "revisar",
+  VENTAS_SIN_FECHA: "informativo",
   ARTICULOS_SIN_CODIGO: "revisar",
   APLICACIONES_SIN_MARCA: "revisar",
   SIN_APLICACIONES_GENERADAS: "revisar",
@@ -165,7 +191,7 @@ const PREVIEW_WARNING_SEVERITY: Record<string, DataQualitySeverity> = {
   CLIENTES_SIN_RAZON_SOCIAL: "informativo",
   VENTAS_SIN_IMPORTE: "informativo",
   ARTICULOS_SIN_DESCRIPCION: "informativo",
-  COLUMNAS_REQUIEREN_AJUSTE: "critico",
+  COLUMNAS_REQUIEREN_AJUSTE: "revisar",
   COLUMNAS_V1_INFORMATIVAS: "informativo",
   COLUMNAS_RECOMENDADAS: "revisar",
   COLUMNAS_NO_USADAS_V1: "informativo",
@@ -208,7 +234,7 @@ function partitionMissingRequired(
   blocking: MissingRequiredColumn[];
   v1Informativo: MissingRequiredColumn[];
 } {
-  const exempt = V1_NON_BLOCKING_REQUIRED[datasetKey] ?? new Set<string>();
+  const exempt = V1_LEGACY_OPTIONAL_REQUIRED[datasetKey] ?? new Set<string>();
   const blocking: MissingRequiredColumn[] = [];
   const v1Informativo: MissingRequiredColumn[] = [];
 
@@ -513,7 +539,7 @@ export function diagnoseFileColumns(
     };
   };
 
-  const missingRequiredRaw = REQUIRED_FIELDS[datasetKey]
+  const missingRequiredRaw = V1_SCHEMA_MINIMUM_FIELDS[datasetKey]
     .filter((fieldKey) => !recognizedKeys.has(fieldKey))
     .map((fieldKey) => buildMissing(fieldKey));
 
@@ -535,8 +561,8 @@ export function diagnoseFileColumns(
 
   const sampleMapSuccessRate = measureMapSuccessRate(datasetKey, rows);
   const { status, statusLabel } = resolveFileStatus(
-    missingRequiredForUi,
-    missingRecommendedForUi,
+    missingRequired,
+    missingRecommended,
     sampleMapSuccessRate,
   );
 
@@ -570,18 +596,81 @@ export function diagnoseFileColumns(
   };
 }
 
+function buildSchemaCriticalIssues(
+  files: FileColumnDiagnostic[],
+): SchemaCriticalIssue[] {
+  const issues: SchemaCriticalIssue[] = [];
+
+  for (const file of files) {
+    const labels = V1_SCHEMA_MINIMUM_LABELS[file.datasetKey];
+    for (const col of file.missingRequiredBlocking) {
+      const idx = V1_SCHEMA_MINIMUM_FIELDS[file.datasetKey].indexOf(col.fieldKey);
+      issues.push({
+        datasetKey: file.datasetKey,
+        fileLabel: file.fileLabel,
+        fieldKey: col.fieldKey,
+        fieldLabel: col.fieldLabel,
+        expectedLabels: idx >= 0 ? [labels[idx] ?? col.fieldLabel] : [col.fieldLabel],
+        diagnosticSummary: col.diagnosticSummary,
+      });
+    }
+  }
+
+  return issues;
+}
+
+function buildRowQualityIssues(
+  previewWarnings: ImportPreviewWarning[],
+): RowQualityIssue[] {
+  const rowCodes = new Set([
+    "CLIENTES_SIN_CUENTA",
+    "CLIENTES_NO_MAPEADOS",
+    "VENTAS_SIN_CUENTA",
+    "VENTAS_NO_MAPEADAS",
+    "ARTICULOS_SIN_CODIGO",
+    "APLICACIONES_SIN_MARCA",
+    "MAPEO_BAJO",
+    "CODIGOS_REPETIDOS",
+    "SIN_APLICACIONES_GENERADAS",
+  ]);
+
+  return previewWarnings
+    .filter((w) => rowCodes.has(w.code) || w.severity === "revisar")
+    .map((w) => ({
+      code: w.code,
+      message: w.message,
+      count: w.count,
+      severity: w.severity,
+    }));
+}
+
+function estimateRowsExcluded(previewWarnings: ImportPreviewWarning[]): number {
+  return previewWarnings.reduce((sum, warning) => {
+    if (
+      warning.code.endsWith("_NO_MAPEADOS") ||
+      warning.code === "CLIENTES_SIN_CUENTA" ||
+      warning.code === "VENTAS_SIN_CUENTA" ||
+      warning.code === "ARTICULOS_SIN_CODIGO"
+    ) {
+      return sum + (warning.count ?? 0);
+    }
+    return sum;
+  }, 0);
+}
+
 export function resolveImportReadiness(
   files: FileColumnDiagnostic[],
   previewWarnings: ImportPreviewWarning[] = [],
+  options?: { allFilesLoaded?: boolean },
 ): ImportReadiness {
-  let criticos = 0;
+  const schemaCriticalIssues = buildSchemaCriticalIssues(files);
+  const rowQualityIssues = buildRowQualityIssues(previewWarnings);
+  const estimatedRowsExcluded = estimateRowsExcluded(previewWarnings);
+
   let revisar = 0;
   let informativos = 0;
 
-  const hasBlockingColumns = files.some((f) => f.status === "incompleto");
-
   for (const file of files) {
-    criticos += file.missingRequiredBlocking.length;
     informativos += file.missingRequiredInformativo.length;
     informativos += file.missingRecommendedInformativo.length;
     revisar += file.missingRecommendedRevisar.length;
@@ -599,22 +688,32 @@ export function resolveImportReadiness(
   }
 
   for (const warning of previewWarnings) {
-    if (warning.severity === "critico") criticos += 1;
-    else if (warning.severity === "revisar") revisar += 1;
-    else informativos += 1;
+    if (warning.severity === "revisar") revisar += 1;
+    else if (warning.severity === "informativo") informativos += 1;
   }
+
+  const sinDatos = previewWarnings.some((w) => w.code === "SIN_DATOS");
+  const hasSchemaBlock = schemaCriticalIssues.length > 0;
+  const allFilesLoaded = options?.allFilesLoaded ?? files.length >= 3;
 
   let status: ImportReadinessStatus;
   let label: string;
+  let blockReason: string | null = null;
 
-  const hasBlockingPreview = previewWarnings.some(
-    (w) => w.code === "COLUMNAS_REQUIEREN_AJUSTE" || w.code === "SIN_DATOS",
-  );
-
-  if (hasBlockingColumns || hasBlockingPreview) {
+  if (sinDatos || !allFilesLoaded) {
     status = "bloqueada";
     label = "Importación bloqueada";
-  } else if (revisar > 0) {
+    blockReason = sinDatos
+      ? "No hay filas para importar en los archivos cargados."
+      : "Faltan archivos Excel por cargar (clientes, ventas y artículos).";
+  } else if (hasSchemaBlock) {
+    status = "bloqueada";
+    label = "Importación bloqueada";
+    const missingLabels = schemaCriticalIssues
+      .map((issue) => `${issue.fileLabel}: ${issue.expectedLabels.join(" / ")}`)
+      .join(" · ");
+    blockReason = `Faltan columnas mínimas en el encabezado: ${missingLabels}`;
+  } else if (revisar > 0 || estimatedRowsExcluded > 0 || rowQualityIssues.length > 0) {
     status = "valida_observaciones";
     label = "Importación válida con observaciones";
   } else {
@@ -625,8 +724,17 @@ export function resolveImportReadiness(
   return {
     status,
     label,
-    canBuildDataset: !hasBlockingColumns,
-    severity: { criticos, revisar, informativos },
+    canBuildDataset: allFilesLoaded && !hasSchemaBlock && !sinDatos,
+    schemaCriticalIssues,
+    rowQualityIssues,
+    blockReason,
+    estimatedRowsExcluded,
+    severity: {
+      schemaCriticos: schemaCriticalIssues.length,
+      revisar,
+      informativos,
+      filasExcluidasEstimadas: estimatedRowsExcluded,
+    },
   };
 }
 
@@ -645,7 +753,9 @@ export function buildColumnDiagnostics(
     files.push(diagnoseFileColumns("articulos", input.articulosAplicaciones));
   }
 
-  const readiness = resolveImportReadiness(files);
+  const readiness = resolveImportReadiness(files, [], {
+    allFilesLoaded: files.length >= 3,
+  });
   const overallStatus =
     readiness.status === "bloqueada" ? "ajustes" : "listo";
   const overallLabel = readiness.label;
@@ -859,14 +969,6 @@ export function buildImportPreview(input: ExcelImportRawInput): ImportPreview {
 
   const columnDiagnostics = buildColumnDiagnostics(input);
 
-  if (columnDiagnostics.readiness.status === "bloqueada") {
-    pushPreviewWarning(
-      advertencias,
-      "COLUMNAS_REQUIEREN_AJUSTE",
-      "Faltan columnas obligatorias para importar",
-    );
-  }
-
   for (const file of columnDiagnostics.files) {
     if (file.missingRequiredInformativo.length > 0) {
       pushPreviewWarning(
@@ -907,7 +1009,16 @@ export function buildImportPreview(input: ExcelImportRawInput): ImportPreview {
   columnDiagnostics.readiness = resolveImportReadiness(
     columnDiagnostics.files,
     advertencias,
+    { allFilesLoaded: true },
   );
+
+  if (columnDiagnostics.readiness.schemaCriticalIssues.length > 0) {
+    pushPreviewWarning(
+      advertencias,
+      "COLUMNAS_MINIMAS_FALTANTES",
+      columnDiagnostics.readiness.blockReason ?? "Faltan columnas mínimas en el Excel",
+    );
+  }
 
   return {
     filasClientes,

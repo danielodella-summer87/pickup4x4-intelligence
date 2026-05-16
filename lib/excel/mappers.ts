@@ -22,6 +22,7 @@ import {
 import type { Articulo, ArticuloAplicacion } from "@/lib/models/articulo";
 import type { Cliente } from "@/lib/models/cliente";
 import type { VehiculoMarca, VehiculoModelo } from "@/lib/models/vehiculo";
+import { resolveVentaFecha } from "@/lib/models/venta-fecha";
 import type { Venta } from "@/lib/models/venta";
 
 export class ExcelMapError extends Error {
@@ -122,13 +123,13 @@ export function mapVentaRow(row: Record<string, unknown>): Venta {
   );
 
   const cuenta = requireField(numeroCuenta, "numeroCuenta", "Diario de Ventas");
-  const fechaIso = requireField(fecha, "fecha", "Diario de Ventas");
+  const fechaIso = resolveVentaFecha(fecha);
   const comprobante = requireField(
     numeroComprobante,
     "numeroComprobante",
     "Diario de Ventas",
   );
-  const total = requireField(importeTotal, "importeTotal", "Diario de Ventas");
+  const total = importeTotal ?? 0;
 
   const tipoComprobante =
     normalizeTipoComprobante(pickRowValue(row, VENTAS_COLUMNS.tipoComprobante)) ??

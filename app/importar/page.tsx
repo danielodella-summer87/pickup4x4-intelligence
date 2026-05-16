@@ -302,19 +302,29 @@ const severityLabel: Record<DataQualitySeverity, string> = {
 };
 
 function SeveritySummaryGrid({
+  schemaCriticos,
   criticos,
   revisar,
   informativos,
   filasExcluidas,
 }: {
-  criticos: number;
+  schemaCriticos?: number;
+  criticos?: number;
   revisar: number;
   informativos: number;
   filasExcluidas?: number;
 }) {
+  const esquema = schemaCriticos ?? criticos ?? 0;
+  const esquemaLabel =
+    schemaCriticos !== undefined ? "Esquema bloqueante" : "Críticos";
+
   return (
     <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Críticos" value={String(criticos)} trend={criticos > 0 ? "down" : "neutral"} />
+      <StatCard
+        label={esquemaLabel}
+        value={String(esquema)}
+        trend={esquema > 0 ? "down" : "neutral"}
+      />
       <StatCard label="Revisar" value={String(revisar)} trend={revisar > 0 ? "down" : "neutral"} />
       <StatCard
         label="Informativos"
@@ -411,7 +421,7 @@ function ColumnDiagnosticBlock({ file }: { file: FileColumnDiagnostic }) {
       {file.missingRequiredBlocking.length > 0 ? (
         <div className="mt-4">
           <p className="text-xs font-medium uppercase tracking-wider text-rose-400/90">
-            Columnas obligatorias faltantes (bloquean importación)
+            Columnas mínimas faltantes (bloquean importación)
           </p>
           <ul className="mt-2 space-y-1 text-xs text-rose-200/90">
             {file.missingRequiredBlocking.map((col) => (
@@ -1065,13 +1075,49 @@ export default function ImportarPage() {
                 {columnDiagnostics.readiness.status === "valida"
                   ? "Podés generar el dataset y usar dashboard y mostrador."
                   : columnDiagnostics.readiness.status === "valida_observaciones"
-                    ? "Podés importar; conviene revisar los puntos marcados en amarillo."
-                    : "Faltan columnas obligatorias. Corregí el Excel antes de continuar."}
+                    ? "Podés generar el dataset. Las filas inválidas se excluyen y quedan registradas."
+                    : "Solo se bloquea si faltan columnas mínimas en el encabezado del Excel."}
               </p>
+              {columnDiagnostics.readiness.status === "bloqueada" &&
+              columnDiagnostics.readiness.blockReason ? (
+                <div className="mt-4 rounded-lg border border-rose-500/35 bg-rose-950/40 p-4">
+                  <p className="text-sm font-semibold text-rose-200">
+                    Motivo real del bloqueo
+                  </p>
+                  <p className="mt-2 text-sm text-rose-100/90">
+                    {columnDiagnostics.readiness.blockReason}
+                  </p>
+                  {columnDiagnostics.readiness.schemaCriticalIssues.length > 0 ? (
+                    <ul className="mt-3 space-y-1.5 text-sm text-rose-100/80">
+                      {columnDiagnostics.readiness.schemaCriticalIssues.map((issue) => (
+                        <li key={`${issue.datasetKey}-${issue.fieldKey}`}>
+                          <span className="font-medium">{issue.fileLabel}</span>
+                          {": "}
+                          {issue.expectedLabels.join(" / ")} (
+                          {issue.fieldLabel})
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+              {columnDiagnostics.readiness.status !== "bloqueada" &&
+              columnDiagnostics.readiness.estimatedRowsExcluded > 0 ? (
+                <p className="mt-3 text-sm text-amber-200/90">
+                  Filas que probablemente se excluirán al generar:{" "}
+                  {columnDiagnostics.readiness.estimatedRowsExcluded.toLocaleString(
+                    "es-AR",
+                  )}
+                  . No bloquean la importación.
+                </p>
+              ) : null}
               <SeveritySummaryGrid
-                criticos={columnDiagnostics.readiness.severity.criticos}
+                schemaCriticos={columnDiagnostics.readiness.severity.schemaCriticos}
                 revisar={columnDiagnostics.readiness.severity.revisar}
                 informativos={columnDiagnostics.readiness.severity.informativos}
+                filasExcluidas={
+                  columnDiagnostics.readiness.severity.filasExcluidasEstimadas
+                }
               />
             </div>
 
@@ -1207,7 +1253,8 @@ export default function ImportarPage() {
             {!allFilesLoaded
               ? "Cargá los 3 archivos Excel para habilitar este paso."
               : !canBuildDataset
-                ? "Faltan columnas obligatorias: la importación está bloqueada hasta corregirlas."
+                ? (importReadiness?.blockReason ??
+                  "Faltan columnas mínimas en el encabezado o archivos por cargar.")
                 : importReadiness?.status === "valida_observaciones"
                   ? "Podés generar el dataset. Revisá las observaciones cuando tengas tiempo."
                   : "Construye el dataset normalizado y aplícalo al sistema (se guarda en localStorage de este navegador)."}

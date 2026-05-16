@@ -26,6 +26,7 @@ import {
 import type { Articulo, ArticuloAplicacion } from "@/lib/models/articulo";
 import type { Cliente } from "@/lib/models/cliente";
 import type { VehiculoMarca, VehiculoModelo } from "@/lib/models/vehiculo";
+import { resolveVentaFecha, VENTA_SIN_FECHA } from "@/lib/models/venta-fecha";
 import type { Venta, VentaItem } from "@/lib/models/venta";
 
 export type DataQualityDataset = "clientes" | "ventas" | "articulos";
@@ -191,7 +192,7 @@ export function classifyDataQualityReport(
 
   for (const row of collector.excludedRows) {
     push({
-      severity: "critico",
+      severity: "revisar",
       code: "FILA_EXCLUIDA",
       message: row.motivo,
       dataset: row.dataset,
@@ -201,8 +202,8 @@ export function classifyDataQualityReport(
 
   for (const error of collector.criticalErrors) {
     push({
-      severity: "critico",
-      code: "ERROR_CRITICO",
+      severity: "revisar",
+      code: "ERROR_FILA",
       message: error.motivo,
       dataset: error.dataset,
       rowIndex: error.rowIndex,
@@ -234,7 +235,8 @@ export function classifyDataQualityReport(
   return {
     severity: {
       criticos: issuesBySeverity.critico.length,
-      revisar: issuesBySeverity.revisar.length,
+      revisar:
+        issuesBySeverity.revisar.length + collector.excludedRows.length,
       informativos: issuesBySeverity.informativo.length,
       filasExcluidas: collector.excludedRows.length,
     },
@@ -504,39 +506,30 @@ export function processClientesWithQuality(
 
     const localidadRaw = normalizeText(pickRowValue(row, CLIENTES_COLUMNS.localidad));
     const localidadNorm = normalizeLocalidad(localidadRaw, normRegistry);
-    if (!localidadNorm.canonical || localidadNorm.confidence < MIN_NORM_CONFIDENCE) {
-      collector.addCritical(
-        "clientes",
-        rowIndex,
-        "localidad",
-        localidadRaw
-          ? `Localidad no confiable: "${localidadRaw}"`
-          : "Localidad ausente o basura",
-      );
-      collector.excludeRow(
-        "clientes",
-        rowIndex,
-        ["localidad"],
-        localidadRaw
-          ? `Localidad ambigua o basura: "${localidadRaw}"`
-          : "Localidad ausente",
-      );
-      normRegistry.incrementExclusions();
-      return;
-    }
+    let localidad = "Sin localidad";
 
-    if (localidadNorm.method !== "dictionary" && localidadNorm.method !== "alias") {
+    if (localidadNorm.canonical && localidadNorm.confidence >= MIN_NORM_CONFIDENCE) {
+      localidad = localidadNorm.canonical;
+      if (localidadNorm.method !== "dictionary" && localidadNorm.method !== "alias") {
+        collector.addFallback({
+          dataset: "clientes",
+          rowIndex,
+          campo: "localidad",
+          valorOriginal: localidadRaw ?? null,
+          valorFinal: localidad,
+          motivo: `Localidad unificada (${localidadNorm.method}, confianza ${(localidadNorm.confidence * 100).toFixed(0)}%)`,
+        });
+      }
+    } else if (localidadRaw) {
       collector.addFallback({
         dataset: "clientes",
         rowIndex,
         campo: "localidad",
-        valorOriginal: localidadRaw ?? null,
-        valorFinal: localidadNorm.canonical,
-        motivo: `Localidad unificada (${localidadNorm.method}, confianza ${(localidadNorm.confidence * 100).toFixed(0)}%)`,
+        valorOriginal: localidadRaw,
+        valorFinal: localidad,
+        motivo: `Localidad no confiable en v1; se usa «${localidad}»`,
       });
     }
-
-    const localidad = localidadNorm.canonical;
 
     const cuitRaw = pickRowValue(row, CLIENTES_COLUMNS.cuit);
     const cuit = normalizeText(cuitRaw);
@@ -581,6 +574,7 @@ export type ProcessVentasQualityResult = {
   ventaItems: VentaItem[];
   ventasSinCliente: number;
   ventaItemsSinArticulo: number;
+  ventasSinFecha: number;
 };
 
 export function processVentasWithQuality(
@@ -595,12 +589,18 @@ export function processVentasWithQuality(
   const ventaIds = new Set<string>();
   let ventasSinCliente = 0;
   let ventaItemsSinArticulo = 0;
+  let ventasSinFecha = 0;
   let itemIndex = 0;
 
   collector.addWarning(
     "ventas",
     "IMPORTES_OMITIDOS_V1",
     "Versión v1: no se utilizan moneda, precios ni importes del Excel",
+  );
+  collector.addWarning(
+    "ventas",
+    "FECHA_OPCIONAL_V1",
+    "Versión v1: la fecha no es obligatoria; las filas sin fecha se importan igual",
   );
 
   rows.forEach((row, rowIndex) => {
@@ -610,16 +610,22 @@ export function processVentasWithQuality(
       return;
     }
 
-    const fecha = normalizeDate(pickRowValue(row, VENTAS_COLUMNS.fecha));
+    const fechaRaw = normalizeDate(pickRowValue(row, VENTAS_COLUMNS.fecha));
+    const fecha = resolveVentaFecha(fechaRaw);
     const numeroCuenta = normalizeCodigoUnico(
       pickRowValue(row, VENTAS_COLUMNS.numeroCuenta),
     );
 
-    if (!fecha) {
-      collector.addCritical("ventas", rowIndex, "fecha", "Falta fecha");
-      collector.excludeRow("ventas", rowIndex, ["fecha"], "Falta fecha");
-      normRegistry.incrementExclusions();
-      return;
+    if (!fechaRaw) {
+      ventasSinFecha += 1;
+      collector.addFallback({
+        dataset: "ventas",
+        rowIndex,
+        campo: "fecha",
+        valorOriginal: null,
+        valorFinal: VENTA_SIN_FECHA,
+        motivo: "Sin fecha en Excel; se conserva la fila para trazabilidad",
+      });
     }
     if (!numeroCuenta) {
       collector.addCritical("ventas", rowIndex, "numeroCuenta", "Falta número de cuenta");
@@ -659,21 +665,6 @@ export function processVentasWithQuality(
         valorFinal: numeroComprobante,
         motivo: "Falta comprobante; identificador sintético por fila",
       });
-    }
-
-    const localidadRaw =
-      normalizeText(pickRowValue(row, VENTAS_COLUMNS.localidadVenta)) ??
-      clientesByCuenta.get(numeroCuenta)?.localidad;
-    const localidadNorm = normalizeLocalidad(localidadRaw, normRegistry);
-    if (!localidadNorm.canonical || localidadNorm.confidence < MIN_NORM_CONFIDENCE) {
-      collector.excludeRow(
-        "ventas",
-        rowIndex,
-        ["localidad"],
-        `Localidad de venta no confiable: "${localidadRaw ?? ""}"`,
-      );
-      normRegistry.incrementExclusions();
-      return;
     }
 
     const tipoComprobante =
@@ -739,6 +730,7 @@ export function processVentasWithQuality(
     ventaItems,
     ventasSinCliente,
     ventaItemsSinArticulo,
+    ventasSinFecha,
   };
 }
 

@@ -138,17 +138,30 @@ export const COLUMN_FIELD_LABELS: Record<string, string> = {
   codigoBarras: "Código barras",
 };
 
-/** Campos sin los cuales el mapper falla o no tiene sentido importar. */
-export const REQUIRED_FIELDS: Record<ImportDatasetKey, readonly string[]> = {
+/**
+ * Columnas mínimas estructurales v1 (encabezado presente en el Excel).
+ * Si falta alguna → importación bloqueada.
+ */
+export const V1_SCHEMA_MINIMUM_FIELDS: Record<ImportDatasetKey, readonly string[]> = {
   clientes: ["numeroCuenta", "razonSocial"],
-  ventas: ["numeroCuenta", "fecha", "numeroComprobante", "importeTotal"],
+  ventas: ["numeroCuenta", "numeroComprobante"],
   articulos: ["codigoUnico", "descripcion", "marcaVehiculo", "modeloVehiculo"],
 };
 
-/** Recomendados para calidad de datos (no bloquean estado compatible). */
+/** @deprecated Usar V1_SCHEMA_MINIMUM_FIELDS */
+export const REQUIRED_FIELDS = V1_SCHEMA_MINIMUM_FIELDS;
+
+/** Etiquetas comerciales de columnas mínimas (UI / mensajes de bloqueo). */
+export const V1_SCHEMA_MINIMUM_LABELS: Record<ImportDatasetKey, readonly string[]> = {
+  clientes: ["Nro.", "Nombre"],
+  ventas: ["Cliente", "Comprobante"],
+  articulos: ["Código único", "Descripción", "Marca", "Modelo"],
+};
+
+/** Recomendados para calidad de datos (no bloquean importación en v1). */
 export const RECOMMENDED_FIELDS: Record<ImportDatasetKey, readonly string[]> = {
   clientes: ["nombreFantasia", "localidad", "cuit"],
-  ventas: ["moneda", "codigoUnico", "descripcion"],
+  ventas: ["fecha", "importeTotal", "moneda", "codigoUnico", "descripcion"],
   articulos: ["rubro", "categoria", "subgrupo"],
 };
 

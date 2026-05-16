@@ -7,6 +7,11 @@ import type { DataQualityReport } from "@/lib/excel/data-quality";
 import type { SmartNormalizationReport } from "@/lib/excel/normalization";
 import type { Articulo, ArticuloAplicacion } from "@/lib/models/articulo";
 import type { Cliente, ClienteEstado } from "@/lib/models/cliente";
+import {
+  getMesClaveFromVentaFecha,
+  isVentaFechaConfiable,
+  ventasTienenFechasConfiables,
+} from "@/lib/models/venta-fecha";
 import type { OportunidadComercial, OportunidadPrioridad } from "@/lib/models/oportunidad";
 import type { SolicitudPresupuesto } from "@/lib/models/solicitud";
 import type { Venta, VentaItem } from "@/lib/models/venta";
@@ -311,7 +316,14 @@ export function getVentasEnriquecidas(
   const clienteMap = buildClienteMap(data);
 
   return [...data.ventas]
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+    .sort((a, b) => {
+      const aOk = isVentaFechaConfiable(a.fecha);
+      const bOk = isVentaFechaConfiable(b.fecha);
+      if (aOk && bOk) return b.fecha.localeCompare(a.fecha);
+      if (aOk) return -1;
+      if (bOk) return 1;
+      return 0;
+    })
     .map((venta) => {
       const cliente = clienteMap.get(venta.numeroCuenta);
       return {
@@ -565,8 +577,7 @@ export type CommercialDashboardInsights = {
     topModelos: RankedCount[];
     aplicacionesPorMarcaModelo: AplicacionPorMarcaModelo[];
   };
-  actividadComercial: {
-    ventasPorMes: VentasPorMes[];
+  actividadComercial: ActividadComercialRegistrada & {
     topClientesPorCompras: TopClienteCompras[];
     topArticulosPorFrecuencia: TopArticuloFrecuencia[];
   };
@@ -621,11 +632,15 @@ export function getClientesPorLocalidad(
 export function getVentasPorMes(
   data: PickupData = defaultPickupData,
 ): VentasPorMes[] {
+  if (!ventasTienenFechasConfiables(data.ventas)) {
+    return [];
+  }
+
   const agrupado = new Map<string, number>();
 
   for (const venta of data.ventas) {
-    const mes = venta.fecha.slice(0, 7);
-    if (!mes || mes.length < 7) continue;
+    const mes = getMesClaveFromVentaFecha(venta.fecha);
+    if (!mes) continue;
     agrupado.set(mes, (agrupado.get(mes) ?? 0) + 1);
   }
 
@@ -636,6 +651,27 @@ export function getVentasPorMes(
       cantidadVentas,
     }))
     .sort((a, b) => a.mes.localeCompare(b.mes));
+}
+
+export type ActividadComercialRegistrada = {
+  fechasConfiables: boolean;
+  totalComprobantes: number;
+  totalLineasVenta: number;
+  ventasPorMes: VentasPorMes[];
+};
+
+export function getActividadComercialRegistrada(
+  data: PickupData = defaultPickupData,
+): ActividadComercialRegistrada {
+  const ventasConItems = new Set(data.ventaItems.map((item) => item.ventaId));
+  const lineasSinItem = data.ventas.filter((v) => !ventasConItems.has(v.id)).length;
+
+  return {
+    fechasConfiables: ventasTienenFechasConfiables(data.ventas),
+    totalComprobantes: data.ventas.length,
+    totalLineasVenta: data.ventaItems.length + lineasSinItem,
+    ventasPorMes: getVentasPorMes(data),
+  };
 }
 
 export function getTopClientesPorCompras(
@@ -901,7 +937,7 @@ export function buildCommercialDashboardInsights(
       aplicacionesPorMarcaModelo: getAplicacionesPorMarcaModelo(8, data),
     },
     actividadComercial: {
-      ventasPorMes: getVentasPorMes(data),
+      ...getActividadComercialRegistrada(data),
       topClientesPorCompras: getTopClientesPorCompras(5, data),
       topArticulosPorFrecuencia: getTopArticulosPorFrecuencia(5, data),
     },

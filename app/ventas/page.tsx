@@ -57,6 +57,8 @@ export default function VentasPage() {
     [filtradas],
   );
 
+  const fechasConfiables = opciones.fechasConfiables;
+
   const hayFiltros =
     filtros.busqueda.trim() !== "" ||
     filtros.mes !== "" ||
@@ -75,8 +77,17 @@ export default function VentasPage() {
             hint={hayFiltros ? "Según filtros activos" : "Líneas de comprobante"}
           />
           <StatCard
-            label="Meses con actividad"
-            value={kpis.mesesConActividad.toLocaleString("es-AR")}
+            label={kpis.fechasConfiables ? "Meses con actividad" : "Comprobantes"}
+            value={
+              kpis.fechasConfiables
+                ? kpis.mesesConActividad.toLocaleString("es-AR")
+                : kpis.comprobantesUnicos.toLocaleString("es-AR")
+            }
+            hint={
+              kpis.fechasConfiables
+                ? undefined
+                : "El Excel no trae fechas confiables"
+            }
           />
           <StatCard
             label="Con artículo"
@@ -104,21 +115,23 @@ export default function VentasPage() {
               hayFiltros ? () => setFiltros(filtrosIniciales) : undefined
             }
           >
-            <FilterField label="Mes">
-              <FilterSelect
-                value={filtros.mes}
-                onChange={(e) =>
-                  setFiltros((prev) => ({ ...prev, mes: e.target.value }))
-                }
-              >
-                <option value="">Todos los meses</option>
-                {opciones.meses.map((mes) => (
-                  <option key={mes.clave} value={mes.clave}>
-                    {mes.etiqueta}
-                  </option>
-                ))}
-              </FilterSelect>
-            </FilterField>
+            {fechasConfiables && opciones.meses.length > 0 ? (
+              <FilterField label="Mes">
+                <FilterSelect
+                  value={filtros.mes}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({ ...prev, mes: e.target.value }))
+                  }
+                >
+                  <option value="">Todos los meses</option>
+                  {opciones.meses.map((mes) => (
+                    <option key={mes.clave} value={mes.clave}>
+                      {mes.etiqueta}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </FilterField>
+            ) : null}
             <FilterField label="Localidad del cliente">
               <FilterSelect
                 value={filtros.localidad}
