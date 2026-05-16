@@ -106,6 +106,7 @@ export default function DashboardPage() {
   const { data } = useActiveDataset();
   const sourceHint = formatDatasetSourceLabel(source, {
     persistedLocally: hasLocalPersistence,
+    inMemoryOnly: source === "excel" && !hasLocalPersistence && dataset !== null,
   });
 
   const insights = useMemo(

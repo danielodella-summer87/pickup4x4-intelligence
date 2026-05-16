@@ -9,193 +9,175 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { DataQualityReport } from "@/lib/excel/data-quality";
 import type { DatasetWarning, PickupDataset } from "@/lib/excel/build-dataset";
-import type { SmartNormalizationReport } from "@/lib/excel/normalization";
+import {
+  clearSessionExcelDataset,
+  type DatasetPersistResult,
+  getSessionExcelSnapshot,
+  hasDurableExcelStorage,
+  hydrateExcelDataset,
+  persistExcelDataset,
+  removePersistedExcelDataset,
+  setSessionExcelDataset,
+} from "@/lib/data/excel-dataset-persistence";
 
 export type DatasetSource = "mock" | "excel";
 
-const STORAGE_KEY = "pickup4x4:excel-dataset";
-const STORAGE_VERSION = 1;
-
-type PersistedExcelPayload = {
-  version: number;
-  source: "excel";
-  generatedAt: string;
-  warnings: DatasetWarning[];
-  dataQuality: DataQualityReport;
-  smartNormalization: SmartNormalizationReport;
-  dataset: PickupDataset;
-};
+export type { DatasetPersistResult };
 
 type DatasetContextValue = {
   dataset: PickupDataset | null;
   source: DatasetSource;
   generatedAt: Date | null;
   warnings: DatasetWarning[];
-  /** true cuando hay dataset Excel guardado en localStorage de este navegador */
+  /** Dataset Excel guardado en localStorage o IndexedDB de este navegador */
   hasLocalPersistence: boolean;
-  /** true tras intentar hidratar desde localStorage (cliente) */
+  /** true tras intentar hidratar almacenamiento (cliente) */
   isStorageHydrated: boolean;
-  setDataset: (dataset: PickupDataset) => void;
+  /** Último resultado al llamar setDataset (null si nunca se generó) */
+  lastPersistResult: DatasetPersistResult | null;
+  setDataset: (dataset: PickupDataset) => Promise<DatasetPersistResult>;
   clearDataset: () => void;
   clearLocalDataset: () => void;
 };
 
 const DatasetContext = createContext<DatasetContextValue | null>(null);
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isArray(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
-
-function isValidPickupDataset(value: unknown): value is PickupDataset {
-  if (!isRecord(value)) return false;
-  return (
-    isArray(value.clientes) &&
-    isArray(value.ventas) &&
-    isArray(value.ventaItems) &&
-    isArray(value.articulos) &&
-    isArray(value.aplicaciones) &&
-    isArray(value.marcas) &&
-    isArray(value.modelos) &&
-    isArray(value.solicitudes) &&
-    isArray(value.oportunidades) &&
-    isArray(value.warnings) &&
-    isRecord(value.stats) &&
-    isRecord(value.dataQuality) &&
-    isRecord(value.smartNormalization)
-  );
-}
-
-function isValidPersistedPayload(value: unknown): value is PersistedExcelPayload {
-  if (!isRecord(value)) return false;
-  if (value.version !== STORAGE_VERSION) return false;
-  if (value.source !== "excel") return false;
-  if (typeof value.generatedAt !== "string") return false;
-  if (Number.isNaN(Date.parse(value.generatedAt))) return false;
-  if (!isArray(value.warnings)) return false;
-  if (!isRecord(value.dataQuality)) return false;
-  if (!isRecord(value.smartNormalization)) return false;
-  if (!isValidPickupDataset(value.dataset)) return false;
-  return true;
-}
-
-function readPersistedExcelPayload(): PersistedExcelPayload | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed: unknown = JSON.parse(raw);
-    if (!isValidPersistedPayload(parsed)) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return null;
+function devLog(message: string, detail?: unknown): void {
+  if (process.env.NODE_ENV === "development") {
+    if (detail !== undefined) {
+      console.info(`[DatasetContext] ${message}`, detail);
+    } else {
+      console.info(`[DatasetContext] ${message}`);
     }
-
-    return parsed;
-  } catch {
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore quota / private mode */
-    }
-    return null;
   }
 }
 
-function writePersistedExcelPayload(
-  dataset: PickupDataset,
-  generatedAt: Date,
-): void {
-  if (typeof window === "undefined") return;
+function readInitialContextState(): {
+  dataset: PickupDataset | null;
+  source: DatasetSource;
+  generatedAt: Date | null;
+  warnings: DatasetWarning[];
+  hasLocalPersistence: boolean;
+} {
+  const snapshot = getSessionExcelSnapshot();
+  if (!snapshot) {
+    return {
+      dataset: null,
+      source: "mock",
+      generatedAt: null,
+      warnings: [],
+      hasLocalPersistence: false,
+    };
+  }
 
-  const payload: PersistedExcelPayload = {
-    version: STORAGE_VERSION,
+  devLog("Estado inicial desde memoria de sesión", {
+    clientes: snapshot.dataset.clientes.length,
+    ventas: snapshot.dataset.ventas.length,
+  });
+
+  return {
+    dataset: snapshot.dataset,
     source: "excel",
-    generatedAt: generatedAt.toISOString(),
-    warnings: dataset.warnings,
-    dataQuality: dataset.dataQuality,
-    smartNormalization: dataset.smartNormalization,
-    dataset,
+    generatedAt: snapshot.generatedAt,
+    warnings: snapshot.warnings,
+    hasLocalPersistence: hasDurableExcelStorage(),
   };
-
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    /* quota exceeded o modo privado */
-  }
-}
-
-function removePersistedExcelPayload(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-function applyPersistedPayload(
-  payload: PersistedExcelPayload,
-  setters: {
-    setDatasetState: (dataset: PickupDataset) => void;
-    setSource: (source: DatasetSource) => void;
-    setGeneratedAt: (date: Date) => void;
-    setWarnings: (warnings: DatasetWarning[]) => void;
-    setHasLocalPersistence: (value: boolean) => void;
-  },
-): void {
-  setters.setDatasetState(payload.dataset);
-  setters.setSource("excel");
-  setters.setGeneratedAt(new Date(payload.generatedAt));
-  setters.setWarnings(payload.warnings);
-  setters.setHasLocalPersistence(true);
 }
 
 export function DatasetProvider({ children }: { children: ReactNode }) {
-  const [dataset, setDatasetState] = useState<PickupDataset | null>(null);
-  const [source, setSource] = useState<DatasetSource>("mock");
-  const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
-  const [warnings, setWarnings] = useState<DatasetWarning[]>([]);
-  const [hasLocalPersistence, setHasLocalPersistence] = useState(false);
-  const [isStorageHydrated, setIsStorageHydrated] = useState(false);
+  const initial = useMemo(() => readInitialContextState(), []);
+
+  const [dataset, setDatasetState] = useState<PickupDataset | null>(initial.dataset);
+  const [source, setSource] = useState<DatasetSource>(initial.source);
+  const [generatedAt, setGeneratedAt] = useState<Date | null>(initial.generatedAt);
+  const [warnings, setWarnings] = useState<DatasetWarning[]>(initial.warnings);
+  const [hasLocalPersistence, setHasLocalPersistence] = useState(
+    initial.hasLocalPersistence,
+  );
+  const [isStorageHydrated, setIsStorageHydrated] = useState(
+    () => initial.source === "excel",
+  );
+  const [lastPersistResult, setLastPersistResult] =
+    useState<DatasetPersistResult | null>(null);
 
   useEffect(() => {
-    const payload = readPersistedExcelPayload();
-    if (payload) {
-      applyPersistedPayload(payload, {
-        setDatasetState,
-        setSource,
-        setGeneratedAt,
-        setWarnings,
-        setHasLocalPersistence,
-      });
+    if (initial.source === "excel") {
+      setHasLocalPersistence(hasDurableExcelStorage());
+      devLog("Sesión Excel ya activa — omitiendo hydrate bloqueante");
+      return;
     }
-    setIsStorageHydrated(true);
-  }, []);
 
-  const setDataset = useCallback((next: PickupDataset) => {
+    let cancelled = false;
+
+    void (async () => {
+      devLog("Hidratando dataset desde almacenamiento…");
+      const payload = await hydrateExcelDataset();
+
+      if (cancelled) return;
+
+      if (payload) {
+        setDatasetState(payload.dataset);
+        setSource("excel");
+        setGeneratedAt(new Date(payload.generatedAt));
+        setWarnings(payload.warnings);
+        setHasLocalPersistence(hasDurableExcelStorage());
+        devLog("Dataset Excel restaurado", {
+          source: "excel",
+          clientes: payload.dataset.clientes.length,
+          ventas: payload.dataset.ventas.length,
+        });
+      } else {
+        devLog("Sin dataset persistido — usando mock hasta importar");
+      }
+
+      setIsStorageHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.source]);
+
+  const setDataset = useCallback(async (next: PickupDataset) => {
     const at = new Date();
+    devLog("setDataset llamado", {
+      clientes: next.clientes.length,
+      ventas: next.ventas.length,
+      articulos: next.articulos.length,
+      aplicaciones: next.aplicaciones.length,
+    });
+
+    setSessionExcelDataset(next, at);
     setDatasetState(next);
     setSource("excel");
     setGeneratedAt(at);
     setWarnings(next.warnings);
-    writePersistedExcelPayload(next, at);
-    setHasLocalPersistence(true);
+    setIsStorageHydrated(true);
+
+    const persistResult = await persistExcelDataset(next, at);
+    setLastPersistResult(persistResult);
+    setHasLocalPersistence(persistResult.persistedDurably);
+
+    devLog("setDataset completado", {
+      source: "excel",
+      persistResult,
+    });
+
+    return persistResult;
   }, []);
 
   const clearDataset = useCallback(() => {
+    devLog("clearDataset — volver a mock");
     setDatasetState(null);
     setSource("mock");
     setGeneratedAt(null);
     setWarnings([]);
-    removePersistedExcelPayload();
+    setLastPersistResult(null);
+    removePersistedExcelDataset();
+    clearSessionExcelDataset();
     setHasLocalPersistence(false);
+    setIsStorageHydrated(true);
   }, []);
 
   const clearLocalDataset = clearDataset;
@@ -208,6 +190,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       warnings,
       hasLocalPersistence,
       isStorageHydrated,
+      lastPersistResult,
       setDataset,
       clearDataset,
       clearLocalDataset,
@@ -219,6 +202,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       warnings,
       hasLocalPersistence,
       isStorageHydrated,
+      lastPersistResult,
       setDataset,
       clearDataset,
     ],

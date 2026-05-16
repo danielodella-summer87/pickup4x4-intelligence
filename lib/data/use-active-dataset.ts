@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useDataset } from "@/contexts/DatasetContext";
 import type { DatasetSource } from "@/contexts/DatasetContext";
 import type { DatasetWarning } from "@/lib/excel/build-dataset";
@@ -9,6 +9,14 @@ import {
   pickupDatasetToActiveData,
   type ActivePickupData,
 } from "@/lib/data/pickup-data";
+
+function devWarnExcelWithoutDataset(): void {
+  if (process.env.NODE_ENV === "development") {
+    console.warn(
+      "[useActiveDataset] source=excel pero dataset=null — usando mock temporalmente",
+    );
+  }
+}
 
 export type ActiveDataset = {
   data: ActivePickupData;
@@ -36,8 +44,31 @@ export function useActiveDataset(): ActiveDataset {
     if (dataset) {
       return pickupDatasetToActiveData(dataset);
     }
+    if (source === "excel") {
+      devWarnExcelWithoutDataset();
+    }
     return mockPickupDataToActive();
-  }, [dataset]);
+  }, [dataset, source]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    console.info("[useActiveDataset]", {
+      source,
+      hasDataset: dataset !== null,
+      isMock: source === "mock",
+      isExcel: source === "excel",
+      isPersistedLocally: source === "excel" && hasLocalPersistence,
+      isStorageHydrated,
+      counts: dataset
+        ? {
+            clientes: dataset.clientes.length,
+            ventas: dataset.ventas.length,
+            articulos: dataset.articulos.length,
+            aplicaciones: dataset.aplicaciones.length,
+          }
+        : null,
+    });
+  }, [dataset, source, hasLocalPersistence, isStorageHydrated]);
 
   return {
     data,
@@ -53,12 +84,16 @@ export function useActiveDataset(): ActiveDataset {
 
 export function formatDatasetSourceLabel(
   source: DatasetSource,
-  options?: { persistedLocally?: boolean },
+  options?: { persistedLocally?: boolean; inMemoryOnly?: boolean },
 ): string {
   if (source === "excel") {
-    return options?.persistedLocally
-      ? "Excel (persistido local)"
-      : "Excel";
+    if (options?.persistedLocally) {
+      return "Excel (persistido local)";
+    }
+    if (options?.inMemoryOnly) {
+      return "Excel (solo en memoria)";
+    }
+    return "Excel";
   }
   return "Mock";
 }

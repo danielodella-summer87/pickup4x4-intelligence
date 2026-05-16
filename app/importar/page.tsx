@@ -837,11 +837,12 @@ export default function ImportarPage() {
     source,
     generatedAt,
     hasLocalPersistence,
+    lastPersistResult,
     setDataset,
     clearDataset,
     clearLocalDataset,
   } = useDataset();
-  const { isPersistedLocally } = useActiveDataset();
+  const [applyError, setApplyError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadedFiles>({
     clientes: null,
     ventas: null,
@@ -939,18 +940,46 @@ export default function ImportarPage() {
       requestAnimationFrame(() => resolve());
     });
 
+    setApplyError(null);
+
     try {
       const dataset = buildPickupDatasetFromRows({
         clientesRows: rowsForImport(loaded.clientes),
         ventasRows: rowsForImport(loaded.ventas),
         articulosRows: rowsForImport(loaded.articulos),
       });
-      setDataset(dataset);
+
+      if (process.env.NODE_ENV === "development") {
+        console.info("[Importar] buildPickupDatasetFromRows OK", {
+          clientes: dataset.clientes.length,
+          ventas: dataset.ventas.length,
+          articulos: dataset.articulos.length,
+          aplicaciones: dataset.aplicaciones.length,
+        });
+      }
+
+      const persistResult = await setDataset(dataset);
+
+      if (process.env.NODE_ENV === "development") {
+        console.info("[Importar] setDataset completado", persistResult);
+      }
+
       setDatasetBuildProgress({
         active: true,
         percent: 100,
-        message: "Dataset generado",
+        message: persistResult.persistedDurably
+          ? "Dataset aplicado y persistido"
+          : "Dataset aplicado en memoria",
       });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo generar el dataset interno.";
+      setApplyError(message);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[Importar] Error al generar dataset", error);
+      }
     } finally {
       setIsBuildingDataset(false);
     }
@@ -996,11 +1025,19 @@ export default function ImportarPage() {
             >
               {formatDatasetSourceLabel(source, {
                 persistedLocally: hasLocalPersistence,
+                inMemoryOnly:
+                  source === "excel" &&
+                  generatedDataset !== null &&
+                  !hasLocalPersistence,
               })}
             </span>
-            {isPersistedLocally ? (
+            {hasLocalPersistence ? (
               <span className="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-semibold text-sky-300">
                 Excel persistido localmente
+              </span>
+            ) : source === "excel" && generatedDataset ? (
+              <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                Excel en memoria (esta sesión)
               </span>
             ) : null}
             {generatedAt ? (
@@ -1014,7 +1051,7 @@ export default function ImportarPage() {
             ) : null}
           </p>
 
-          {hasLocalPersistence ? (
+          {source === "excel" && generatedDataset ? (
             <div className="mt-4 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -1043,12 +1080,10 @@ export default function ImportarPage() {
               expectedColumns={config.expectedColumns}
               onProgressChange={(state) => handleUploadProgress(config.id, state)}
               onRowsLoaded={(payload) => {
-                clearDataset();
                 setDatasetBuildProgress({ active: false, percent: 0, message: "" });
                 setLoaded((prev) => ({ ...prev, [config.id]: payload }));
               }}
               onClear={() => {
-                clearDataset();
                 setDatasetBuildProgress({ active: false, percent: 0, message: "" });
                 resetUploadProgress(config.id);
                 setLoaded((prev) => ({ ...prev, [config.id]: null }));
@@ -1270,15 +1305,39 @@ export default function ImportarPage() {
           ) : null}
         </div>
 
+        {applyError ? (
+          <div className="rounded-lg border border-rose-500/35 bg-rose-950/40 p-4 text-sm text-rose-200">
+            {applyError}
+          </div>
+        ) : null}
+
         {generatedDataset && source === "excel" ? (
           <SectionCard
             title="Dataset interno generado"
-            description={`Procesado en ${generatedDataset.stats.buildTimeMs} ms · persistido en localStorage`}
+            description={`Procesado en ${generatedDataset.stats.buildTimeMs} ms`}
           >
-            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-              Dataset aplicado al sistema. Los módulos usan estos datos tras recargar
-              la página mientras no borres el dataset local ni vuelvas a mock.
-            </div>
+            {lastPersistResult?.persistedDurably ? (
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                Dataset aplicado al sistema y persistido localmente. Podés ir al
+                dashboard y ver los números reales; se mantienen al recargar la
+                página en este navegador.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <p className="font-medium text-amber-200">
+                  Dataset aplicado en memoria para esta sesión
+                </p>
+                <p className="mt-2">
+                  Los módulos ya usan estos datos mientras no cierres la pestaña.
+                  {lastPersistResult?.errorMessage
+                    ? ` ${lastPersistResult.errorMessage}`
+                    : " No se pudo guardar en el almacenamiento del navegador (tamaño o cuota)."}
+                </p>
+                <p className="mt-2 text-amber-200/80">
+                  Si recargás la página sin persistencia, volverás a datos mock.
+                </p>
+              </div>
+            )}
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
