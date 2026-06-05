@@ -9,6 +9,7 @@ import {
   type CreateHelpDeskTicketInput,
   type HelpDeskTicket,
   type HelpDeskTicketStatus,
+  type UpdateHelpDeskTicketInput,
 } from "@/lib/helpdesk/types";
 
 function logHelpdesk(message: string, detail?: unknown): void {
@@ -205,6 +206,91 @@ export async function updateHelpDeskTicketStatus(
   const ticket = dbRowToHelpDeskTicket(data as DbHelpdeskTicket);
   logHelpdesk("Estado actualizado", { id, status });
   return { ok: true, ticket };
+}
+
+function updateInputToDbUpdate(
+  payload: UpdateHelpDeskTicketInput,
+): Database["public"]["Tables"]["helpdesk_tickets"]["Update"] {
+  const screenshotUrl = payload.screenshotUrl?.trim();
+
+  return {
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    type: payload.type,
+    priority: payload.priority,
+    module: payload.module,
+    screenshot_url: screenshotUrl || null,
+  };
+}
+
+export async function updateHelpDeskTicket(
+  id: string,
+  payload: UpdateHelpDeskTicketInput,
+): Promise<{
+  ok: boolean;
+  ticket?: HelpDeskTicket;
+  errorMessage?: string;
+}> {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      errorMessage:
+        "Supabase no está configurado. Agregá NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local.",
+    };
+  }
+
+  const client = createSupabaseBrowserClient();
+  if (!client) {
+    return { ok: false, errorMessage: "No se pudo inicializar el cliente de Supabase." };
+  }
+
+  const { data, error } = await client
+    .from("helpdesk_tickets")
+    .update(updateInputToDbUpdate(payload))
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    logHelpdesk("Error editando ticket", error);
+    return { ok: false, errorMessage: friendlySupabaseError(error.message) };
+  }
+
+  if (!data || !isValidDbRow(data as DbHelpdeskTicket)) {
+    return { ok: false, errorMessage: "El ticket actualizado no tiene un formato válido." };
+  }
+
+  const ticket = dbRowToHelpDeskTicket(data as DbHelpdeskTicket);
+  logHelpdesk("Ticket editado", { id });
+  return { ok: true, ticket };
+}
+
+export async function deleteHelpDeskTicket(id: string): Promise<{
+  ok: boolean;
+  errorMessage?: string;
+}> {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      errorMessage:
+        "Supabase no está configurado. Agregá NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local.",
+    };
+  }
+
+  const client = createSupabaseBrowserClient();
+  if (!client) {
+    return { ok: false, errorMessage: "No se pudo inicializar el cliente de Supabase." };
+  }
+
+  const { error } = await client.from("helpdesk_tickets").delete().eq("id", id);
+
+  if (error) {
+    logHelpdesk("Error eliminando ticket", error);
+    return { ok: false, errorMessage: friendlySupabaseError(error.message) };
+  }
+
+  logHelpdesk("Ticket eliminado", { id });
+  return { ok: true };
 }
 
 /** Ticket demo solo para referencia visual en desarrollo; no se persiste en Supabase. */

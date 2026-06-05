@@ -50,6 +50,15 @@ export type CreateHelpDeskTicketInput = {
   screenshotUrl?: string;
 };
 
+export type UpdateHelpDeskTicketInput = {
+  title: string;
+  description: string;
+  type: HelpDeskTicketType;
+  priority: HelpDeskTicketPriority;
+  module: HelpDeskTicketModule;
+  screenshotUrl?: string;
+};
+
 export const HELPDESK_STATUSES: HelpDeskTicketStatus[] = [
   "nuevo",
   "en_revision",

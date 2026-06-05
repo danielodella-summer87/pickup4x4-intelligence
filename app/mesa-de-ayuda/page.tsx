@@ -5,7 +5,9 @@ import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
 import {
   addHelpDeskTicket,
+  deleteHelpDeskTicket,
   loadHelpDeskTickets,
+  updateHelpDeskTicket,
   updateHelpDeskTicketStatus,
 } from "@/lib/helpdesk/supabaseStorage";
 import {
@@ -22,6 +24,7 @@ import {
   type HelpDeskTicketPriority,
   type HelpDeskTicketStatus,
   type HelpDeskTicketType,
+  type UpdateHelpDeskTicketInput,
 } from "@/lib/helpdesk/types";
 
 const primaryCtaClass =
@@ -29,6 +32,12 @@ const primaryCtaClass =
 
 const secondaryBtnClass =
   "rounded-lg border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-700";
+
+const actionBtnClass =
+  "rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-800";
+
+const dangerBtnClass =
+  "rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20";
 
 const selectClass =
   "min-h-[2.5rem] rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white";
@@ -82,14 +91,36 @@ function formatFecha(iso: string): string {
   }
 }
 
+function ticketToFormInput(ticket: HelpDeskTicket): CreateHelpDeskTicketInput {
+  return {
+    title: ticket.title,
+    description: ticket.description,
+    type: ticket.type,
+    priority: ticket.priority,
+    module: ticket.module,
+    screenshotUrl: ticket.screenshotUrl ?? "",
+    ...(ticket.createdBy ? { createdBy: ticket.createdBy } : {}),
+  };
+}
+
 function TicketCard({
   ticket,
   onStatusChange,
+  onEdit,
+  onResolve,
+  onClose,
+  onDelete,
 }: {
   ticket: HelpDeskTicket;
   onStatusChange: (status: HelpDeskTicketStatus) => void;
+  onEdit: () => void;
+  onResolve: () => void;
+  onClose: () => void;
+  onDelete: () => void;
 }) {
   const destacado = ticket.priority === "alta" || ticket.priority === "critica";
+  const puedeResolver = ticket.status !== "resuelto" && ticket.status !== "cerrado";
+  const puedeCerrar = ticket.status !== "cerrado";
 
   return (
     <article
@@ -156,19 +187,46 @@ function TicketCard({
             ))}
           </select>
         </label>
+
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <button type="button" onClick={onEdit} className={actionBtnClass}>
+            Editar
+          </button>
+          {puedeResolver ? (
+            <button type="button" onClick={onResolve} className={actionBtnClass}>
+              Marcar como resuelto
+            </button>
+          ) : null}
+          {puedeCerrar ? (
+            <button type="button" onClick={onClose} className={actionBtnClass}>
+              Cerrar
+            </button>
+          ) : null}
+          <button type="button" onClick={onDelete} className={dangerBtnClass}>
+            Eliminar
+          </button>
+        </div>
       </div>
     </article>
   );
 }
 
-function NuevoTicketModal({
+function TicketFormModal({
+  modalTitle,
+  modalDescription,
+  submitLabel,
+  initialValues,
   onSave,
   onCancel,
 }: {
+  modalTitle: string;
+  modalDescription: string;
+  submitLabel: string;
+  initialValues: CreateHelpDeskTicketInput;
   onSave: (input: CreateHelpDeskTicketInput) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<CreateHelpDeskTicketInput>(FORM_INICIAL);
+  const [form, setForm] = useState<CreateHelpDeskTicketInput>(initialValues);
 
   const puedeGuardar =
     form.title.trim().length > 0 && form.description.trim().length > 0;
@@ -184,16 +242,14 @@ function NuevoTicketModal({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Nuevo ticket de mesa de ayuda"
+      aria-label={modalTitle}
     >
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 p-5 sm:p-6"
       >
-        <h2 className="text-base font-semibold text-white">Nuevo ticket</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Describí el problema o la idea con el mayor detalle posible.
-        </p>
+        <h2 className="text-base font-semibold text-white">{modalTitle}</h2>
+        <p className="mt-1 text-sm text-slate-400">{modalDescription}</p>
 
         <div className="mt-5 space-y-4">
           <label className="block text-sm text-slate-300">
@@ -306,10 +362,48 @@ function NuevoTicketModal({
             disabled={!puedeGuardar}
             className={`${primaryCtaClass} disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            Guardar ticket
+            {submitLabel}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ConfirmDeleteModal({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-delete-title"
+      aria-describedby="confirm-delete-desc"
+    >
+      <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 sm:p-6">
+        <h2
+          id="confirm-delete-title"
+          className="text-base font-semibold text-white"
+        >
+          Eliminar ticket
+        </h2>
+        <p id="confirm-delete-desc" className="mt-2 text-sm text-slate-400">
+          Esta acción eliminará el ticket definitivamente. ¿Querés continuar?
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+          <button type="button" onClick={onCancel} className={secondaryBtnClass}>
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirm} className={dangerBtnClass}>
+            Sí, eliminar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -321,6 +415,11 @@ export default function MesaDeAyudaPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [ticketEditando, setTicketEditando] = useState<HelpDeskTicket | null>(
+    null,
+  );
+  const [ticketEliminando, setTicketEliminando] =
+    useState<HelpDeskTicket | null>(null);
 
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos");
   const [prioridadFiltro, setPrioridadFiltro] =
@@ -414,6 +513,73 @@ export default function MesaDeAyudaPage() {
     setTickets((prev) =>
       prev.map((ticket) => (ticket.id === id ? result.ticket! : ticket)),
     );
+  }
+
+  async function handleEditarTicket(
+    id: string,
+    input: UpdateHelpDeskTicketInput,
+  ) {
+    setActionError(null);
+    setIsSaving(true);
+
+    const result = await updateHelpDeskTicket(id, input);
+    setIsSaving(false);
+
+    if (!result.ok) {
+      setActionError(result.errorMessage ?? "No se pudo editar el ticket.");
+      return;
+    }
+
+    setTicketEditando(null);
+    await refreshTickets();
+  }
+
+  async function handleResolverTicket(id: string) {
+    setActionError(null);
+    setIsSaving(true);
+
+    const result = await updateHelpDeskTicketStatus(id, "resuelto");
+    setIsSaving(false);
+
+    if (!result.ok) {
+      setActionError(
+        result.errorMessage ?? "No se pudo marcar el ticket como resuelto.",
+      );
+      return;
+    }
+
+    await refreshTickets();
+  }
+
+  async function handleCerrarTicket(id: string) {
+    setActionError(null);
+    setIsSaving(true);
+
+    const result = await updateHelpDeskTicketStatus(id, "cerrado");
+    setIsSaving(false);
+
+    if (!result.ok) {
+      setActionError(result.errorMessage ?? "No se pudo cerrar el ticket.");
+      return;
+    }
+
+    await refreshTickets();
+  }
+
+  async function handleEliminarTicket(id: string) {
+    setActionError(null);
+    setIsSaving(true);
+
+    const result = await deleteHelpDeskTicket(id);
+    setIsSaving(false);
+
+    if (!result.ok) {
+      setActionError(result.errorMessage ?? "No se pudo eliminar el ticket.");
+      return;
+    }
+
+    setTicketEliminando(null);
+    await refreshTickets();
   }
 
   return (
@@ -580,6 +746,10 @@ export default function MesaDeAyudaPage() {
                       onStatusChange={(status) =>
                         handleStatusChange(ticket.id, status)
                       }
+                      onEdit={() => setTicketEditando(ticket)}
+                      onResolve={() => void handleResolverTicket(ticket.id)}
+                      onClose={() => void handleCerrarTicket(ticket.id)}
+                      onDelete={() => setTicketEliminando(ticket)}
                     />
                   </li>
                 ))}
@@ -590,9 +760,41 @@ export default function MesaDeAyudaPage() {
       </div>
 
       {modalAbierto ? (
-        <NuevoTicketModal
+        <TicketFormModal
+          modalTitle="Nuevo ticket"
+          modalDescription="Describí el problema o la idea con el mayor detalle posible."
+          submitLabel="Guardar ticket"
+          initialValues={FORM_INICIAL}
           onSave={(input) => void handleCrearTicket(input)}
           onCancel={() => setModalAbierto(false)}
+        />
+      ) : null}
+
+      {ticketEditando ? (
+        <TicketFormModal
+          key={ticketEditando.id}
+          modalTitle="Editar ticket"
+          modalDescription="Modificá los datos del ticket y guardá los cambios."
+          submitLabel="Guardar cambios"
+          initialValues={ticketToFormInput(ticketEditando)}
+          onSave={(input) =>
+            void handleEditarTicket(ticketEditando.id, {
+              title: input.title,
+              description: input.description,
+              type: input.type,
+              priority: input.priority,
+              module: input.module,
+              screenshotUrl: input.screenshotUrl,
+            })
+          }
+          onCancel={() => setTicketEditando(null)}
+        />
+      ) : null}
+
+      {ticketEliminando ? (
+        <ConfirmDeleteModal
+          onConfirm={() => void handleEliminarTicket(ticketEliminando.id)}
+          onCancel={() => setTicketEliminando(null)}
         />
       ) : null}
 
