@@ -89,6 +89,12 @@ export const sideMenuNavigation: SideMenuItem[] = [
     initial: "TU",
     description: "Manual de uso de la plataforma",
   },
+  {
+    href: "/mesa-de-ayuda",
+    label: "Mesa de ayuda",
+    initial: "AY",
+    description: "Tickets de sugerencias, errores y mejoras",
+  },
 ];
 
 export const mainNavigation: NavItem[] = [
