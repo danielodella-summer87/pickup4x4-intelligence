@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
 import {
   addHelpDeskTicket,
   loadHelpDeskTickets,
   updateHelpDeskTicketStatus,
-} from "@/lib/helpdesk/storage";
+} from "@/lib/helpdesk/supabaseStorage";
 import {
   HELPDESK_MODULES,
   HELPDESK_PRIORITIES,
@@ -316,7 +316,10 @@ function NuevoTicketModal({
 
 export default function MesaDeAyudaPage() {
   const [tickets, setTickets] = useState<HelpDeskTicket[]>([]);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
 
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos");
@@ -325,19 +328,24 @@ export default function MesaDeAyudaPage() {
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("todos");
   const [verCerrados, setVerCerrados] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const refreshTickets = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
 
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-      setTickets(loadHelpDeskTickets());
-      setIsHydrated(true);
-    });
+    const result = await loadHelpDeskTickets();
+    if (!result.ok) {
+      setLoadError(result.errorMessage ?? "No se pudieron cargar los tickets.");
+      setTickets([]);
+    } else {
+      setTickets(result.tickets);
+    }
 
-    return () => {
-      cancelled = true;
-    };
+    setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    void refreshTickets();
+  }, [refreshTickets]);
 
   const visibles = useMemo(() => {
     return tickets
@@ -366,13 +374,46 @@ export default function MesaDeAyudaPage() {
       );
   }, [tickets, estadoFiltro, prioridadFiltro, tipoFiltro, verCerrados]);
 
-  function handleCrearTicket(input: CreateHelpDeskTicketInput) {
-    setTickets((prev) => addHelpDeskTicket(prev, input));
+  async function handleCrearTicket(input: CreateHelpDeskTicketInput) {
+    setActionError(null);
+    setIsSaving(true);
+
+    const result = await addHelpDeskTicket(input);
+    setIsSaving(false);
+
+    if (!result.ok || !result.ticket) {
+      setActionError(result.errorMessage ?? "No se pudo crear el ticket.");
+      return;
+    }
+
+    setTickets((prev) => [result.ticket!, ...prev]);
     setModalAbierto(false);
   }
 
-  function handleStatusChange(id: string, status: HelpDeskTicketStatus) {
-    setTickets((prev) => updateHelpDeskTicketStatus(prev, id, status));
+  async function handleStatusChange(id: string, status: HelpDeskTicketStatus) {
+    setActionError(null);
+
+    const previous = tickets;
+    setTickets((prev) =>
+      prev.map((ticket) =>
+        ticket.id === id
+          ? { ...ticket, status, updatedAt: new Date().toISOString() }
+          : ticket,
+      ),
+    );
+
+    const result = await updateHelpDeskTicketStatus(id, status);
+    if (!result.ok || !result.ticket) {
+      setTickets(previous);
+      setActionError(
+        result.errorMessage ?? "No se pudo actualizar el estado del ticket.",
+      );
+      return;
+    }
+
+    setTickets((prev) =>
+      prev.map((ticket) => (ticket.id === id ? result.ticket! : ticket)),
+    );
   }
 
   return (
@@ -393,18 +434,51 @@ export default function MesaDeAyudaPage() {
           </p>
         </div>
 
+        {loadError ? (
+          <div
+            className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 sm:p-5"
+            role="alert"
+          >
+            <p className="text-sm font-medium text-rose-200">
+              No se pudieron cargar los tickets desde Supabase
+            </p>
+            <p className="mt-2 text-sm text-rose-100/80">{loadError}</p>
+            <p className="mt-2 text-xs text-rose-200/70">
+              Si aún no aplicaste la migración SQL, ejecutala manualmente en el
+              SQL Editor de Supabase antes de probar esta pantalla.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshTickets()}
+              className={`${secondaryBtnClass} mt-4`}
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : null}
+
+        {actionError && !loadError ? (
+          <div
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4"
+            role="alert"
+          >
+            <p className="text-sm text-amber-100">{actionError}</p>
+          </div>
+        ) : null}
+
         <SectionCard
           title="Tickets"
           description={
-            isHydrated
-              ? `${visibles.length} de ${tickets.length} ticket${tickets.length === 1 ? "" : "s"} visible${visibles.length === 1 ? "" : "s"}`
-              : "Cargando…"
+            isLoading
+              ? "Cargando…"
+              : `${visibles.length} de ${tickets.length} ticket${tickets.length === 1 ? "" : "s"} visible${visibles.length === 1 ? "" : "s"}`
           }
           action={
             <button
               type="button"
               onClick={() => setModalAbierto(true)}
-              className={primaryCtaClass}
+              disabled={Boolean(loadError) || isLoading}
+              className={`${primaryCtaClass} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               + Nuevo ticket
             </button>
@@ -473,8 +547,19 @@ export default function MesaDeAyudaPage() {
           </div>
 
           <div className="mt-5">
-            {!isHydrated ? (
+            {isLoading ? (
               <p className="text-sm text-slate-500">Cargando tickets…</p>
+            ) : loadError ? (
+              <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-10 text-center">
+                <p className="text-base font-medium text-slate-300">
+                  Tickets no disponibles
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Revisá la configuración de Supabase y que la tabla{" "}
+                  <code className="text-slate-400">helpdesk_tickets</code> exista
+                  en la base de datos.
+                </p>
+              </div>
             ) : visibles.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-10 text-center">
                 <p className="text-base font-medium text-slate-300">
@@ -506,9 +591,15 @@ export default function MesaDeAyudaPage() {
 
       {modalAbierto ? (
         <NuevoTicketModal
-          onSave={handleCrearTicket}
+          onSave={(input) => void handleCrearTicket(input)}
           onCancel={() => setModalAbierto(false)}
         />
+      ) : null}
+
+      {isSaving ? (
+        <p className="sr-only" aria-live="polite">
+          Guardando ticket…
+        </p>
       ) : null}
     </AppShell>
   );

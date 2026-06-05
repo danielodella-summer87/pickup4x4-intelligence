@@ -104,6 +104,20 @@ export type DbOportunidad = {
   created_at?: string;
 };
 
+export type DbHelpdeskTicket = {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  type: string;
+  module: string;
+  created_by: string | null;
+  screenshot_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -147,6 +161,13 @@ export type Database = {
         Row: DbOportunidad;
         Insert: DbOportunidad;
         Update: Partial<DbOportunidad>;
+        Relationships: [];
+      };
+      helpdesk_tickets: {
+        Row: DbHelpdeskTicket;
+        Insert: Omit<DbHelpdeskTicket, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<DbHelpdeskTicket, "id" | "created_at" | "updated_at">>;
+        Update: Partial<DbHelpdeskTicket>;
         Relationships: [];
       };
     };

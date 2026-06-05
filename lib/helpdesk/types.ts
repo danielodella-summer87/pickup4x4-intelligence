@@ -25,7 +25,7 @@ export type HelpDeskTicketModule =
   | "Importar"
   | "General";
 
-/** Ticket de mesa de ayuda persistido en el navegador. */
+/** Ticket de mesa de ayuda. */
 export interface HelpDeskTicket {
   id: string;
   title: string;
