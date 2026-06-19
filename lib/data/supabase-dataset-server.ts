@@ -17,6 +17,9 @@ import {
   ventasFlatToDbRows,
 } from "@/lib/data/supabase-mappers";
 import type { PickupDataset, PickupDatasetStats } from "@/lib/excel/build-dataset";
+import { DataQualityCollector, processVentasWithQuality } from "@/lib/excel/data-quality";
+import { NormalizationRegistry } from "@/lib/excel/normalization";
+import { isVentaFechaConfiable } from "@/lib/models/venta-fecha";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/env";
@@ -202,6 +205,113 @@ export async function clearSupabaseDatasetServer(): Promise<{
 
   logDataset("clearSupabaseDataset completado");
   return { ok: true };
+}
+
+export type AppendVentasResult = {
+  ok: boolean;
+  errorMessage?: string;
+  diagnostico?: {
+    filasDiario: number;
+    clientesEnSupabase: number;
+    articulosEnSupabase: number;
+    ventasGeneradas: number;
+    ventaItemsGenerados: number;
+    ventasSinCliente: number;
+    ventaItemsSinArticulo: number;
+    ventasSinFecha: number;
+    filasInsertadas: number;
+  };
+};
+
+/**
+ * Suma el Diario de Ventas a Supabase SIN tocar clientes/artículos/aplicaciones.
+ * Cruza contra los clientes y artículos ya cargados y reemplaza solo la tabla
+ * `ventas` (idempotente: re-importar el Diario no duplica).
+ */
+export async function appendVentasToSupabaseServer(
+  ventasRows: Record<string, unknown>[],
+): Promise<AppendVentasResult> {
+  let client: SupabaseClient<Database>;
+  try {
+    client = requireServiceClient();
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessage: error instanceof Error ? error.message : "Supabase no configurado",
+    };
+  }
+
+  // Cruzar contra clientes y artículos ya existentes en Supabase.
+  const [
+    { data: clientesRows, error: clientesError },
+    { data: articulosRows, error: articulosError },
+  ] = await Promise.all([
+    fetchAllTableRows(client, "clientes"),
+    fetchAllTableRows(client, "articulos"),
+  ]);
+
+  const loadError = clientesError ?? articulosError;
+  if (loadError) {
+    return { ok: false, errorMessage: loadError.message };
+  }
+
+  const clientes = (clientesRows ?? []).map(dbRowToCliente);
+  const clientesByCuenta = new Map(clientes.map((c) => [c.numeroCuenta, c]));
+  const articuloCodigos = new Set(
+    (articulosRows ?? []).map((row) => row.codigo_unico),
+  );
+
+  const collector = new DataQualityCollector();
+  const normRegistry = new NormalizationRegistry();
+  const { ventas, ventaItems, ventasSinCliente, ventaItemsSinArticulo, ventasSinFecha } =
+    processVentasWithQuality(
+      ventasRows,
+      clientesByCuenta,
+      articuloCodigos,
+      collector,
+      normRegistry,
+    );
+
+  const clienteNombreMap = buildClienteNombreMap(clientes);
+  const partialDataset = { ventas, ventaItems } as unknown as PickupDataset;
+  const ventasDbRows = ventasFlatToDbRows(partialDataset, clienteNombreMap).map(
+    (row) => ({
+      ...row,
+      // ventas.id es uuid: el id string del item (venta-item-…) no es válido.
+      // Se genera un uuid; la idempotencia la da el delete-all previo, no el id.
+      id: createDbId(),
+      // Evitar fallos si la columna fecha es de tipo date: null si no es ISO.
+      fecha: row.fecha && isVentaFechaConfiable(row.fecha) ? row.fecha : null,
+    }),
+  );
+
+  // Reemplaza SOLO la tabla ventas (no toca clientes/artículos/aplicaciones).
+  const cleared = await deleteAllFrom(client, "ventas");
+  if (!cleared.ok) {
+    return { ok: false, errorMessage: cleared.errorMessage };
+  }
+
+  if (ventasDbRows.length > 0) {
+    const inserted = await chunkInsert(client, "ventas", ventasDbRows, "ventas");
+    if (!inserted.ok) {
+      return { ok: false, errorMessage: inserted.errorMessage };
+    }
+  }
+
+  return {
+    ok: true,
+    diagnostico: {
+      filasDiario: ventasRows.length,
+      clientesEnSupabase: clientes.length,
+      articulosEnSupabase: articuloCodigos.size,
+      ventasGeneradas: ventas.length,
+      ventaItemsGenerados: ventaItems.length,
+      ventasSinCliente,
+      ventaItemsSinArticulo,
+      ventasSinFecha,
+      filasInsertadas: ventasDbRows.length,
+    },
+  };
 }
 
 export async function saveDatasetToSupabaseServer(

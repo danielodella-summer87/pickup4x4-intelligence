@@ -30,7 +30,7 @@ import {
   clearSupabaseDataset,
   type SupabaseDatasetSaveResult,
 } from "@/lib/data/supabase-dataset";
-import { verifySupabaseConnection, type SupabaseConnectionStatus } from "@/lib/supabase/connection";
+import { type SupabaseConnectionStatus } from "@/lib/supabase/connection";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 
 export type DatasetSource = "mock" | "excel" | "supabase";
@@ -113,11 +113,10 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   const supabaseResolvedRef = useRef(false);
 
   useEffect(() => {
-    void verifySupabaseConnection().then(setSupabaseConnection);
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    // Red de seguridad: la carga no puede quedar colgada indefinidamente.
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     void (async () => {
       logHydration("intentando cargar Supabase");
@@ -126,6 +125,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         const res = await fetch("/api/supabase/load-dataset", {
           method: "GET",
           cache: "no-store",
+          signal: controller.signal,
         });
         const body: unknown = await res.json();
 
@@ -160,6 +160,11 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
           setHasLocalPersistence(false);
           setIsSupabaseLoaded(true);
           setSupabaseError(null);
+          setSupabaseConnection({
+            configured: true,
+            connected: true,
+            message: "Conexión con Supabase establecida",
+          });
           setSessionExcelDataset(
             applied.dataset,
             applied.generatedAt ?? new Date(),
@@ -179,17 +184,35 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         if (!res.ok || !parsed.ok) {
           const errMsg = parsed.errorMessage ?? `HTTP ${res.status}`;
           setSupabaseError(errMsg);
+          setSupabaseConnection({
+            configured: res.status !== 503,
+            connected: false,
+            message: errMsg,
+          });
           logHydration("Supabase falló", errMsg);
         } else if (parsed.ok && !parsed.dataset) {
+          setSupabaseConnection({
+            configured: true,
+            connected: true,
+            message: "Supabase conectado, sin dataset cargado",
+          });
           logHydration("Supabase vacío — sin dataset en la respuesta");
         } else {
           logHydration("Supabase sin datos utilizables");
         }
       } catch (error) {
         if (cancelled) return;
-        const msg = error instanceof Error ? error.message : "Error de red";
+        const aborted = error instanceof Error && error.name === "AbortError";
+        const msg = aborted
+          ? "La carga de Supabase tardó demasiado (timeout). Se usan datos locales/ejemplo."
+          : error instanceof Error
+            ? error.message
+            : "Error de red";
         setSupabaseError(msg);
-        logHydration("Supabase error de red", msg);
+        setSupabaseConnection({ configured: true, connected: false, message: msg });
+        logHydration(aborted ? "Supabase timeout" : "Supabase error de red", msg);
+      } finally {
+        clearTimeout(timeoutId);
       }
 
       if (cancelled || supabaseResolvedRef.current) return;
@@ -240,6 +263,8 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
   }, []);
 

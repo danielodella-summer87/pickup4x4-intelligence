@@ -42,15 +42,17 @@ export function sanitizeExcelHeader(header: string): string {
 }
 
 /**
- * Normaliza nombres de columna para matching:
- * trim, minúsculas, sin tildes, sin puntos finales, espacios simples.
+ * Normaliza nombres de columna para matching robusto con encabezados KORE:
+ * trim, minúsculas, sin tildes, y sin puntos ni espacios (token compacto).
+ * Así "C.Único", "C. Unico" y "C Unico" → "cunico"; "Nro.Cuenta" y
+ * "NRO CUENTA" → "nrocuenta"; "Emisión" → "emision".
  */
 export function normalizeColumnName(name: string): string {
   return sanitizeExcelHeader(name)
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
-    .replace(/\.+$/g, "");
+    .replace(/[.\s]+/g, "");
 }
 
 export function formatMatchKindLabel(kind: ColumnMatchKind): string {
@@ -254,6 +256,11 @@ export const VENTAS_COLUMNS: ColumnMap = {
     "Numero Cuenta",
     "CUENTA",
     "NRO CUENTA",
+    "Nro.Cuenta",
+    "Nro. Cuenta",
+    "Nro Cuenta",
+    "Número de cuenta",
+    "Numero de cuenta",
     "Cod. Cliente",
     "Código Cliente",
     "Cod Cliente",
@@ -262,10 +269,18 @@ export const VENTAS_COLUMNS: ColumnMap = {
     "Nombre Cuenta",
     "Nombre cuenta",
     "Nombre Cliente",
+    "Nombre cliente",
+    "Cliente nombre",
+    "Razón social",
+    "Razon social",
     "Razon Social Cuenta",
     "Razón Social Cuenta",
   ),
   fecha: aliases(
+    "Emisión",
+    "Emision",
+    "Fecha emisión",
+    "Fecha emision",
     "Fecha",
     "FECHA",
     "Fec.",
@@ -276,6 +291,8 @@ export const VENTAS_COLUMNS: ColumnMap = {
     "Fecha Comp.",
   ),
   tipoComprobante: aliases(
+    "Comprob.",
+    "Comprob",
     "Tipo",
     "Tipo Comprobante",
     "TIPO",
@@ -284,6 +301,10 @@ export const VENTAS_COLUMNS: ColumnMap = {
     "Tipo de Comprobante",
   ),
   numeroComprobante: aliases(
+    "Nro.",
+    "Nro",
+    "Número",
+    "Numero",
     "Comprobante",
     "Comprobante.",
     "Nº Comprobante",
@@ -317,13 +338,18 @@ export const VENTAS_COLUMNS: ColumnMap = {
     "Localidad Cliente",
   ),
   codigoUnico: aliases(
+    "C.Único",
+    "C.Unico",
     "C.Uniq",
     "C. Uniq",
     "C.Uniq.",
-    "C.Único",
+    "C Unico",
+    "C Único",
     "Codigo",
     "Código",
     "CODIGO",
+    "Código artículo",
+    "Codigo articulo",
     "SKU",
     "Artículo",
     "Articulo",
@@ -333,14 +359,15 @@ export const VENTAS_COLUMNS: ColumnMap = {
     "Codigo Unico",
   ),
   descripcion: aliases(
+    "Descripción",
+    "Descripcion",
     "Desc.",
     "Desc",
-    "Descripcion",
-    "Descripción",
+    "Producto",
     "DETALLE",
     "Detalle",
   ),
-  cantidad: aliases("Cantidad", "CANTIDAD", "Cant.", "Uds.", "Unidades"),
+  cantidad: aliases("Cantidad", "CANTIDAD", "Cant.", "Cant", "Uds.", "Unidades"),
   precioUnitario: aliases(
     "Precio",
     "P. Unit.",

@@ -29,6 +29,7 @@ export type ActiveDataset = {
   isPersistedLocally: boolean;
   isPersistedInSupabase: boolean;
   isStorageHydrated: boolean;
+  supabaseError: string | null;
   oportunidadesSupabase: OportunidadDetectada[] | null;
 };
 
@@ -42,6 +43,7 @@ export function useActiveDataset(): ActiveDataset {
     hasSupabasePersistence,
     isStorageHydrated,
     isSupabaseLoaded,
+    supabaseError,
     oportunidadesSupabase,
   } = useDataset();
 
@@ -105,6 +107,7 @@ export function useActiveDataset(): ActiveDataset {
     isPersistedLocally: source === "excel" && hasLocalPersistence,
     isPersistedInSupabase: source === "supabase" && hasSupabasePersistence,
     isStorageHydrated,
+    supabaseError,
     oportunidadesSupabase,
   };
 }

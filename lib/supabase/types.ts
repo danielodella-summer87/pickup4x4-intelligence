@@ -118,6 +118,61 @@ export type DbHelpdeskTicket = {
   updated_at: string;
 };
 
+export type DbCommercialCampaign = {
+  id: string;
+  name: string;
+  type: string | null;
+  preset: string | null;
+  description: string | null;
+  objective: string | null;
+  status: string;
+  filters_json: unknown | null;
+  quality_summary_json: unknown | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCommercialCampaignItem = {
+  id: string;
+  campaign_id: string;
+  input_code: string | null;
+  input_description: string | null;
+  input_category: string | null;
+  input_brand_model: string | null;
+  observations: string | null;
+  matched_article_code: string | null;
+  matched_article_description: string | null;
+  validation_status: string | null;
+  match_confidence: string | null;
+  source: string | null;
+  raw_json: unknown | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCommercialCampaignResult = {
+  id: string;
+  campaign_id: string;
+  customer_number: string | null;
+  customer_name: string | null;
+  fantasy_name: string | null;
+  email: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  locality: string | null;
+  article_code: string | null;
+  article_description: string | null;
+  sale_date: string | null;
+  sale_age_months: number | null;
+  invoice_number: string | null;
+  compatible_vehicle: string | null;
+  match_confidence: string | null;
+  suggested_action: string | null;
+  observations: string | null;
+  raw_json: unknown | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -168,6 +223,27 @@ export type Database = {
         Insert: Omit<DbHelpdeskTicket, "id" | "created_at" | "updated_at"> &
           Partial<Pick<DbHelpdeskTicket, "id" | "created_at" | "updated_at">>;
         Update: Partial<DbHelpdeskTicket>;
+        Relationships: [];
+      };
+      commercial_campaigns: {
+        Row: DbCommercialCampaign;
+        Insert: Omit<DbCommercialCampaign, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<DbCommercialCampaign, "id" | "created_at" | "updated_at">>;
+        Update: Partial<DbCommercialCampaign>;
+        Relationships: [];
+      };
+      commercial_campaign_items: {
+        Row: DbCommercialCampaignItem;
+        Insert: Omit<DbCommercialCampaignItem, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<DbCommercialCampaignItem, "id" | "created_at" | "updated_at">>;
+        Update: Partial<DbCommercialCampaignItem>;
+        Relationships: [];
+      };
+      commercial_campaign_results: {
+        Row: DbCommercialCampaignResult;
+        Insert: Omit<DbCommercialCampaignResult, "id" | "created_at"> &
+          Partial<Pick<DbCommercialCampaignResult, "id" | "created_at">>;
+        Update: Partial<DbCommercialCampaignResult>;
         Relationships: [];
       };
     };

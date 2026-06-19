@@ -72,6 +72,18 @@ export const sideMenuNavigation: SideMenuItem[] = [
     description: "Alertas e inteligencia comercial",
   },
   {
+    href: "/campanas/articulos",
+    label: "Campañas",
+    initial: "CA",
+    description: "Acciones comerciales por artículos",
+  },
+  {
+    href: "/campanas/lonas",
+    label: "Renovación de lonas",
+    initial: "RL",
+    description: "Campaña preconfigurada de recompra de lonas",
+  },
+  {
     href: "/importar",
     label: "Importar",
     initial: "IM",
