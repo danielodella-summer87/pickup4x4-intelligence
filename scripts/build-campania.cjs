@@ -90,15 +90,17 @@ const rutDe = (cuenta) => top(aggDia(cuenta, "rut"));
 const locDe = (cuenta) => { const l = top(aggDia(cuenta, "loc")); return l ? TIT(l.toLowerCase()) : ""; };
 const vendDe = (cuenta) => top(aggDia(cuenta, "vend"));
 
-// --- Contactos por cuenta (LISTADO DE CUENTAS.xlsx, cruce por Nro = CUENTA) ---
-// Aporta teléfono / celular / email reales. Opcional: si el archivo no está, se sigue sin contacto.
+// --- Contactos (LISTADO DE CUENTAS.xlsx) — llave principal CUENTA=Nro, validación secundaria RUT=RUC ---
+// Aporta teléfono / celular / email reales. Si el archivo no está, se sigue sin contacto.
 // Se descartan emails del propio vendedor (pickup4x4.uy): no son contacto del cliente.
-const contactos = new Map();
+// Cabecera en la fila 3: Nro(0) Teléfono(4) Localidad(6) RUC(7) Email(8) Celular(9).
+const normRut = (v) => S(v).replace(/[^0-9]/g, "");
+const contactos = new Map();     // Nro (cuenta) -> {tel,cel,email}
+const contactosPorRut = new Map(); // RUC normalizado -> {tel,cel,email}
 const LISTADO = path.join(DIR, "LISTADO_DE_CUENTAS.xlsx");
 if (fs.existsSync(LISTADO)) {
   const wbL = XLSX.readFile(LISTADO);
   const lrows = XLSX.utils.sheet_to_json(wbL.Sheets[wbL.SheetNames[0]], { header: 1, raw: true, defval: null, blankrows: false });
-  // cabecera en la fila 3: Nro(0) Teléfono(4) Localidad(6) RUC(7) Email(8) Celular(9)
   for (let i = 4; i < lrows.length; i++) {
     const r = lrows[i]; if (!r) continue;
     const nro = S(r[0]); if (!nro) continue;
@@ -107,12 +109,21 @@ if (fs.existsSync(LISTADO)) {
     if (tel && !o.tel) o.tel = tel;
     if (cel && !o.cel) o.cel = cel;
     if (email && !o.email && !/@pickup4x4\.uy/i.test(email)) o.email = email;
+    const rut = normRut(r[7]);
+    if (rut.length >= 10 && !contactosPorRut.has(rut)) contactosPorRut.set(rut, o);
   }
 }
+const hayContacto = (o) => !!(o && (o.tel || o.cel || o.email));
 const contactoDe = (cuenta) => {
   const ctas = [cuenta, ...(MERGED_INTO.get(cuenta) || [])];
   const acc = { tel: "", cel: "", email: "" };
+  // 1) llave principal: número de cuenta
   for (const c of ctas) { const o = contactos.get(c); if (o) { acc.tel = acc.tel || o.tel; acc.cel = acc.cel || o.cel; acc.email = acc.email || o.email; } }
+  // 2) validación/recuperación secundaria por RUT (si no hubo match por número)
+  if (!hayContacto(acc)) {
+    const o = contactosPorRut.get(normRut(rutDe(cuenta)));
+    if (o) { acc.tel = o.tel; acc.cel = o.cel; acc.email = o.email; }
+  }
   return acc;
 };
 
