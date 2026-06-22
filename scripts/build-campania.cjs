@@ -90,6 +90,32 @@ const rutDe = (cuenta) => top(aggDia(cuenta, "rut"));
 const locDe = (cuenta) => { const l = top(aggDia(cuenta, "loc")); return l ? TIT(l.toLowerCase()) : ""; };
 const vendDe = (cuenta) => top(aggDia(cuenta, "vend"));
 
+// --- Contactos por cuenta (LISTADO DE CUENTAS.xlsx, cruce por Nro = CUENTA) ---
+// Aporta teléfono / celular / email reales. Opcional: si el archivo no está, se sigue sin contacto.
+// Se descartan emails del propio vendedor (pickup4x4.uy): no son contacto del cliente.
+const contactos = new Map();
+const LISTADO = path.join(DIR, "LISTADO_DE_CUENTAS.xlsx");
+if (fs.existsSync(LISTADO)) {
+  const wbL = XLSX.readFile(LISTADO);
+  const lrows = XLSX.utils.sheet_to_json(wbL.Sheets[wbL.SheetNames[0]], { header: 1, raw: true, defval: null, blankrows: false });
+  // cabecera en la fila 3: Nro(0) Teléfono(4) Localidad(6) RUC(7) Email(8) Celular(9)
+  for (let i = 4; i < lrows.length; i++) {
+    const r = lrows[i]; if (!r) continue;
+    const nro = S(r[0]); if (!nro) continue;
+    let o = contactos.get(nro); if (!o) { o = { tel: "", cel: "", email: "" }; contactos.set(nro, o); }
+    const tel = S(r[4]), cel = S(r[9]), email = S(r[8]);
+    if (tel && !o.tel) o.tel = tel;
+    if (cel && !o.cel) o.cel = cel;
+    if (email && !o.email && !/@pickup4x4\.uy/i.test(email)) o.email = email;
+  }
+}
+const contactoDe = (cuenta) => {
+  const ctas = [cuenta, ...(MERGED_INTO.get(cuenta) || [])];
+  const acc = { tel: "", cel: "", email: "" };
+  for (const c of ctas) { const o = contactos.get(c); if (o) { acc.tel = acc.tel || o.tel; acc.cel = acc.cel || o.cel; acc.email = acc.email || o.email; } }
+  return acc;
+};
+
 // --- Agregado por cuenta canónica ---
 const byCli = new Map();
 for (const l of lines) {
@@ -202,28 +228,42 @@ fs.writeFileSync(path.join(OUT, "CAMPANIA_recambio_AUDITORIA.csv"), csv(audit));
 // Se sirve como estático en /data/recambio.json. La UI sólo lo lee: sin recálculo, sin Supabase, sin /api.
 const esCand = (r) => rankNivel[r.nivel] >= 2; // alta/media/baja
 const listo = (r) => esCand(r) && !!r.localidad && !r.estadoLlave.startsWith("REVISAR") && !!r.rut;
-const estadoContact = (r) => {
+const estadoContact = (r, ct) => {
+  if (ct.tel || ct.cel || ct.email) {
+    const partes = [];
+    if (ct.tel || ct.cel) partes.push("teléfono");
+    if (ct.email) partes.push("email");
+    return `Contactable: ${partes.join(" + ")}`;
+  }
   if (r.estadoLlave.startsWith("REVISAR")) return "Revisar llave antes de contactar";
-  if (r.localidad && r.vendedor) return "Ubicable: zona + vendedor";
-  if (r.localidad) return "Ubicable: zona";
+  if (r.localidad && r.vendedor) return "Ubicable: zona + vendedor (sin tel/email)";
+  if (r.localidad) return "Ubicable: zona (sin tel/email)";
   if (r.rut) return "Solo cuenta/RUT";
   return "Mínimo (sin zona ni RUT)";
 };
-const items = rows.map((r) => ({
-  prioridad: r.nivel,
-  cuenta: r.cuenta,
-  razonSocial: r.razon,
-  productoActual: r.modelo,
-  ultimaCompra: r.ultima,
-  mesesDesdeUltima: r.meses,
-  productoSugerido: `Recambio ${r.tipo} — ${r.vehiculo}`,
-  recomendacion: r.rec,
-  estadoContactabilidad: estadoContact(r),
-  vendedor: r.vendedor,
-  zona: r.localidad,
-  esCandidato: esCand(r),
-  listoParaTrabajar: listo(r),
-}));
+const items = rows.map((r) => {
+  const ct = contactoDe(r.cuenta);
+  return {
+    prioridad: r.nivel,
+    cuenta: r.cuenta,
+    razonSocial: r.razon,
+    productoActual: r.modelo,
+    ultimaCompra: r.ultima,
+    mesesDesdeUltima: r.meses,
+    productoSugerido: `Recambio ${r.tipo} — ${r.vehiculo}`,
+    recomendacion: r.rec,
+    telefono: ct.tel,
+    celular: ct.cel,
+    email: ct.email,
+    estadoContactabilidad: estadoContact(r, ct),
+    vendedor: r.vendedor,
+    zona: r.localidad,
+    esCandidato: esCand(r),
+    listoParaTrabajar: listo(r),
+  };
+});
+const hasContacto = (it) => !!(it.telefono || it.celular || it.email);
+const cands = items.filter((it) => it.esCandidato);
 const resumenJson = {
   total: rows.length,
   alta: cnt[NIVEL.ALTA] || 0,
@@ -231,7 +271,12 @@ const resumenJson = {
   baja: cnt[NIVEL.BAJA] || 0,
   noContactar: (cnt[NIVEL.NO] || 0) + (cnt[NIVEL.ANON] || 0),
   listasParaTrabajar: rows.filter(listo).length,
-  frenadasPorContacto: rows.filter(esCand).length, // candidatos sin tel/email (no existe la fuente)
+  // Contactabilidad real (cruce con LISTADO DE CUENTAS):
+  conTelefono: items.filter((it) => it.telefono || it.celular).length,
+  conEmail: items.filter((it) => it.email).length,
+  conContacto: items.filter(hasContacto).length,
+  sinContacto: items.filter((it) => !hasContacto(it)).length,
+  frenadasPorContacto: cands.filter((it) => !hasContacto(it)).length, // candidatos aún sin tel/email
 };
 const PUB = path.join(__dirname, "..", "public", "data");
 fs.mkdirSync(PUB, { recursive: true });
@@ -247,5 +292,5 @@ console.log("  CAMPANIA_recambio_FINAL.csv      -> base operativa única (negoci
 console.log("  CAMPANIA_recambio_RESUMEN.csv    -> resumen ejecutivo");
 console.log("  CAMPANIA_recambio_AUDITORIA.csv  -> log de unificación de duplicados");
 console.log("  public/data/recambio.json        -> JSON solo-lectura para la pantalla /campanas");
-console.log(`     resumen: total ${resumenJson.total} · alta ${resumenJson.alta} · listas ${resumenJson.listasParaTrabajar} · frenadas-contacto ${resumenJson.frenadasPorContacto}`);
+console.log(`     resumen: total ${resumenJson.total} · alta ${resumenJson.alta} · con-contacto ${resumenJson.conContacto} (tel ${resumenJson.conTelefono} / email ${resumenJson.conEmail}) · sin-contacto ${resumenJson.sinContacto}`);
 console.log("=================== FIN ===================");

@@ -17,6 +17,9 @@ export type RecambioItem = {
   mesesDesdeUltima: number;
   productoSugerido: string;
   recomendacion: string;
+  telefono: string;
+  celular: string;
+  email: string;
   estadoContactabilidad: string;
   vendedor: string;
   zona: string;
@@ -31,6 +34,10 @@ export type RecambioResumen = {
   baja: number;
   noContactar: number;
   listasParaTrabajar: number;
+  conTelefono: number;
+  conEmail: number;
+  conContacto: number;
+  sinContacto: number;
   frenadasPorContacto: number;
 };
 
@@ -58,6 +65,9 @@ type CampaignResult = {
   matchConfidence: string | null;
   suggestedAction: string | null;
   locality: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
   raw: unknown;
 };
 
@@ -73,6 +83,9 @@ function toItem(r: CampaignResult): RecambioItem {
     mesesDesdeUltima: raw.mesesDesdeUltima ?? r.saleAgeMonths ?? 0,
     productoSugerido: raw.productoSugerido ?? "",
     recomendacion: raw.recomendacion ?? r.suggestedAction ?? "",
+    telefono: raw.telefono ?? r.phone ?? "",
+    celular: raw.celular ?? r.whatsapp ?? "",
+    email: raw.email ?? r.email ?? "",
     estadoContactabilidad: raw.estadoContactabilidad ?? "",
     vendedor: raw.vendedor ?? "",
     zona: raw.zona ?? r.locality ?? "",

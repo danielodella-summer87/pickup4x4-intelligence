@@ -25,6 +25,7 @@ function prioShort(prioridad: string): string {
 }
 
 function contactDotClass(estado: string): string {
+  if (estado.startsWith("Contactable")) return "bg-emerald-500";
   if (estado.startsWith("Ubicable")) return "bg-emerald-400";
   if (estado.startsWith("Revisar") || estado.startsWith("Solo")) return "bg-amber-400";
   return "bg-rose-400";
@@ -110,11 +111,14 @@ export default function CampanasPage() {
                 <StatCard value={r.baja} label="Prioridad baja" accent="border-t-2 border-t-yellow-500/50" />
                 <StatCard value={r.noContactar} label="No contactar aún" accent="border-t-2 border-t-slate-500/50" />
                 <StatCard value={r.listasParaTrabajar} label="Listas para trabajar" accent="border-t-2 border-t-emerald-500/60" />
-                <StatCard value={r.frenadasPorContacto} label="Frenadas por falta de contacto" accent="border-t-2 border-t-rose-500/40" />
+                <StatCard value={r.conContacto} label="Con teléfono o email" accent="border-t-2 border-t-emerald-500/60" />
+                <StatCard value={r.sinContacto} label="Sin contacto cargado" accent="border-t-2 border-t-rose-500/40" />
               </div>
               <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                La base no tiene teléfono ni email (no existe esa fuente en el proyecto). Las cuentas son
-                ubicables por zona y vendedor; el contacto directo queda frenado hasta conseguir ese export.
+                Contactabilidad real (cruce con el Listado de Cuentas por número de cuenta):{" "}
+                <b>{r.conTelefono}</b> con teléfono, <b>{r.conEmail}</b> con email, <b>{r.conContacto}</b> con
+                algún contacto. Quedan <b>{r.sinContacto}</b> sin teléfono/email (no figuran en el listado
+                actual, acotado a cuentas de número bajo); esas siguen siendo ubicables por zona y vendedor.
               </p>
             </SectionCard>
 
@@ -134,6 +138,7 @@ export default function CampanasPage() {
                       <th className="px-2.5 py-2 text-right font-medium">Meses</th>
                       <th className="px-2.5 py-2 font-medium">Producto sugerido</th>
                       <th className="px-2.5 py-2 font-medium">Recomendación</th>
+                      <th className="px-2.5 py-2 font-medium">Contacto</th>
                       <th className="px-2.5 py-2 font-medium">Contactabilidad</th>
                       <th className="px-2.5 py-2 font-medium">Vendedor</th>
                       <th className="px-2.5 py-2 font-medium">Zona</th>
@@ -154,6 +159,11 @@ export default function CampanasPage() {
                         <td className="px-2.5 py-2 text-right tabular-nums">{i.mesesDesdeUltima}</td>
                         <td className="px-2.5 py-2 text-slate-300">{i.productoSugerido}</td>
                         <td className="px-2.5 py-2">{i.recomendacion}</td>
+                        <td className="px-2.5 py-2 text-xs">
+                          {i.telefono || i.celular ? <div>{[i.telefono, i.celular].filter(Boolean).join(" / ")}</div> : null}
+                          {i.email ? <div className="text-slate-400">{i.email}</div> : null}
+                          {!i.telefono && !i.celular && !i.email ? <span className="text-slate-600">—</span> : null}
+                        </td>
                         <td className="px-2.5 py-2 whitespace-nowrap">
                           <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${contactDotClass(i.estadoContactabilidad)}`} />
                           {i.estadoContactabilidad}

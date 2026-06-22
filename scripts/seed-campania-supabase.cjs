@@ -31,9 +31,9 @@ function toResult(it) {
     customerNumber: it.cuenta || null,
     customerName: it.razonSocial || null,
     fantasyName: null,
-    email: null,          // no existe la fuente en el proyecto: no se inventa
-    phone: null,
-    whatsapp: null,
+    email: it.email || null,       // del LISTADO DE CUENTAS (cruce por CUENTA); null si no hay
+    phone: it.telefono || null,
+    whatsapp: it.celular || null,
     locality: it.zona || null,
     articleCode: null,
     articleDescription: it.productoActual || null,
