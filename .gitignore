@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- Higiene de análisis comercial (datos pesados / salidas generadas) ---
+# Salidas generadas por los scripts de análisis (CSV derivados). La LÓGICA
+# (scripts/*.cjs) SÍ se versiona; solo se ignora lo generado.
+/scripts/output/
+
+# Datasets de trabajo pesados (Excel de imports): son DATOS, no código.
+# Se conserva la estructura de la carpeta con .gitkeep.
+/public/imports/*
+!/public/imports/.gitkeep
+
+# JSON de campaña generado por el pipeline (datos de clientes, regenerable).
+# La app lee la campaña desde Supabase, no este archivo. Se conserva la carpeta con .gitkeep.
+/public/data/*
+!/public/data/.gitkeep
+
+# Temporales de inspección puntual
+_tmp_*.cjs

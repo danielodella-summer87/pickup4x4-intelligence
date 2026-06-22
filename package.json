@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "campania": "bash scripts/campania.sh",
+    "campania:build": "node scripts/build-campania.cjs",
+    "campania:seed": "node scripts/seed-campania-supabase-direct.cjs",
+    "campania:seed:api": "node scripts/seed-campania-supabase.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
