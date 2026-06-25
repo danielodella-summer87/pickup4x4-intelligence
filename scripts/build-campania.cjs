@@ -95,22 +95,37 @@ const vendDe = (cuenta) => top(aggDia(cuenta, "vend"));
 // Se descartan emails del propio vendedor (pickup4x4.uy): no son contacto del cliente.
 // Cabecera en la fila 3: Nro(0) Teléfono(4) Localidad(6) RUC(7) Email(8) Celular(9).
 const normRut = (v) => S(v).replace(/[^0-9]/g, "");
-const contactos = new Map();     // Nro (cuenta) -> {tel,cel,email}
-const contactosPorRut = new Map(); // RUC normalizado -> {tel,cel,email}
+const contactos = new Map();     // Nro/Número Cliente (cuenta) -> {tel,cel,email,loc,sector}
+const contactosPorRut = new Map(); // RUC normalizado -> {tel,cel,email,...}
 const LISTADO = path.join(DIR, "LISTADO_DE_CUENTAS.xlsx");
 if (fs.existsSync(LISTADO)) {
   const wbL = XLSX.readFile(LISTADO);
   const lrows = XLSX.utils.sheet_to_json(wbL.Sheets[wbL.SheetNames[0]], { header: 1, raw: true, defval: null, blankrows: false });
-  for (let i = 4; i < lrows.length; i++) {
-    const r = lrows[i]; if (!r) continue;
-    const nro = S(r[0]); if (!nro) continue;
-    let o = contactos.get(nro); if (!o) { o = { tel: "", cel: "", email: "" }; contactos.set(nro, o); }
-    const tel = S(r[4]), cel = S(r[9]), email = S(r[8]);
-    if (tel && !o.tel) o.tel = tel;
-    if (cel && !o.cel) o.cel = cel;
-    if (email && !o.email && !/@pickup4x4\.uy/i.test(email)) o.email = email;
-    const rut = normRut(r[7]);
-    if (rut.length >= 10 && !contactosPorRut.has(rut)) contactosPorRut.set(rut, o);
+  // Mapeo por NOMBRE de encabezado (robusto a reordenes/renombres: "Nro." o "Número Cliente", con o sin Fax/Vendedor).
+  const norm = (s) => S(s).toLowerCase();
+  let hi = -1;
+  for (let i = 0; i < Math.min(10, lrows.length); i++) {
+    if ((lrows[i] || []).map(norm).some((c) => /n[uú]mero cliente|^nro\.?$/.test(c))) { hi = i; break; }
+  }
+  if (hi >= 0) {
+    const H = (lrows[hi] || []).map(norm);
+    const col = (re) => H.findIndex((c) => re.test(c));
+    const cCta = col(/n[uú]mero cliente|^nro\.?$/);
+    const cTel = col(/^tel[eé]fono$/);          // exacto: evita "Teléfono T"
+    const cCel = col(/celular|cecular/);
+    const cEmail = col(/e-?mail|correo/);
+    const cRuc = col(/^ruc$|^rut$/);
+    for (let i = hi + 1; i < lrows.length; i++) {
+      const r = lrows[i]; if (!r) continue;
+      const nro = cCta >= 0 ? S(r[cCta]) : ""; if (!nro) continue;
+      let o = contactos.get(nro); if (!o) { o = { tel: "", cel: "", email: "" }; contactos.set(nro, o); }
+      const tel = cTel >= 0 ? S(r[cTel]) : "", cel = cCel >= 0 ? S(r[cCel]) : "", email = cEmail >= 0 ? S(r[cEmail]) : "";
+      if (tel && !o.tel) o.tel = tel;
+      if (cel && !o.cel) o.cel = cel;
+      if (email && !o.email && !/@pickup4x4\.uy/i.test(email)) o.email = email;
+      const rut = cRuc >= 0 ? normRut(r[cRuc]) : "";
+      if (rut.length >= 10 && !contactosPorRut.has(rut)) contactosPorRut.set(rut, o);
+    }
   }
 }
 const hayContacto = (o) => !!(o && (o.tel || o.cel || o.email));
