@@ -22,12 +22,17 @@ import {
   mockProductOpportunities,
   mockProspects,
 } from "@/lib/prospeccion/mock-prospeccion";
+import { mergeProspectionSeed } from "@/lib/prospeccion/helpers";
 
 // Persistencia local versionada. En esta fase es la única fuente; la estructura
 // queda preparada para sincronizar con Supabase más adelante (ver SolicitudesContext
 // como referencia del patrón remoto).
 const STORAGE_KEY = "pickup4x4:prospeccion";
 const STORAGE_VERSION = 1;
+
+// Seed generado desde los Excel reales (scripts/build-prospeccion.cjs).
+// Servido estáticamente desde public/. Si no existe, se usa el mock como fallback.
+const SEED_URL = "/data/prospeccion.json";
 
 type PersistedPayload = {
   version: number;
@@ -64,6 +69,10 @@ type ProspeccionContextValue = {
   ) => void;
   deleteProductOpportunity: (id: string) => void;
   resetToMock: () => void;
+  /** Merge NO destructivo del seed JSON: agrega solo empresas nuevas. */
+  importSeedMerge: () => void;
+  /** Reset duro al seed JSON (descarta lo local). Preparado, sin UI todavía. */
+  resetToSeed: () => void;
 };
 
 const ProspeccionContext = createContext<ProspeccionContextValue | null>(null);
@@ -91,6 +100,30 @@ function isValidProspect(value: unknown): value is CompanyProspect {
 function isValidProductOpportunity(value: unknown): value is ProductOpportunity {
   if (!isRecord(value)) return false;
   return typeof value.id === "string" && typeof value.producto === "string";
+}
+
+type SeedPayload = {
+  prospects: CompanyProspect[];
+  productOpportunities: ProductOpportunity[];
+};
+
+/** Lee el seed JSON generado desde los Excel. Devuelve null si no existe/inválido. */
+async function fetchSeed(): Promise<SeedPayload | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const res = await fetch(SEED_URL, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data: unknown = await res.json();
+    if (!isRecord(data) || !Array.isArray(data.prospects)) return null;
+    const prospects = data.prospects.filter(isValidProspect);
+    const productOpportunities = Array.isArray(data.productOpportunities)
+      ? data.productOpportunities.filter(isValidProductOpportunity)
+      : [];
+    if (prospects.length === 0) return null;
+    return { prospects, productOpportunities };
+  } catch {
+    return null;
+  }
 }
 
 function readFromStorage(): PersistedPayload | null {
@@ -164,20 +197,27 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
     // Patrón del proyecto (ver SolicitudesContext): la hidratación corre en un
     // callback asíncrono para no llamar setState de forma síncrona en el efecto.
     let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
+    void (async () => {
       const stored = readFromStorage();
       if (stored) {
+        // Hay datos locales (posiblemente editados): NO se sobrescriben.
+        if (cancelled) return;
         setProspects(stored.prospects);
         setProductOpportunities(stored.productOpportunities);
-      } else {
-        // Primer arranque: sembrar con los datos mock iniciales y persistir.
-        setProspects(mockProspects);
-        setProductOpportunities(mockProductOpportunities);
-        writeToStorage(mockProspects, mockProductOpportunities);
+        setIsHydrated(true);
+        return;
       }
+      // Primer arranque: sembrar desde el JSON generado de los Excel; si no
+      // existe, caer al mock incluido en el bundle.
+      const seed = await fetchSeed();
+      if (cancelled) return;
+      const initialProspects = seed ? seed.prospects : mockProspects;
+      const initialOpps = seed ? seed.productOpportunities : mockProductOpportunities;
+      setProspects(initialProspects);
+      setProductOpportunities(initialOpps);
+      writeToStorage(initialProspects, initialOpps);
       setIsHydrated(true);
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -370,6 +410,37 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
     persist(mockProspects, mockProductOpportunities);
   }, [persist]);
 
+  // Merge NO destructivo del seed: agrega solo empresas nuevas (por id / clave
+  // canónica) sin tocar las ya cargadas o editadas manualmente.
+  const importSeedMerge = useCallback(() => {
+    void (async () => {
+      const seed = await fetchSeed();
+      if (!seed) return;
+      setProspects((prevProspects) => {
+        const nextProspects = mergeProspectionSeed(prevProspects, seed.prospects);
+        setProductOpportunities((prevOpps) => {
+          const ids = new Set(prevOpps.map((o) => o.id));
+          const nextOpps = [
+            ...prevOpps,
+            ...seed.productOpportunities.filter((o) => !ids.has(o.id)),
+          ];
+          writeToStorage(nextProspects, nextOpps);
+          return nextOpps;
+        });
+        return nextProspects;
+      });
+    })();
+  }, []);
+
+  // Reset duro al seed JSON (descarta lo local). Preparado para una acción
+  // explícita y confirmada en UI; todavía no expuesto visualmente.
+  const resetToSeed = useCallback(() => {
+    void (async () => {
+      const seed = await fetchSeed();
+      if (seed) persist(seed.prospects, seed.productOpportunities);
+    })();
+  }, [persist]);
+
   const value = useMemo<ProspeccionContextValue>(
     () => ({
       prospects,
@@ -385,6 +456,8 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       updateProductOpportunity,
       deleteProductOpportunity,
       resetToMock,
+      importSeedMerge,
+      resetToSeed,
     }),
     [
       prospects,
@@ -400,6 +473,8 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       updateProductOpportunity,
       deleteProductOpportunity,
       resetToMock,
+      importSeedMerge,
+      resetToSeed,
     ],
   );
 

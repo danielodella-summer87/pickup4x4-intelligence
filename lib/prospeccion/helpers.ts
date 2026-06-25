@@ -33,6 +33,7 @@ export const RUBRO_LABELS: Record<ProspectRubro, string> = {
   climatizacion: "Aire acondicionado / climatización",
   fachadas_altura: "Fachadas / altura / seguridad",
   alquiladora: "Alquiladoras / flotas tercerizadas",
+  otro: "Otro / revisar",
 };
 
 export const ORG_TYPE_LABELS: Record<ProspectOrgType, string> = {
@@ -364,6 +365,8 @@ export interface ProspectFilters {
   oportunidadEstrategica: boolean;
   /** Solo empresas sugeridas. */
   soloSugeridas: boolean;
+  /** Solo oportunidades marcadas para revisar. */
+  soloRevisar: boolean;
 }
 
 export const emptyProspectFilters: ProspectFilters = {
@@ -386,6 +389,7 @@ export const emptyProspectFilters: ProspectFilters = {
   propuestaEnviada: false,
   oportunidadEstrategica: false,
   soloSugeridas: false,
+  soloRevisar: false,
 };
 
 function normalize(value: string): string {
@@ -482,6 +486,7 @@ export function filterProspects(
     if (filters.propuestaEnviada && !hasSentProposal(p)) return false;
     if (filters.oportunidadEstrategica && !hasStrategicNeed(p)) return false;
     if (filters.soloSugeridas && !p.esSugerida) return false;
+    if (filters.soloRevisar && !p.revisar) return false;
 
     return true;
   });
@@ -639,4 +644,56 @@ export function fleetSummary(prospect: CompanyProspect): string {
 
 export function referenteNombre(prospect: CompanyProspect): string | null {
   return prospect.contactos.find((c) => c.esReferenteFinal)?.nombre ?? null;
+}
+
+// ───────────────────────── Clave canónica y merge de seed (Fase 2)
+
+// Espeja la canonicalización de scripts/build-prospeccion.cjs para deduplicar
+// empresas por identidad (sin acentos, sin alias entre paréntesis, sin sufijos).
+const CANON_STOP = new Set([
+  "sa", "srl", "ltda", "rent", "a", "car", "the", "rental",
+  "de", "del", "la", "el", "y", "e",
+  "ingenieria", "construccion", "constrccion", "construcciones", "constructora",
+]);
+const CANON_FIX: Record<string, string> = {
+  guiterrez: "gutierrez",
+  serdecon: "sertecon",
+  terciarizan: "",
+};
+const CANON_ALIAS: Record<string, string> = {
+  "upm oriental": "upm forestal oriental",
+};
+
+/** Clave canónica de empresa (igual criterio que el script de importación). */
+export function canonicalProspectKey(nombre: string): string {
+  let s = (nombre ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const toks = s
+    .split(/\s+/)
+    .map((t) => (t in CANON_FIX ? CANON_FIX[t] : t))
+    .filter((t) => t && !CANON_STOP.has(t));
+  s = toks.join(" ");
+  return CANON_ALIAS[s] ?? s;
+}
+
+/**
+ * Merge controlado y NO destructivo de un seed sobre los datos existentes:
+ * agrega solo empresas nuevas (por id o clave canónica) y conserva intactas las
+ * ya cargadas/editadas. Nunca pisa una ficha existente.
+ */
+export function mergeProspectionSeed(
+  existing: CompanyProspect[],
+  seed: CompanyProspect[],
+): CompanyProspect[] {
+  const ids = new Set(existing.map((p) => p.id));
+  const keys = new Set(existing.map((p) => canonicalProspectKey(p.nombre)));
+  const nuevas = seed.filter(
+    (s) => !ids.has(s.id) && !keys.has(canonicalProspectKey(s.nombre)),
+  );
+  return [...existing, ...nuevas];
 }

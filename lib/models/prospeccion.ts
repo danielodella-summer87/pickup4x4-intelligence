@@ -18,7 +18,8 @@ export type ProspectRubro =
   | "telecomunicaciones"
   | "climatizacion"
   | "fachadas_altura"
-  | "alquiladora";
+  | "alquiladora"
+  | "otro";
 
 export type ProspectOrgType =
   | "estado"
@@ -275,6 +276,11 @@ export interface CompanyProspect {
   /** Empresa sugerida por estrategia (no proviene de los Excel iniciales). */
   esSugerida?: boolean;
   categoriaSugerida?: string;
+  /**
+   * Oportunidad importada con baja confianza o datos incompletos/ambiguos:
+   * el operador debe validarla y corregirla desde la ficha.
+   */
+  revisar?: boolean;
 
   // Proceso comercial
   etapa: ProspectStage;

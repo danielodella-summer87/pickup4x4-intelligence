@@ -312,6 +312,12 @@ export default function ProspeccionEmpresasPage() {
             >
               Sugeridas
             </FiltroToggle>
+            <FiltroToggle
+              activo={filtros.soloRevisar}
+              onClick={() => patch({ soloRevisar: !filtros.soloRevisar })}
+            >
+              Revisar
+            </FiltroToggle>
           </div>
 
           <div className="mt-4">
@@ -376,6 +382,11 @@ export default function ProspeccionEmpresasPage() {
                           {p.esSugerida ? (
                             <span className="mt-0.5 block text-xs text-indigo-300">
                               Sugerida{p.categoriaSugerida ? ` · ${p.categoriaSugerida}` : ""}
+                            </span>
+                          ) : null}
+                          {p.revisar ? (
+                            <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">
+                              Revisar
                             </span>
                           ) : null}
                         </td>

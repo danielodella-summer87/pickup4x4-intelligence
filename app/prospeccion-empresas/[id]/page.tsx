@@ -324,6 +324,11 @@ export default function ProspectFichaPage() {
           <TrafficLightBadge value={semaforo} />
           <StageBadge value={draft.etapa} />
           <PriorityBadge value={draft.prioridad} />
+          {draft.revisar ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+              Revisar
+            </span>
+          ) : null}
           <NextActivityBadge state={next.state} />
           {next.activity ? (
             <span className="text-xs text-slate-400">
