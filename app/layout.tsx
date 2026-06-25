@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { DatasetProvider } from "@/contexts/DatasetContext";
+import { ProspeccionProvider } from "@/contexts/ProspeccionContext";
 import { SolicitudesProvider } from "@/contexts/SolicitudesContext";
 import "./globals.css";
 
@@ -32,7 +33,9 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-slate-950 text-slate-100">
         <DatasetProvider>
-          <SolicitudesProvider>{children}</SolicitudesProvider>
+          <SolicitudesProvider>
+            <ProspeccionProvider>{children}</ProspeccionProvider>
+          </SolicitudesProvider>
         </DatasetProvider>
       </body>
     </html>

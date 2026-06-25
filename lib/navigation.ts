@@ -72,6 +72,13 @@ export const sideMenuNavigation: SideMenuItem[] = [
     description: "Alertas e inteligencia comercial",
   },
   {
+    href: "/prospeccion-empresas",
+    label: "Prospección Empresas",
+    initial: "PE",
+    description:
+      "Detectá, relevá y seguí oportunidades B2B para flotas, cuadrillas y vehículos de trabajo",
+  },
+  {
     href: "/campanas/articulos",
     label: "Campañas",
     initial: "CA",
