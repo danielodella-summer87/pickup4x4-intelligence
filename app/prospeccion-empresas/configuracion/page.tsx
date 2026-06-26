@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { SectionCard } from "@/components/SectionCard";
-import { GuiaUso, ProspeccionTabs } from "@/components/prospeccion/ProspeccionUI";
+import {
+  CollapsibleSection,
+  GuiaUso,
+  ProspeccionTabs,
+} from "@/components/prospeccion/ProspeccionUI";
 import { useProspeccion } from "@/contexts/ProspeccionContext";
 import type {
   ProspectCatalogItem,
@@ -137,9 +140,10 @@ export default function ConfiguracionCatalogosPage() {
           const items = catalogos[key];
           const nuevo = nuevos[key] ?? { nombre: "", descripcion: "", orden: 0 };
           return (
-            <SectionCard
+            <CollapsibleSection
               key={key}
               title={titulo}
+              count={items.length}
               description={
                 descripcion ??
                 "Editá nombre, descripción y orden. Para quitar un valor, desactivalo."
@@ -262,12 +266,13 @@ export default function ConfiguracionCatalogosPage() {
                   ＋ Agregar
                 </button>
               </div>
-            </SectionCard>
+            </CollapsibleSection>
           );
         })}
 
-        <SectionCard
+        <CollapsibleSection
           title="Departamentos"
+          count={catalogos.departamentos.length}
           description="Listado de referencia (no editable en esta fase)."
         >
           <div className="flex flex-wrap gap-2">
@@ -280,7 +285,7 @@ export default function ConfiguracionCatalogosPage() {
               </span>
             ))}
           </div>
-        </SectionCard>
+        </CollapsibleSection>
       </div>
     </AppShell>
   );
