@@ -182,12 +182,32 @@ export type ProposalChannel =
   | "impresa"
   | "otro";
 
+/**
+ * Ítem comercial de una propuesta: producto del catálogo 4x4 (o manual),
+ * con cantidad y precio unitario. El subtotal se calcula (cantidad * precio).
+ */
+export interface ProposalProductItem {
+  id: string;
+  /** Código del artículo del catálogo (codigoUnico). Opcional para ítems manuales. */
+  codigo?: string;
+  /** Nombre / descripción del producto. */
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+}
+
 export interface ProspectProposal {
   id: string;
   fechaCreacion: string;
   estado: ProposalStatus;
   version: number;
+  /**
+   * Texto libre legacy de productos (compatibilidad con propuestas anteriores).
+   * Las nuevas propuestas usan `items` estructurados.
+   */
   productos: string[];
+  /** Ítems comerciales estructurados (catálogo 4x4 + cantidad + precio). */
+  items?: ProposalProductItem[];
   notas?: string;
   montoEstimado?: number;
   fechaEnvio?: string;

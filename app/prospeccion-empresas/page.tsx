@@ -62,6 +62,9 @@ import {
 
 const primaryCta =
   "inline-flex items-center justify-center rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400";
+// Variante verde destacada (fuente más grande) para el CTA principal del listado.
+const primaryCtaLg =
+  "inline-flex items-center justify-center rounded-lg bg-emerald-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-emerald-400";
 
 const RUBRO_VALUES = Object.keys(RUBRO_LABELS) as ProspectRubro[];
 const ORG_VALUES = Object.keys(ORG_TYPE_LABELS) as ProspectOrgType[];
@@ -191,16 +194,6 @@ export default function ProspeccionEmpresasPage() {
               : `Oportunidades (${prospects.length})`
           }
           description="Empresas en prospección. Una empresa sugerida por estrategia se marca con su etiqueta."
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/prospeccion-empresas/agenda" className={secondaryButton}>
-                Agenda
-              </Link>
-              <Link href="/prospeccion-empresas/nueva" className={primaryCta}>
-                Nueva oportunidad
-              </Link>
-            </div>
-          }
         >
           <ConsultaToolbar
             busqueda={filtros.busqueda}
@@ -385,24 +378,20 @@ export default function ProspeccionEmpresasPage() {
             </FiltroToggle>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            {/* Izquierda: CTA del listado. Verde y destacado cuando está colapsado. */}
             <button
               type="button"
-              onClick={exportarPdf}
-              disabled={filtradas.length === 0}
-              className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
+              onClick={() => setMostrarTabla((v) => !v)}
+              className={mostrarTabla ? secondaryButton : primaryCtaLg}
             >
-              Exportar PDF
+              {mostrarTabla
+                ? "Ocultar listado"
+                : `Ver oportunidades (${filtradas.length})`}
             </button>
-            <button
-              type="button"
-              onClick={compartirPdf}
-              disabled={filtradas.length === 0}
-              className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
-            >
-              Compartir PDF
-            </button>
-            <div className="flex items-center gap-3">
+
+            {/* Derecha: acciones secundarias + Nueva oportunidad. */}
+            <div className="flex flex-wrap items-center gap-3">
               {saveState === "guardando" ? (
                 <span className="text-xs text-amber-300">Guardando…</span>
               ) : saveState === "guardado" ? (
@@ -410,15 +399,35 @@ export default function ProspeccionEmpresasPage() {
               ) : saveState === "error" ? (
                 <span className="text-xs text-rose-300">Error al guardar</span>
               ) : null}
+              <Link href="/prospeccion-empresas/agenda" className={secondaryButton}>
+                Agenda
+              </Link>
               <button
                 type="button"
-                onClick={() => setMostrarTabla((v) => !v)}
-                className={secondaryButton}
+                onClick={exportarPdf}
+                disabled={filtradas.length === 0}
+                className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
               >
-                {mostrarTabla
-                  ? "Ocultar listado"
-                  : `Ver oportunidades (${filtradas.length})`}
+                Exportar PDF
               </button>
+              <button
+                type="button"
+                onClick={compartirPdf}
+                disabled={filtradas.length === 0}
+                className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
+              >
+                Compartir PDF
+              </button>
+              {/* Verde solo con el listado visible y con resultados: así no compite
+                  con "Ver oportunidades" (colapsado) ni con el CTA del estado vacío. */}
+              <Link
+                href="/prospeccion-empresas/nueva"
+                className={
+                  mostrarTabla && filtradas.length > 0 ? primaryCta : secondaryButton
+                }
+              >
+                Nueva oportunidad
+              </Link>
             </div>
           </div>
 

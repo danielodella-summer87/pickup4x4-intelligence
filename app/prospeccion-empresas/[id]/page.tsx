@@ -21,6 +21,7 @@ import {
   type CompanyProspect,
   type FleetVehicleType,
   type ProposalChannel,
+  type ProposalProductItem,
   type ProposalStatus,
   type ProspectActivity,
   type ProspectContact,
@@ -66,6 +67,10 @@ import {
   normalizeUruguayPhone,
 } from "@/lib/prospeccion/contact-links";
 import { ProductNeedField } from "@/components/prospeccion/ProductNeedField";
+import { ProposalPreview } from "@/components/prospeccion/ProposalPreview";
+import { ProposalProductsEditor } from "@/components/prospeccion/ProposalProductsEditor";
+import { itemSubtotal } from "@/lib/prospeccion/proposal-commercial";
+import { useActiveDataset } from "@/lib/data/use-active-dataset";
 
 // ───────────────────────────────────────────── Clases compartidas
 
@@ -242,6 +247,8 @@ export default function ProspectFichaPage() {
   const router = useRouter();
   const { prospects, isHydrated, updateProspect, deleteProspect, catalogos, saveState } =
     useProspeccion();
+  // Catálogo de productos 4x4 (mismo dataset activo que usa el módulo Artículos).
+  const { data: activeData } = useActiveDataset();
   const original = useMemo(
     () => prospects.find((p) => p.id === id),
     [prospects, id],
@@ -402,6 +409,19 @@ export default function ProspectFichaPage() {
     set(
       "propuestas",
       draft!.propuestas.map((pr, i) => (i === index ? { ...pr, ...changes } : pr)),
+    );
+  }
+  // Actualiza los ítems estructurados y sincroniza el monto estimado con el
+  // total calculado cuando hay importe (si no hay total, conserva el monto manual).
+  function updatePropuestaItems(index: number, items: ProposalProductItem[]) {
+    const total = items.reduce((s, it) => s + itemSubtotal(it), 0);
+    set(
+      "propuestas",
+      draft!.propuestas.map((pr, i) =>
+        i === index
+          ? { ...pr, items, montoEstimado: total > 0 ? total : pr.montoEstimado }
+          : pr,
+      ),
     );
   }
   function addPropuesta() {
@@ -1084,7 +1104,17 @@ export default function ProspectFichaPage() {
             <p className="text-sm text-slate-500">Sin propuestas todavía.</p>
           ) : (
             <div className="space-y-3">
-              {draft.propuestas.map((pr, i) => (
+              {[...draft.propuestas]
+                .map((pr, i) => ({ pr, i }))
+                .sort((a, b) => {
+                  // Más reciente arriba: por fecha de creación desc; si empata o
+                  // falta fecha, por versión desc.
+                  const fa = a.pr.fechaCreacion ?? "";
+                  const fb = b.pr.fechaCreacion ?? "";
+                  if (fa && fb && fa !== fb) return fb.localeCompare(fa);
+                  return b.pr.version - a.pr.version;
+                })
+                .map(({ pr, i }) => (
                 <div
                   key={pr.id}
                   className="grid gap-3 rounded-xl border border-slate-700 bg-slate-950/40 p-4 sm:grid-cols-2 lg:grid-cols-4"
@@ -1115,12 +1145,21 @@ export default function ProspectFichaPage() {
                       ))}
                     </select>
                   </Field>
-                  <Field label="Monto estimado (USD)">
+                  <Field
+                    label={
+                      (pr.items ?? []).reduce((s, it) => s + itemSubtotal(it), 0) > 0
+                        ? "Monto estimado (USD) — total calculado"
+                        : "Monto estimado (USD)"
+                    }
+                  >
                     <input
                       type="number"
                       min={0}
                       className={inputClass}
                       value={pr.montoEstimado ?? ""}
+                      readOnly={
+                        (pr.items ?? []).reduce((s, it) => s + itemSubtotal(it), 0) > 0
+                      }
                       onChange={(e) =>
                         updatePropuesta(i, {
                           montoEstimado: e.target.value
@@ -1160,15 +1199,11 @@ export default function ProspectFichaPage() {
                       }
                     />
                   </Field>
-                  <Field label="Productos (separados por coma)">
-                    <input
-                      className={inputClass}
-                      value={commaJoin(pr.productos)}
-                      onChange={(e) =>
-                        updatePropuesta(i, { productos: commaSplit(e.target.value) })
-                      }
-                    />
-                  </Field>
+                  <ProposalProductsEditor
+                    articulos={activeData.articulos}
+                    items={pr.items ?? []}
+                    onChange={(items) => updatePropuestaItems(i, items)}
+                  />
                   <div className="flex items-end gap-2 sm:col-span-2">
                     <Field label="Notas">
                       <input
@@ -1188,9 +1223,9 @@ export default function ProspectFichaPage() {
                     </button>
                   </div>
                   <p className="text-xs text-slate-500 sm:col-span-4">
-                    Creada el {formatProspectDate(pr.fechaCreacion)}. El archivo PDF
-                    asociado se habilitará en la fase de persistencia real.
+                    Creada el {formatProspectDate(pr.fechaCreacion)}.
                   </p>
+                  <ProposalPreview prospect={draft} proposal={pr} />
                 </div>
               ))}
             </div>
