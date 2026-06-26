@@ -11,8 +11,11 @@ import type {
   ProductOpportunityPotential,
   ProductOpportunityStatus,
   ProposalStatus,
+  ProspectCatalogItem,
+  ProspectCatalogos,
   ProspectContactArea,
   ProspectContactStatus,
+  ProspectDepartamento,
   ProspectNeedAvailability,
   ProspectOrgType,
   ProspectPriority,
@@ -367,6 +370,8 @@ export interface ProspectFilters {
   soloSugeridas: boolean;
   /** Solo oportunidades marcadas para revisar. */
   soloRevisar: boolean;
+  /** Filtra por el tipo de la próxima actividad pendiente. */
+  proximaActividadTipo: ActivityType | "";
 }
 
 export const emptyProspectFilters: ProspectFilters = {
@@ -390,6 +395,7 @@ export const emptyProspectFilters: ProspectFilters = {
   oportunidadEstrategica: false,
   soloSugeridas: false,
   soloRevisar: false,
+  proximaActividadTipo: "",
 };
 
 function normalize(value: string): string {
@@ -477,10 +483,20 @@ export function filterProspects(
       if (!comps.includes(normalize(filters.competidor))) return false;
     }
 
-    if (filters.actividadVencida || filters.sinProximaActividad) {
+    if (
+      filters.actividadVencida ||
+      filters.sinProximaActividad ||
+      filters.proximaActividadTipo
+    ) {
       const next = getNextActivityStatus(p, today);
       if (filters.actividadVencida && next.state !== "vencida") return false;
       if (filters.sinProximaActividad && next.state !== "sin_actividad") return false;
+      if (
+        filters.proximaActividadTipo &&
+        next.activity?.tipo !== filters.proximaActividadTipo
+      ) {
+        return false;
+      }
     }
 
     if (filters.propuestaEnviada && !hasSentProposal(p)) return false;
@@ -489,6 +505,29 @@ export function filterProspects(
     if (filters.soloRevisar && !p.revisar) return false;
 
     return true;
+  });
+}
+
+/** Orden del listado: prioridad, luego semáforo, luego nombre. */
+export function sortProspectsForListado(
+  prospects: CompanyProspect[],
+  today: string = todayISO(),
+): CompanyProspect[] {
+  const prioRank: Record<ProspectPriority, number> = { alta: 0, media: 1, baja: 2 };
+  const semRank: Record<ProspectTrafficLight, number> = {
+    rojo: 0,
+    amarillo: 1,
+    verde: 2,
+    gris: 3,
+  };
+  return [...prospects].sort((a, b) => {
+    const pr = prioRank[a.prioridad] - prioRank[b.prioridad];
+    if (pr !== 0) return pr;
+    const sr =
+      semRank[getProspectTrafficLight(a, today)] -
+      semRank[getProspectTrafficLight(b, today)];
+    if (sr !== 0) return sr;
+    return a.nombre.localeCompare(b.nombre, "es");
   });
 }
 
@@ -644,6 +683,53 @@ export function fleetSummary(prospect: CompanyProspect): string {
 
 export function referenteNombre(prospect: CompanyProspect): string | null {
   return prospect.contactos.find((c) => c.esReferenteFinal)?.nombre ?? null;
+}
+
+// ───────────────────────── Catálogos por defecto (fallback sin Supabase)
+
+export const DEPARTAMENTOS_URUGUAY: string[] = [
+  "Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores",
+  "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro",
+  "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó",
+  "Treinta y Tres",
+];
+
+function deptoSlug(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** Catálogos derivados de los label maps + departamentos: fallback cuando no hay Supabase. */
+export function buildDefaultCatalogos(): ProspectCatalogos {
+  const fromLabels = (
+    entries: [string, string][],
+  ): ProspectCatalogItem[] =>
+    entries.map(([id, nombre], i) => ({ id, nombre, orden: i + 1, activo: true }));
+
+  return {
+    rubros: fromLabels(Object.entries(RUBRO_LABELS)),
+    etapas: STAGE_ORDER.map((id, i) => ({
+      id,
+      nombre: STAGE_LABELS[id],
+      orden: i + 1,
+      activo: true,
+    })),
+    tiposActividad: fromLabels(
+      Object.entries(ACTIVITY_TYPE_LABELS) as [ActivityType, string][],
+    ),
+    departamentos: DEPARTAMENTOS_URUGUAY.map(
+      (nombre, i): ProspectDepartamento => ({
+        id: deptoSlug(nombre),
+        nombre,
+        orden: i + 1,
+        activo: true,
+      }),
+    ),
+  };
 }
 
 // ───────────────────────── Clave canónica y merge de seed (Fase 2)

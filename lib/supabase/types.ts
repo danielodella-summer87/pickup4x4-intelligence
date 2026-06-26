@@ -173,6 +173,72 @@ export type DbCommercialCampaignResult = {
   created_at: string;
 };
 
+// ── Prospección Empresas (Fase 3) ──────────────────────────────────────────
+// Modelo híbrido: columnas base + JSONB para los bloques anidados de CompanyProspect.
+
+export type DbProspeccionEmpresa = {
+  id: string;
+  nombre: string;
+  nombre_canonico: string | null;
+  rubro: string | null;
+  subrubro: string | null;
+  tipo_organizacion: string | null;
+  direccion: string | null;
+  departamento: string | null;
+  ciudad: string | null;
+  localidad: string | null;
+  web: string | null;
+  fuente: string | null;
+  etapa: string | null;
+  prioridad: string | null;
+  semaforo: string | null;
+  es_sugerida: boolean;
+  requiere_revision: boolean;
+  flota: unknown;
+  proveedor: unknown;
+  necesidades: unknown;
+  contactos: unknown;
+  actividades: unknown;
+  propuestas: unknown;
+  observaciones: string | null;
+  meta: unknown;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbProspeccionNecesidadProducto = {
+  id: string;
+  producto: string;
+  rubro: string | null;
+  menciones: number;
+  potencial: string | null;
+  estado: string | null;
+  empresas: unknown;
+  observaciones: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+/** Forma común de los catálogos editables (rubros / etapas / tipos de actividad). */
+export type DbProspeccionCatalogo = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  orden: number;
+  activo: boolean;
+  meta: unknown;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbProspeccionDepartamento = {
+  id: string;
+  nombre: string;
+  orden: number;
+  activo: boolean;
+  created_at?: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -244,6 +310,42 @@ export type Database = {
         Insert: Omit<DbCommercialCampaignResult, "id" | "created_at"> &
           Partial<Pick<DbCommercialCampaignResult, "id" | "created_at">>;
         Update: Partial<DbCommercialCampaignResult>;
+        Relationships: [];
+      };
+      prospeccion_empresas: {
+        Row: DbProspeccionEmpresa;
+        Insert: DbProspeccionEmpresa;
+        Update: Partial<DbProspeccionEmpresa>;
+        Relationships: [];
+      };
+      prospeccion_necesidades_producto: {
+        Row: DbProspeccionNecesidadProducto;
+        Insert: DbProspeccionNecesidadProducto;
+        Update: Partial<DbProspeccionNecesidadProducto>;
+        Relationships: [];
+      };
+      prospeccion_rubros: {
+        Row: DbProspeccionCatalogo;
+        Insert: DbProspeccionCatalogo;
+        Update: Partial<DbProspeccionCatalogo>;
+        Relationships: [];
+      };
+      prospeccion_etapas: {
+        Row: DbProspeccionCatalogo;
+        Insert: DbProspeccionCatalogo;
+        Update: Partial<DbProspeccionCatalogo>;
+        Relationships: [];
+      };
+      prospeccion_tipos_actividad: {
+        Row: DbProspeccionCatalogo;
+        Insert: DbProspeccionCatalogo;
+        Update: Partial<DbProspeccionCatalogo>;
+        Relationships: [];
+      };
+      prospeccion_departamentos: {
+        Row: DbProspeccionDepartamento;
+        Insert: DbProspeccionDepartamento;
+        Update: Partial<DbProspeccionDepartamento>;
         Relationships: [];
       };
     };

@@ -55,6 +55,15 @@ import {
   suggestProspectPriority,
   todayISO,
 } from "@/lib/prospeccion/helpers";
+import {
+  buildGoogleMapsUrl,
+  buildMailtoUrl,
+  buildTelUrl,
+  buildWazeUrl,
+  buildWhatsappUrl,
+  formatDisplayPhone,
+  normalizeUruguayPhone,
+} from "@/lib/prospeccion/contact-links";
 
 // ───────────────────────────────────────────── Clases compartidas
 
@@ -69,6 +78,77 @@ const secondaryButton =
   "rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800";
 const smallButton =
   "rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800";
+const miniLink =
+  "inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-slate-800";
+
+// Acciones de teléfono (Llamar / WhatsApp) para un valor de teléfono dado.
+function PhoneActions({ value }: { value?: string }) {
+  if (!value || !value.trim()) return null;
+  const tel = buildTelUrl(value);
+  const wa = buildWhatsappUrl(value);
+  const dudoso = normalizeUruguayPhone(value) === null;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-slate-400">{formatDisplayPhone(value)}</span>
+      {tel ? (
+        <a href={tel} className={miniLink}>
+          Llamar
+        </a>
+      ) : null}
+      {wa ? (
+        <a href={wa} target="_blank" rel="noopener noreferrer" className={miniLink}>
+          WhatsApp
+        </a>
+      ) : null}
+      {dudoso ? (
+        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+          Revisar
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+// Fila de acciones de contacto (teléfono, whatsapp, email) bajo un contacto.
+function ContactActions({ c }: { c: ProspectContact }) {
+  const mailto = c.email ? buildMailtoUrl(c.email) : null;
+  const hasPhone = Boolean(c.telefono && c.telefono.trim());
+  const hasWa = Boolean(c.whatsapp && c.whatsapp.trim() && c.whatsapp !== c.telefono);
+  if (!hasPhone && !hasWa && !mailto) return null;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-800 pt-3">
+      {hasPhone ? <PhoneActions value={c.telefono} /> : null}
+      {hasWa ? <PhoneActions value={c.whatsapp} /> : null}
+      {mailto ? (
+        <a href={mailto} className={miniLink}>
+          Email
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+// Enlaces de mapa para una dirección (Google Maps / Waze).
+function AddressActions({ direccion, extra }: { direccion?: string; extra: string }) {
+  if (!direccion || !direccion.trim()) return null;
+  const maps = buildGoogleMapsUrl(direccion, extra);
+  const waze = buildWazeUrl(direccion, extra);
+  if (!maps && !waze) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-2">
+      {maps ? (
+        <a href={maps} target="_blank" rel="noopener noreferrer" className={miniLink}>
+          Google Maps
+        </a>
+      ) : null}
+      {waze ? (
+        <a href={waze} target="_blank" rel="noopener noreferrer" className={miniLink}>
+          Waze
+        </a>
+      ) : null}
+    </div>
+  );
+}
 
 const RUBRO_VALUES = Object.keys(RUBRO_LABELS) as ProspectRubro[];
 const ORG_VALUES = Object.keys(ORG_TYPE_LABELS) as ProspectOrgType[];
@@ -138,7 +218,8 @@ export default function ProspectFichaPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
-  const { prospects, isHydrated, updateProspect, deleteProspect } = useProspeccion();
+  const { prospects, isHydrated, updateProspect, deleteProspect, catalogos, saveState } =
+    useProspeccion();
   const original = useMemo(
     () => prospects.find((p) => p.id === id),
     [prospects, id],
@@ -185,6 +266,21 @@ export default function ProspectFichaPage() {
   const semaforo = getProspectTrafficLight(draft);
   const next = getNextActivityStatus(draft);
   const sugerida = suggestProspectPriority(draft);
+
+  // Opciones desde catálogo editable cuando hay; si no, los label maps por defecto.
+  const rubrosActivos = catalogos.rubros.filter((r) => r.activo);
+  const rubroOptions =
+    rubrosActivos.length > 0
+      ? rubrosActivos.map((r) => ({ value: r.id, label: r.nombre }))
+      : RUBRO_VALUES.map((r) => ({ value: r, label: RUBRO_LABELS[r] }));
+  const etapasActivas = catalogos.etapas.filter((s) => s.activo);
+  const etapaOptions =
+    etapasActivas.length > 0
+      ? etapasActivas.map((s) => ({ value: s.id, label: s.nombre }))
+      : STAGE_ORDER.map((s) => ({ value: s, label: STAGE_LABELS[s] }));
+  const direccionExtra = [draft.ciudad, draft.localidad, draft.departamento]
+    .filter(Boolean)
+    .join(", ");
 
   function set<K extends keyof CompanyProspect>(key: K, value: CompanyProspect[K]) {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
@@ -364,9 +460,9 @@ export default function ProspectFichaPage() {
                 value={draft.rubro}
                 onChange={(e) => set("rubro", e.target.value as ProspectRubro)}
               >
-                {RUBRO_VALUES.map((r) => (
-                  <option key={r} value={r}>
-                    {RUBRO_LABELS[r]}
+                {rubroOptions.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
                   </option>
                 ))}
               </select>
@@ -393,13 +489,16 @@ export default function ProspectFichaPage() {
                 ))}
               </select>
             </Field>
-            <Field label="Dirección">
-              <input
-                className={inputClass}
-                value={draft.direccion ?? ""}
-                onChange={(e) => set("direccion", e.target.value || undefined)}
-              />
-            </Field>
+            <div>
+              <Field label="Dirección">
+                <input
+                  className={inputClass}
+                  value={draft.direccion ?? ""}
+                  onChange={(e) => set("direccion", e.target.value || undefined)}
+                />
+              </Field>
+              <AddressActions direccion={draft.direccion} extra={direccionExtra} />
+            </div>
             <Field label="Localidad">
               <input
                 className={inputClass}
@@ -407,12 +506,30 @@ export default function ProspectFichaPage() {
                 onChange={(e) => set("localidad", e.target.value || undefined)}
               />
             </Field>
-            <Field label="Departamento">
+            <Field label="Ciudad">
               <input
                 className={inputClass}
+                value={draft.ciudad ?? ""}
+                onChange={(e) => set("ciudad", e.target.value || undefined)}
+              />
+            </Field>
+            <Field label="Departamento">
+              <select
+                className={selectClass}
                 value={draft.departamento ?? ""}
                 onChange={(e) => set("departamento", e.target.value || undefined)}
-              />
+              >
+                <option value="">Sin departamento</option>
+                {catalogos.departamentos.map((d) => (
+                  <option key={d.id} value={d.nombre}>
+                    {d.nombre}
+                  </option>
+                ))}
+                {draft.departamento &&
+                !catalogos.departamentos.some((d) => d.nombre === draft.departamento) ? (
+                  <option value={draft.departamento}>{draft.departamento}</option>
+                ) : null}
+              </select>
             </Field>
             <Field label="Web">
               <input
@@ -440,9 +557,9 @@ export default function ProspectFichaPage() {
                 value={draft.etapa}
                 onChange={(e) => set("etapa", e.target.value as ProspectStage)}
               >
-                {STAGE_ORDER.map((s) => (
-                  <option key={s} value={s}>
-                    {STAGE_LABELS[s]}
+                {etapaOptions.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
                   </option>
                 ))}
               </select>
@@ -624,6 +741,7 @@ export default function ProspectFichaPage() {
                       Quitar contacto
                     </button>
                   </div>
+                  <ContactActions c={c} />
                 </div>
               ))}
             </div>
@@ -1175,10 +1293,18 @@ export default function ProspectFichaPage() {
           <button type="button" onClick={handleGuardar} className={primaryCta}>
             Guardar cambios
           </button>
-          {guardado && !tieneCambios ? (
-            <span className="text-sm text-emerald-300">Cambios guardados.</span>
+          {saveState === "guardando" ? (
+            <span className="text-sm text-sky-300">Guardando en Supabase…</span>
+          ) : saveState === "error" ? (
+            <span className="text-sm text-rose-300">
+              Error al guardar (queda local).
+            </span>
           ) : tieneCambios ? (
             <span className="text-sm text-amber-300">Cambios sin guardar.</span>
+          ) : guardado || saveState === "guardado" ? (
+            <span className="text-sm text-emerald-300">
+              {saveState === "guardado" ? "Guardado ✓" : "Cambios guardados."}
+            </span>
           ) : null}
           <button
             type="button"

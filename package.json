@@ -10,6 +10,7 @@
     "campania": "bash scripts/campania.sh",
     "campania:build": "node scripts/build-campania.cjs",
     "prospeccion:build": "node scripts/build-prospeccion.cjs",
+    "prospeccion:seed:supabase": "node scripts/seed-prospeccion-supabase.cjs",
     "campania:seed": "node scripts/seed-campania-supabase-direct.cjs",
     "campania:seed:api": "node scripts/seed-campania-supabase.cjs"
   },

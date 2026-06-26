@@ -67,6 +67,21 @@ function isValidISODate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00`));
 }
 
+// Semáforo de atraso por actividad: gris realizada/cancelada · rojo vencida ·
+// amarillo hoy · verde futura.
+function atrasoDotClass(
+  fecha: string,
+  estado: ActivityStatus,
+  today: string,
+): string {
+  if (estado === "realizada" || estado === "cancelada") return "bg-slate-500";
+  if (!isValidISODate(fecha)) return "bg-slate-500";
+  const d = diffInDays(fecha, today);
+  if (d < 0) return "bg-rose-400";
+  if (d === 0) return "bg-amber-400";
+  return "bg-emerald-400";
+}
+
 function bucketForActivity(fecha: string, today: string): Bucket {
   if (!isValidISODate(fecha)) return "sin_fecha";
   const days = diffInDays(fecha, today);
@@ -246,7 +261,7 @@ export default function ProspeccionAgendaPage() {
           title="Agenda de próximas actividades"
           description="Filtrá por tipo, estado, responsable o rango de fechas"
           action={
-            <Link href="/prospeccion-empresas" className={primaryCtaClass}>
+            <Link href="/prospeccion-empresas/agenda/nueva" className={primaryCtaClass}>
               Nueva actividad
             </Link>
           }
@@ -336,7 +351,17 @@ export default function ProspeccionAgendaPage() {
                 descripcion={
                   hayFiltros
                     ? "Probá con otros filtros o limpialos para ver toda la agenda."
-                    : "Cuando cargues próximas actividades en las oportunidades, aparecerán acá."
+                    : "Toda oportunidad activa debería tener una próxima acción. Empezá creando una."
+                }
+                action={
+                  hayFiltros ? undefined : (
+                    <Link
+                      href="/prospeccion-empresas/agenda/nueva"
+                      className={primaryCtaClass}
+                    >
+                      Nueva actividad
+                    </Link>
+                  )
                 }
               />
             ) : (
@@ -358,6 +383,7 @@ export default function ProspeccionAgendaPage() {
 }
 
 function AgendaGrupo({ bucket, rows }: { bucket: Bucket; rows: AgendaRow[] }) {
+  const today = todayISO();
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -378,6 +404,7 @@ function AgendaGrupo({ bucket, rows }: { bucket: Bucket; rows: AgendaRow[] }) {
               <th className="px-3 py-2 font-medium">Actividad</th>
               <th className="px-3 py-2 font-medium">Responsable</th>
               <th className="px-3 py-2 font-medium">Estado</th>
+              <th className="px-3 py-2 font-medium">Atraso</th>
               <th className="px-3 py-2 font-medium">Semáforo</th>
               <th className="px-3 py-2 text-right font-medium">Acción</th>
             </tr>
@@ -416,6 +443,15 @@ function AgendaGrupo({ bucket, rows }: { bucket: Bucket; rows: AgendaRow[] }) {
                   >
                     {ACTIVITY_STATUS_LABELS[actividad.estado]}
                   </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <span
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${atrasoDotClass(
+                      actividad.fecha,
+                      actividad.estado,
+                      today,
+                    )}`}
+                  />
                 </td>
                 <td className="px-3 py-2.5">
                   <TrafficLightDot value={semaforo} />

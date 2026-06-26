@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -16,13 +17,34 @@ import {
   type CreateProspectInput,
   type ProductOpportunity,
   type ProspectActivity,
+  type ProspectCatalogItem,
+  type ProspectCatalogKind,
+  type ProspectCatalogos,
   type ProspectProposal,
 } from "@/lib/models/prospeccion";
 import {
   mockProductOpportunities,
   mockProspects,
 } from "@/lib/prospeccion/mock-prospeccion";
-import { mergeProspectionSeed } from "@/lib/prospeccion/helpers";
+import {
+  buildDefaultCatalogos,
+  mergeProspectionSeed,
+} from "@/lib/prospeccion/helpers";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  deleteNecesidadProductoFromSupabase,
+  deleteProspectoFromSupabase,
+  loadCatalogosFromSupabase,
+  loadProspeccionFromSupabase,
+  upsertCatalogoItemInSupabase,
+  upsertNecesidadProductoInSupabase,
+  upsertProspectoInSupabase,
+} from "@/lib/data/supabase-prospeccion";
+
+/** Origen activo de los datos. */
+export type ProspeccionSource = "supabase" | "local" | "seed" | "mock";
+/** Estado de guardado remoto. */
+export type ProspeccionSaveState = "idle" | "guardando" | "guardado" | "error";
 
 // Persistencia local versionada. En esta fase es la única fuente; la estructura
 // queda preparada para sincronizar con Supabase más adelante (ver SolicitudesContext
@@ -73,6 +95,14 @@ type ProspeccionContextValue = {
   importSeedMerge: () => void;
   /** Reset duro al seed JSON (descarta lo local). Preparado, sin UI todavía. */
   resetToSeed: () => void;
+  /** Origen activo de los datos (supabase / local / seed / mock). */
+  source: ProspeccionSource;
+  /** Estado del último guardado remoto. */
+  saveState: ProspeccionSaveState;
+  /** Catálogos editables (desde Supabase si existe; si no, defaults). */
+  catalogos: ProspectCatalogos;
+  /** Alta/edición de un item de catálogo (rubros / etapas / tipos de actividad). */
+  upsertCatalogItem: (kind: ProspectCatalogKind, item: ProspectCatalogItem) => void;
 };
 
 const ProspeccionContext = createContext<ProspeccionContextValue | null>(null);
@@ -192,23 +222,55 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
     ProductOpportunity[]
   >([]);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [source, setSource] = useState<ProspeccionSource>("mock");
+  const [saveState, setSaveState] = useState<ProspeccionSaveState>("idle");
+  const [catalogos, setCatalogos] = useState<ProspectCatalogos>(
+    buildDefaultCatalogos(),
+  );
+
+  // Copias vivas para computar objetos a sincronizar sin depender del closure.
+  const prospectsRef = useRef<CompanyProspect[]>([]);
+  const oppsRef = useRef<ProductOpportunity[]>([]);
+  useEffect(() => {
+    prospectsRef.current = prospects;
+  }, [prospects]);
+  useEffect(() => {
+    oppsRef.current = productOpportunities;
+  }, [productOpportunities]);
 
   useEffect(() => {
     // Patrón del proyecto (ver SolicitudesContext): la hidratación corre en un
     // callback asíncrono para no llamar setState de forma síncrona en el efecto.
     let cancelled = false;
     void (async () => {
+      // 1) Supabase como fuente principal si está configurado y tiene datos.
+      if (isSupabaseConfigured()) {
+        const remote = await loadProspeccionFromSupabase();
+        if (cancelled) return;
+        if (remote.ok && remote.prospects.length > 0) {
+          setProspects(remote.prospects);
+          setProductOpportunities(remote.productOpportunities);
+          writeToStorage(remote.prospects, remote.productOpportunities); // cache
+          setSource("supabase");
+          const cat = await loadCatalogosFromSupabase();
+          if (!cancelled && cat.ok && cat.catalogos.rubros.length > 0) {
+            setCatalogos(cat.catalogos);
+          }
+          if (!cancelled) setIsHydrated(true);
+          return;
+        }
+      }
+      // 2) Cache local (posiblemente editado): NO se sobrescribe.
       const stored = readFromStorage();
       if (stored) {
-        // Hay datos locales (posiblemente editados): NO se sobrescriben.
         if (cancelled) return;
         setProspects(stored.prospects);
         setProductOpportunities(stored.productOpportunities);
+        setSource("local");
         setIsHydrated(true);
         return;
       }
-      // Primer arranque: sembrar desde el JSON generado de los Excel; si no
-      // existe, caer al mock incluido en el bundle.
+      // 3) Seed desde el JSON de los Excel; si no existe, mock del bundle.
       const seed = await fetchSeed();
       if (cancelled) return;
       const initialProspects = seed ? seed.prospects : mockProspects;
@@ -216,11 +278,33 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       setProspects(initialProspects);
       setProductOpportunities(initialOpps);
       writeToStorage(initialProspects, initialOpps);
+      setSource(seed ? "seed" : "mock");
       setIsHydrated(true);
     })();
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // ── Sincronización remota (fire-and-forget; localStorage queda como respaldo)
+  const syncProspecto = useCallback((p: CompanyProspect) => {
+    if (!isSupabaseConfigured()) return;
+    setSaveState("guardando");
+    void upsertProspectoInSupabase(p).then((r) =>
+      setSaveState(r.ok ? "guardado" : "error"),
+    );
+  }, []);
+  const syncDeleteProspecto = useCallback((id: string) => {
+    if (!isSupabaseConfigured()) return;
+    void deleteProspectoFromSupabase(id);
+  }, []);
+  const syncOpp = useCallback((o: ProductOpportunity) => {
+    if (!isSupabaseConfigured()) return;
+    void upsertNecesidadProductoInSupabase(o);
+  }, []);
+  const syncDeleteOpp = useCallback((id: string) => {
+    if (!isSupabaseConfigured()) return;
+    void deleteNecesidadProductoFromSupabase(id);
   }, []);
 
   const persist = useCallback(
@@ -293,49 +377,55 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
         actualizadoEn: fecha,
       };
       mutateProspects((prev) => [prospect, ...prev]);
+      syncProspecto(prospect);
       return prospect;
     },
-    [mutateProspects],
+    [mutateProspects, syncProspecto],
   );
 
   const updateProspect = useCallback(
     (id: string, changes: Partial<CompanyProspect>) => {
+      const actualizadoEn = nowISO();
       mutateProspects((prev) =>
         prev.map((p) =>
-          p.id === id
-            ? { ...p, ...changes, id: p.id, actualizadoEn: nowISO() }
-            : p,
+          p.id === id ? { ...p, ...changes, id: p.id, actualizadoEn } : p,
         ),
       );
+      const prev = prospectsRef.current.find((p) => p.id === id);
+      if (prev) syncProspecto({ ...prev, ...changes, id, actualizadoEn });
     },
-    [mutateProspects],
+    [mutateProspects, syncProspecto],
   );
 
   const deleteProspect = useCallback(
     (id: string) => {
       mutateProspects((prev) => prev.filter((p) => p.id !== id));
+      syncDeleteProspecto(id);
     },
-    [mutateProspects],
+    [mutateProspects, syncDeleteProspecto],
   );
 
   const addActivity = useCallback(
     (prospectId: string, activity: Omit<ProspectActivity, "id">) => {
+      const act: ProspectActivity = { ...activity, id: genId("act") };
+      const actualizadoEn = nowISO();
       mutateProspects((prev) =>
         prev.map((p) =>
           p.id === prospectId
-            ? {
-                ...p,
-                actividades: [
-                  ...p.actividades,
-                  { ...activity, id: genId("act") },
-                ],
-                actualizadoEn: nowISO(),
-              }
+            ? { ...p, actividades: [...p.actividades, act], actualizadoEn }
             : p,
         ),
       );
+      const cur = prospectsRef.current.find((p) => p.id === prospectId);
+      if (cur) {
+        syncProspecto({
+          ...cur,
+          actividades: [...cur.actividades, act],
+          actualizadoEn,
+        });
+      }
     },
-    [mutateProspects],
+    [mutateProspects, syncProspecto],
   );
 
   const updateActivity = useCallback(
@@ -344,50 +434,55 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       activityId: string,
       changes: Partial<ProspectActivity>,
     ) => {
+      const actualizadoEn = nowISO();
+      const applyActs = (acts: ProspectActivity[]) =>
+        acts.map((a) => (a.id === activityId ? { ...a, ...changes, id: a.id } : a));
       mutateProspects((prev) =>
         prev.map((p) =>
           p.id === prospectId
-            ? {
-                ...p,
-                actividades: p.actividades.map((a) =>
-                  a.id === activityId ? { ...a, ...changes, id: a.id } : a,
-                ),
-                actualizadoEn: nowISO(),
-              }
+            ? { ...p, actividades: applyActs(p.actividades), actualizadoEn }
             : p,
         ),
       );
+      const cur = prospectsRef.current.find((p) => p.id === prospectId);
+      if (cur) {
+        syncProspecto({ ...cur, actividades: applyActs(cur.actividades), actualizadoEn });
+      }
     },
-    [mutateProspects],
+    [mutateProspects, syncProspecto],
   );
 
   const addProposal = useCallback(
     (prospectId: string, proposal: Omit<ProspectProposal, "id">) => {
+      const prop: ProspectProposal = { ...proposal, id: genId("prop") };
+      const actualizadoEn = nowISO();
       mutateProspects((prev) =>
         prev.map((p) =>
           p.id === prospectId
-            ? {
-                ...p,
-                propuestas: [
-                  ...p.propuestas,
-                  { ...proposal, id: genId("prop") },
-                ],
-                actualizadoEn: nowISO(),
-              }
+            ? { ...p, propuestas: [...p.propuestas, prop], actualizadoEn }
             : p,
         ),
       );
+      const cur = prospectsRef.current.find((p) => p.id === prospectId);
+      if (cur) {
+        syncProspecto({
+          ...cur,
+          propuestas: [...cur.propuestas, prop],
+          actualizadoEn,
+        });
+      }
     },
-    [mutateProspects],
+    [mutateProspects, syncProspecto],
   );
 
   const createProductOpportunity = useCallback(
     (opp: Omit<ProductOpportunity, "id">): ProductOpportunity => {
       const created: ProductOpportunity = { ...opp, id: genId("po") };
       mutateOpps((prev) => [created, ...prev]);
+      syncOpp(created);
       return created;
     },
-    [mutateOpps],
+    [mutateOpps, syncOpp],
   );
 
   const updateProductOpportunity = useCallback(
@@ -395,15 +490,40 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       mutateOpps((prev) =>
         prev.map((o) => (o.id === id ? { ...o, ...changes, id: o.id } : o)),
       );
+      const cur = oppsRef.current.find((o) => o.id === id);
+      if (cur) syncOpp({ ...cur, ...changes, id });
     },
-    [mutateOpps],
+    [mutateOpps, syncOpp],
   );
 
   const deleteProductOpportunity = useCallback(
     (id: string) => {
       mutateOpps((prev) => prev.filter((o) => o.id !== id));
+      syncDeleteOpp(id);
     },
-    [mutateOpps],
+    [mutateOpps, syncDeleteOpp],
+  );
+
+  // Alta/edición de catálogo (local optimista + Supabase fire-and-forget).
+  const upsertCatalogItem = useCallback(
+    (kind: ProspectCatalogKind, item: ProspectCatalogItem) => {
+      const key =
+        kind === "rubros"
+          ? "rubros"
+          : kind === "etapas"
+            ? "etapas"
+            : "tiposActividad";
+      setCatalogos((prev) => {
+        const list = prev[key];
+        const exists = list.some((c) => c.id === item.id);
+        const nextList = exists
+          ? list.map((c) => (c.id === item.id ? item : c))
+          : [...list, item];
+        return { ...prev, [key]: nextList };
+      });
+      if (isSupabaseConfigured()) void upsertCatalogoItemInSupabase(kind, item);
+    },
+    [],
   );
 
   const resetToMock = useCallback(() => {
@@ -458,6 +578,10 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       resetToMock,
       importSeedMerge,
       resetToSeed,
+      source,
+      saveState,
+      catalogos,
+      upsertCatalogItem,
     }),
     [
       prospects,
@@ -475,6 +599,10 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
       resetToMock,
       importSeedMerge,
       resetToSeed,
+      source,
+      saveState,
+      catalogos,
+      upsertCatalogItem,
     ],
   );
 

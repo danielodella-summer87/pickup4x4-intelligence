@@ -128,6 +128,7 @@ const tabs = [
   { href: "/prospeccion-empresas", label: "Oportunidades" },
   { href: "/prospeccion-empresas/agenda", label: "Agenda" },
   { href: "/prospeccion-empresas/propuestas", label: "Propuestas" },
+  { href: "/prospeccion-empresas/configuracion", label: "Configuración" },
 ];
 
 export function ProspeccionTabs() {
@@ -140,7 +141,8 @@ export function ProspeccionTabs() {
             ? pathname === tab.href ||
               (pathname.startsWith("/prospeccion-empresas/") &&
                 !pathname.startsWith("/prospeccion-empresas/agenda") &&
-                !pathname.startsWith("/prospeccion-empresas/propuestas"))
+                !pathname.startsWith("/prospeccion-empresas/propuestas") &&
+                !pathname.startsWith("/prospeccion-empresas/configuracion"))
             : pathname.startsWith(tab.href);
         return (
           <Link

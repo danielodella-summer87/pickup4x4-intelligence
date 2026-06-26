@@ -24,6 +24,7 @@ import {
 import { ProductOpportunitiesBlock } from "@/components/prospeccion/ProductOpportunitiesBlock";
 import { useProspeccion } from "@/contexts/ProspeccionContext";
 import type {
+  ActivityType,
   ProspectOrgType,
   ProspectPriority,
   ProspectRubro,
@@ -32,6 +33,7 @@ import type {
   TriState,
 } from "@/lib/models/prospeccion";
 import {
+  ACTIVITY_TYPE_LABELS,
   ORG_TYPE_LABELS,
   PRIORITY_LABELS,
   RUBRO_LABELS,
@@ -49,6 +51,7 @@ import {
   hasSentProposal,
   hayFiltrosActivos,
   referenteNombre,
+  sortProspectsForListado,
   type ProspectFilters,
 } from "@/lib/prospeccion/helpers";
 
@@ -60,15 +63,20 @@ const ORG_VALUES = Object.keys(ORG_TYPE_LABELS) as ProspectOrgType[];
 const TRI_VALUES: TriState[] = ["si", "no", "no_se_sabe"];
 const SEMAFORO_VALUES: ProspectTrafficLight[] = ["verde", "amarillo", "rojo", "gris"];
 const PRIORITY_VALUES: ProspectPriority[] = ["alta", "media", "baja"];
+const ACTIVITY_TYPE_VALUES = Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[];
+
+const secondaryButton =
+  "inline-flex items-center justify-center rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800";
 
 export default function ProspeccionEmpresasPage() {
-  const { prospects, isHydrated, deleteProspect } = useProspeccion();
+  const { prospects, isHydrated, deleteProspect, saveState } = useProspeccion();
   const [filtros, setFiltros] = useState<ProspectFilters>(emptyProspectFilters);
+  const [mostrarTabla, setMostrarTabla] = useState(false);
 
   const kpis = useMemo(() => getProspectionKpis(prospects), [prospects]);
   const opciones = useMemo(() => getProspectFilterOptions(prospects), [prospects]);
   const filtradas = useMemo(
-    () => filterProspects(prospects, filtros),
+    () => sortProspectsForListado(filterProspects(prospects, filtros)),
     [prospects, filtros],
   );
   const filtrosActivos = hayFiltrosActivos(filtros);
@@ -148,9 +156,14 @@ export default function ProspeccionEmpresasPage() {
           title="Oportunidades"
           description="Empresas en prospección. Una empresa sugerida por estrategia se marca con su etiqueta."
           action={
-            <Link href="/prospeccion-empresas/nueva" className={primaryCta}>
-              Nueva oportunidad
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/prospeccion-empresas/agenda" className={secondaryButton}>
+                Agenda
+              </Link>
+              <Link href="/prospeccion-empresas/nueva" className={primaryCta}>
+                Nueva oportunidad
+              </Link>
+            </div>
           }
         >
           <ConsultaToolbar
@@ -276,6 +289,22 @@ export default function ProspeccionEmpresasPage() {
                 ))}
               </FilterSelect>
             </FilterField>
+
+            <FilterField label="Próxima actividad">
+              <FilterSelect
+                value={filtros.proximaActividadTipo}
+                onChange={(e) =>
+                  patch({ proximaActividadTipo: e.target.value as ActivityType | "" })
+                }
+              >
+                <option value="">Todas</option>
+                {ACTIVITY_TYPE_VALUES.map((t) => (
+                  <option key={t} value={t}>
+                    {ACTIVITY_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </FilterSelect>
+            </FilterField>
           </ConsultaToolbar>
 
           {/* Toggles rápidos */}
@@ -320,15 +349,33 @@ export default function ProspeccionEmpresasPage() {
             </FiltroToggle>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <ResultadosMeta
               total={prospects.length}
               filtrados={filtradas.length}
               truncated={false}
             />
+            <div className="flex items-center gap-3">
+              {saveState === "guardando" ? (
+                <span className="text-xs text-amber-300">Guardando…</span>
+              ) : saveState === "guardado" ? (
+                <span className="text-xs text-emerald-300">Guardado</span>
+              ) : saveState === "error" ? (
+                <span className="text-xs text-rose-300">Error al guardar</span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setMostrarTabla((v) => !v)}
+                className={secondaryButton}
+              >
+                {mostrarTabla
+                  ? "Ocultar listado"
+                  : `Ver oportunidades (${filtradas.length})`}
+              </button>
+            </div>
           </div>
 
-          {filtradas.length === 0 ? (
+          {!mostrarTabla ? null : filtradas.length === 0 ? (
             <div className="mt-4">
               <EstadoVacioConsulta
                 titulo="No hay oportunidades para mostrar"

@@ -46,6 +46,7 @@ const initialForm: CreateProspectInput = {
   subrubro: "",
   tipoOrganizacion: "privada",
   localidad: "",
+  ciudad: "",
   departamento: "",
   direccion: "",
   web: "",
@@ -176,6 +177,16 @@ export default function NuevaOportunidadPage() {
                 type="text"
                 value={form.localidad ?? ""}
                 onChange={(e) => updateField("localidad", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+
+            <label>
+              <span className={labelClass}>Ciudad</span>
+              <input
+                type="text"
+                value={form.ciudad ?? ""}
+                onChange={(e) => updateField("ciudad", e.target.value)}
                 className={inputClass}
               />
             </label>

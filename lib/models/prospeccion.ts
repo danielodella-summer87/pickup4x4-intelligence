@@ -220,6 +220,10 @@ export interface ProspectActivity {
   tipo: ActivityType;
   fecha: string;
   hora?: string;
+  /** Lugar de la actividad (reunión/visita). */
+  lugar?: string;
+  /** Participantes / personas que se suman (texto libre). */
+  participantes?: string;
   responsable?: string;
   estado: ActivityStatus;
   resultadoEsperado?: string;
@@ -269,6 +273,7 @@ export interface CompanyProspect {
   tipoOrganizacion: ProspectOrgType;
   direccion?: string;
   localidad?: string;
+  ciudad?: string;
   departamento?: string;
   web?: string;
   observaciones?: string;
@@ -300,6 +305,33 @@ export interface CompanyProspect {
   ultimoContacto?: string;
 }
 
+// ───────────────────────────────────────── Catálogos editables (Fase 3)
+
+/** Item de catálogo editable (rubros / etapas / tipos de actividad). */
+export interface ProspectCatalogItem {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  orden: number;
+  activo: boolean;
+}
+
+export type ProspectCatalogKind = "rubros" | "etapas" | "tipos_actividad";
+
+export interface ProspectDepartamento {
+  id: string;
+  nombre: string;
+  orden: number;
+  activo: boolean;
+}
+
+export interface ProspectCatalogos {
+  rubros: ProspectCatalogItem[];
+  etapas: ProspectCatalogItem[];
+  tiposActividad: ProspectCatalogItem[];
+  departamentos: ProspectDepartamento[];
+}
+
 // ───────────────────────────────────────────────────────── Inputs de creación
 
 export interface CreateProspectInput {
@@ -308,6 +340,7 @@ export interface CreateProspectInput {
   subrubro?: string;
   tipoOrganizacion: ProspectOrgType;
   localidad?: string;
+  ciudad?: string;
   departamento?: string;
   direccion?: string;
   web?: string;
