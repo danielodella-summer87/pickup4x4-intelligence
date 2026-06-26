@@ -9,13 +9,19 @@ import {
   FilterField,
   FilterSelect,
 } from "@/components/module/ConsultaToolbar";
-import { SectionCard } from "@/components/SectionCard";
 import { StatCard } from "@/components/StatCard";
 import {
+  CollapsibleSection,
   GuiaUso,
   ProspeccionTabs,
   TrafficLightDot,
 } from "@/components/prospeccion/ProspeccionUI";
+import {
+  buildAgendaPdfBlob,
+  downloadPdf,
+  reportDateStamp,
+  sharePdfFile,
+} from "@/lib/prospeccion/pdf-export";
 import { useProspeccion } from "@/contexts/ProspeccionContext";
 import type {
   ActivityStatus,
@@ -36,8 +42,16 @@ import {
 
 const primaryCtaClass =
   "inline-flex items-center justify-center rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400";
+const secondaryButton =
+  "rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800";
 
-type Bucket = "vencidas" | "hoy" | "proximos_7" | "proximos_30" | "sin_fecha";
+type Bucket =
+  | "vencidas"
+  | "hoy"
+  | "proximos_7"
+  | "proximos_30"
+  | "sin_fecha"
+  | "cerradas";
 
 const BUCKET_ORDER: Bucket[] = [
   "vencidas",
@@ -45,6 +59,7 @@ const BUCKET_ORDER: Bucket[] = [
   "proximos_7",
   "proximos_30",
   "sin_fecha",
+  "cerradas",
 ];
 
 const BUCKET_LABELS: Record<Bucket, string> = {
@@ -53,6 +68,7 @@ const BUCKET_LABELS: Record<Bucket, string> = {
   proximos_7: "Próximos 7 días",
   proximos_30: "Próximos 30 días",
   sin_fecha: "Sin fecha",
+  cerradas: "Realizadas / cerradas",
 };
 
 const BUCKET_DESCRIPTIONS: Record<Bucket, string> = {
@@ -61,7 +77,13 @@ const BUCKET_DESCRIPTIONS: Record<Bucket, string> = {
   proximos_7: "Agenda de la semana.",
   proximos_30: "Próximas cuatro semanas.",
   sin_fecha: "Actividades sin fecha asignada: poneles una para no perderlas.",
+  cerradas: "Actividades realizadas o canceladas (historial).",
 };
+
+/** Estados que cuentan como "cerrados" (no abiertos). */
+function esCerrada(estado: ActivityStatus): boolean {
+  return estado === "realizada" || estado === "cancelada";
+}
 
 function isValidISODate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00`));
@@ -80,6 +102,13 @@ function atrasoDotClass(
   if (d < 0) return "bg-rose-400";
   if (d === 0) return "bg-amber-400";
   return "bg-emerald-400";
+}
+
+function estadoBadgeClass(estado: ActivityStatus): string {
+  if (estado === "realizada") return "bg-emerald-500/15 text-emerald-300";
+  if (estado === "vencida") return "bg-rose-500/15 text-rose-300";
+  if (estado === "cancelada") return "bg-slate-700/60 text-slate-400 line-through";
+  return "bg-slate-700/60 text-slate-300";
 }
 
 function bucketForActivity(fecha: string, today: string): Bucket {
@@ -109,6 +138,7 @@ const RANGO_OPCIONES: { value: RangoFiltro; label: string }[] = [
   { value: "proximos_7", label: "Próximos 7 días" },
   { value: "proximos_30", label: "Próximos 30 días" },
   { value: "sin_fecha", label: "Sin fecha" },
+  { value: "cerradas", label: "Realizadas / cerradas" },
 ];
 
 type Filtros = {
@@ -122,7 +152,7 @@ type Filtros = {
 const filtrosIniciales: Filtros = {
   busqueda: "",
   tipo: "",
-  estado: "",
+  estado: "pendiente", // default operativo: ver lo pendiente primero
   responsable: "",
   rango: "",
 };
@@ -146,22 +176,24 @@ export default function ProspeccionAgendaPage() {
     const rows: AgendaRow[] = [];
     for (const prospect of prospects) {
       const semaforo = getProspectTrafficLight(prospect, today);
+      // Se incluyen TODAS las actividades (incluidas realizadas/canceladas);
+      // el filtro de estado decide qué mostrar. Las cerradas van a su bucket.
       for (const actividad of prospect.actividades) {
-        if (actividad.estado !== "pendiente" && actividad.estado !== "vencida") {
-          continue;
-        }
-        rows.push({
-          actividad,
-          prospect,
-          semaforo,
-          bucket: bucketForActivity(actividad.fecha, today),
-        });
+        const bucket = esCerrada(actividad.estado)
+          ? "cerradas"
+          : bucketForActivity(actividad.fecha, today);
+        rows.push({ actividad, prospect, semaforo, bucket });
       }
     }
+    // Orden por vencimiento: fecha ascendente (vencidas más antiguas primero,
+    // hoy, futuras), hora ascendente dentro de la fecha, sin fecha al final.
     return rows.sort((a, b) => {
       const af = isValidISODate(a.actividad.fecha) ? a.actividad.fecha : "9999-12-31";
       const bf = isValidISODate(b.actividad.fecha) ? b.actividad.fecha : "9999-12-31";
-      return af.localeCompare(bf);
+      if (af !== bf) return af.localeCompare(bf);
+      const ah = a.actividad.hora || "99:99";
+      const bh = b.actividad.hora || "99:99";
+      return ah.localeCompare(bh);
     });
   }, [prospects, isHydrated, today]);
 
@@ -194,6 +226,7 @@ export default function ProspeccionAgendaPage() {
       proximos_7: 0,
       proximos_30: 0,
       sin_fecha: 0,
+      cerradas: 0,
     };
     for (const row of filtradas) base[row.bucket] += 1;
     return base;
@@ -206,12 +239,35 @@ export default function ProspeccionAgendaPage() {
     })).filter((grupo) => grupo.rows.length > 0);
   }, [filtradas]);
 
+  // "Limpiar" se ofrece cuando el operador cambió algo respecto del default
+  // (estado=pendiente es el default, no cuenta como filtro extra).
   const hayFiltros =
     filtros.busqueda.trim() !== "" ||
     filtros.tipo !== "" ||
-    filtros.estado !== "" ||
+    filtros.estado !== "pendiente" ||
     filtros.responsable !== "" ||
     filtros.rango !== "";
+
+  const pdfFileName = () => `agenda-prospeccion-${reportDateStamp()}.pdf`;
+
+  // Exporta la agenda filtrada como PDF (descarga).
+  function exportarPdf() {
+    if (filtradas.length === 0) return;
+    const blob = buildAgendaPdfBlob(filtradas, { totalGeneral: filasBase.length });
+    downloadPdf(blob, pdfFileName());
+  }
+
+  // Comparte el PDF vía Web Share API (menú nativo → WhatsApp); fallback descarga.
+  function compartirPdf() {
+    if (filtradas.length === 0) return;
+    const blob = buildAgendaPdfBlob(filtradas, { totalGeneral: filasBase.length });
+    void sharePdfFile(
+      blob,
+      pdfFileName(),
+      "Agenda Prospección Empresas",
+      "Agenda de actividades B2B (Pickup 4x4 Intelligence).",
+    );
+  }
 
   if (!isHydrated) {
     return (
@@ -234,7 +290,7 @@ export default function ProspeccionAgendaPage() {
           parada. Toda oportunidad activa debería tener una próxima acción definida.
         </GuiaUso>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <StatCard
             label="Vencidas"
             value={conteos.vencidas.toLocaleString("es-AR")}
@@ -255,16 +311,43 @@ export default function ProspeccionAgendaPage() {
             value={conteos.sin_fecha.toLocaleString("es-AR")}
             hint={conteos.sin_fecha > 0 ? "Asigná una fecha" : undefined}
           />
+          <StatCard
+            label="Realizadas / cerradas"
+            value={conteos.cerradas.toLocaleString("es-AR")}
+          />
         </div>
 
-        <SectionCard
+        {/* CTA + acciones de exportación (siempre visibles, también colapsado). */}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={exportarPdf}
+            disabled={filtradas.length === 0}
+            className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
+          >
+            Exportar PDF
+          </button>
+          <button
+            type="button"
+            onClick={compartirPdf}
+            disabled={filtradas.length === 0}
+            className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
+          >
+            Compartir PDF
+          </button>
+          <Link href="/prospeccion-empresas/agenda/nueva" className={primaryCtaClass}>
+            Nueva actividad
+          </Link>
+        </div>
+
+        <CollapsibleSection
           title="Agenda de próximas actividades"
-          description="Filtrá por tipo, estado, responsable o rango de fechas"
-          action={
-            <Link href="/prospeccion-empresas/agenda/nueva" className={primaryCtaClass}>
-              Nueva actividad
-            </Link>
+          countLabel={
+            filtradas.length !== filasBase.length
+              ? `${filtradas.length} de ${filasBase.length}`
+              : `${filasBase.length}`
           }
+          description="Filtrá por tipo, estado, responsable o rango de fechas"
         >
           <ConsultaToolbar
             busqueda={filtros.busqueda}
@@ -303,7 +386,9 @@ export default function ProspeccionAgendaPage() {
                 }
               >
                 <option value="">Todos los estados</option>
-                {(["pendiente", "vencida"] as ActivityStatus[]).map((estado) => (
+                {(
+                  ["pendiente", "realizada", "vencida", "cancelada"] as ActivityStatus[]
+                ).map((estado) => (
                   <option key={estado} value={estado}>
                     {ACTIVITY_STATUS_LABELS[estado]}
                   </option>
@@ -353,16 +438,6 @@ export default function ProspeccionAgendaPage() {
                     ? "Probá con otros filtros o limpialos para ver toda la agenda."
                     : "Toda oportunidad activa debería tener una próxima acción. Empezá creando una."
                 }
-                action={
-                  hayFiltros ? undefined : (
-                    <Link
-                      href="/prospeccion-empresas/agenda/nueva"
-                      className={primaryCtaClass}
-                    >
-                      Nueva actividad
-                    </Link>
-                  )
-                }
               />
             ) : (
               <div className="space-y-6">
@@ -376,7 +451,7 @@ export default function ProspeccionAgendaPage() {
               </div>
             )}
           </div>
-        </SectionCard>
+        </CollapsibleSection>
       </div>
     </AppShell>
   );
@@ -421,7 +496,7 @@ function AgendaGrupo({ bucket, rows }: { bucket: Bucket; rows: AgendaRow[] }) {
                     : "—"}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-slate-400">
-                  {actividad.hora ?? "—"}
+                  {actividad.hora || "Sin hora"}
                 </td>
                 <td className="px-3 py-2.5 font-medium">{prospect.nombre}</td>
                 <td className="px-3 py-2.5 text-slate-400">
@@ -435,11 +510,9 @@ function AgendaGrupo({ bucket, rows }: { bucket: Bucket; rows: AgendaRow[] }) {
                 </td>
                 <td className="px-3 py-2.5">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      actividad.estado === "vencida"
-                        ? "bg-rose-500/15 text-rose-300"
-                        : "bg-slate-700/60 text-slate-300"
-                    }`}
+                    className={`rounded-full px-2 py-0.5 text-xs ${estadoBadgeClass(
+                      actividad.estado,
+                    )}`}
                   >
                     {ACTIVITY_STATUS_LABELS[actividad.estado]}
                   </span>
@@ -457,12 +530,20 @@ function AgendaGrupo({ bucket, rows }: { bucket: Bucket; rows: AgendaRow[] }) {
                   <TrafficLightDot value={semaforo} />
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  <Link
-                    href={`/prospeccion-empresas/${prospect.id}`}
-                    className="text-sm font-medium text-emerald-400 hover:text-emerald-300"
-                  >
-                    Ver oportunidad
-                  </Link>
+                  <div className="flex justify-end gap-3 whitespace-nowrap">
+                    <Link
+                      href={`/prospeccion-empresas/agenda/nueva?empresa=${prospect.id}&activityId=${actividad.id}`}
+                      className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
+                    >
+                      Editar
+                    </Link>
+                    <Link
+                      href={`/prospeccion-empresas/${prospect.id}`}
+                      className="text-sm font-medium text-slate-400 hover:text-slate-200"
+                    >
+                      Ver oportunidad
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -27,7 +27,14 @@ import type {
 type Ok<T> = { ok: true } & T;
 type Err = { ok: false; errorMessage: string };
 
-const CATALOG_TABLES: Record<ProspectCatalogKind, "prospeccion_rubros" | "prospeccion_etapas" | "prospeccion_tipos_actividad"> = {
+// Solo estos catálogos tienen tabla en Supabase. "estados_producto" persiste
+// localmente (sin tabla), por eso queda fuera de este mapa.
+const CATALOG_TABLES: Partial<
+  Record<
+    ProspectCatalogKind,
+    "prospeccion_rubros" | "prospeccion_etapas" | "prospeccion_tipos_actividad"
+  >
+> = {
   rubros: "prospeccion_rubros",
   etapas: "prospeccion_etapas",
   tipos_actividad: "prospeccion_tipos_actividad",
@@ -144,6 +151,8 @@ export async function loadCatalogosFromSupabase(): Promise<
     rubros: (rubros.data ?? []).map(dbToCatalogItem),
     etapas: (etapas.data ?? []).map(dbToCatalogItem),
     tiposActividad: (tipos.data ?? []).map(dbToCatalogItem),
+    // Estados de producto no tienen tabla; se resuelven en el contexto (local).
+    estadosProducto: [],
     departamentos: (deptos.data ?? []).map(
       (d: DbProspeccionDepartamento): ProspectDepartamento => ({
         id: d.id,
@@ -160,6 +169,11 @@ export async function upsertCatalogoItemInSupabase(
   kind: ProspectCatalogKind,
   item: ProspectCatalogItem,
 ): Promise<{ ok: boolean; errorMessage?: string }> {
+  const table = CATALOG_TABLES[kind];
+  if (!table) {
+    // estados_producto no tiene tabla; persiste localmente desde el contexto.
+    return { ok: false, errorMessage: "Catálogo sin tabla remota" };
+  }
   const client = createSupabaseBrowserClient();
   if (!client) return { ok: false, errorMessage: "Cliente no disponible" };
   const row: DbProspeccionCatalogo = {
@@ -170,9 +184,7 @@ export async function upsertCatalogoItemInSupabase(
     activo: item.activo,
     meta: {},
   };
-  const { error } = await client
-    .from(CATALOG_TABLES[kind])
-    .upsert(row, { onConflict: "id" });
+  const { error } = await client.from(table).upsert(row, { onConflict: "id" });
   if (error) return { ok: false, errorMessage: error.message };
   return { ok: true };
 }

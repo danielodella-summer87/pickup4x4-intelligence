@@ -6,6 +6,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
 import {
+  CollapsibleSection,
   GuiaUso,
   NextActivityBadge,
   PriorityBadge,
@@ -64,11 +65,12 @@ import {
   formatDisplayPhone,
   normalizeUruguayPhone,
 } from "@/lib/prospeccion/contact-links";
+import { ProductNeedField } from "@/components/prospeccion/ProductNeedField";
 
 // ───────────────────────────────────────────── Clases compartidas
 
 const inputClass =
-  "min-h-[2.75rem] w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
+  "min-h-[2.75rem] w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 [color-scheme:dark] focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
 const selectClass =
   "min-h-[2.75rem] w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500/40 focus:outline-none";
 const textareaClass = `${inputClass} min-h-[5rem]`;
@@ -176,6 +178,26 @@ const ACTIVITY_STATUS_VALUES = Object.keys(
 const NEED_VALUES = Object.keys(
   NEED_AVAILABILITY_LABELS,
 ) as ProspectNeedAvailability[];
+
+// Badge que distingue claramente lo disponible de lo "no disponible / futuro".
+const NEED_BADGE: Record<
+  ProspectNeedAvailability,
+  { label: string; cls: string }
+> = {
+  disponible: { label: "Disponible", cls: "bg-emerald-500/15 text-emerald-300" },
+  a_desarrollar: {
+    label: "No disponible · a desarrollar",
+    cls: "bg-amber-500/15 text-amber-300",
+  },
+  no_disponible: {
+    label: "No disponible actualmente",
+    cls: "bg-rose-500/15 text-rose-300",
+  },
+  estrategica: {
+    label: "Oportunidad futura",
+    cls: "bg-sky-500/15 text-sky-300",
+  },
+};
 const PROPOSAL_STATUS_VALUES = Object.keys(
   PROPOSAL_STATUS_LABELS,
 ) as ProposalStatus[];
@@ -445,7 +467,11 @@ export default function ProspectFichaPage() {
         </GuiaUso>
 
         {/* A. Empresa */}
-        <SectionCard title="Datos de empresa" description="Identificación y origen de la oportunidad.">
+        <CollapsibleSection
+          title="Datos de empresa"
+          description="Identificación y origen de la oportunidad."
+          defaultOpen
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Nombre de empresa">
               <input
@@ -596,11 +622,12 @@ export default function ProspectFichaPage() {
               />
             </Field>
           </div>
-        </SectionCard>
+        </CollapsibleSection>
 
         {/* B. Contactos */}
-        <SectionCard
+        <CollapsibleSection
           title="Contactos"
+          count={draft.contactos.length}
           description="Derivadores y referente final de compras / flota / mantenimiento / logística."
           action={
             <button type="button" onClick={addContacto} className={smallButton}>
@@ -746,10 +773,13 @@ export default function ProspectFichaPage() {
               ))}
             </div>
           )}
-        </SectionCard>
+        </CollapsibleSection>
 
         {/* C. Flota */}
-        <SectionCard title="Flota" description="Composición y uso de la flota de la empresa.">
+        <CollapsibleSection
+          title="Flota"
+          description="Composición y uso de la flota de la empresa."
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Flota propia">
               <TriSelect value={draft.flota.flotaPropia} onChange={(v) => setFlota("flotaPropia", v)} />
@@ -858,10 +888,10 @@ export default function ProspectFichaPage() {
               />
             </Field>
           </div>
-        </SectionCard>
+        </CollapsibleSection>
 
         {/* D. Proveedor / competencia */}
-        <SectionCard
+        <CollapsibleSection
           title="Proveedor actual y competencia"
           description="Con quién compran hoy, quién decide y dónde está la oportunidad de entrada."
         >
@@ -954,12 +984,13 @@ export default function ProspectFichaPage() {
               />
             </Field>
           </div>
-        </SectionCard>
+        </CollapsibleSection>
 
-        {/* E. Necesidades */}
-        <SectionCard
-          title="Necesidades detectadas"
-          description="Productos que podrían necesitar. Lo que no está disponible alimenta las oportunidades de producto."
+        {/* E. Necesidades / productos no disponibles */}
+        <CollapsibleSection
+          title="Necesidades y productos no disponibles"
+          count={draft.necesidades.length}
+          description="Productos que podrían necesitar. Marcá los que Pickup 4x4 NO tiene como “no disponible” u “oportunidad futura”: esas alimentan el bloque global de oportunidades de producto, con trazabilidad a esta empresa."
           action={
             <button type="button" onClick={addNeed} className={smallButton}>
               ＋ Agregar necesidad
@@ -975,11 +1006,17 @@ export default function ProspectFichaPage() {
                   key={n.id}
                   className="grid gap-3 rounded-xl border border-slate-700 bg-slate-950/40 p-4 sm:grid-cols-2 lg:grid-cols-4"
                 >
+                  <div className="sm:col-span-2 lg:col-span-4">
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${NEED_BADGE[n.disponibilidad].cls}`}
+                    >
+                      {NEED_BADGE[n.disponibilidad].label}
+                    </span>
+                  </div>
                   <Field label="Necesidad / producto">
-                    <input
-                      className={inputClass}
+                    <ProductNeedField
                       value={n.descripcion}
-                      onChange={(e) => updateNeed(i, { descripcion: e.target.value })}
+                      onChange={(v) => updateNeed(i, { descripcion: v })}
                     />
                   </Field>
                   <Field label="Recomendado Pickup 4x4">
@@ -1030,11 +1067,12 @@ export default function ProspectFichaPage() {
               ))}
             </div>
           )}
-        </SectionCard>
+        </CollapsibleSection>
 
         {/* F. Propuestas */}
-        <SectionCard
+        <CollapsibleSection
           title="Propuestas"
+          count={draft.propuestas.length}
           description="Historial de propuestas generadas y enviadas a esta empresa."
           action={
             <button type="button" onClick={addPropuesta} className={smallButton}>
@@ -1157,11 +1195,12 @@ export default function ProspectFichaPage() {
               ))}
             </div>
           )}
-        </SectionCard>
+        </CollapsibleSection>
 
         {/* G + H. Actividades */}
-        <SectionCard
+        <CollapsibleSection
           title="Actividades e historial"
+          count={draft.actividades.length}
           description="Toda oportunidad activa debe tener una próxima actividad. Marcá como realizada para conservar el historial."
           action={
             <button type="button" onClick={addActividad} className={smallButton}>
@@ -1198,7 +1237,7 @@ export default function ProspectFichaPage() {
                         ))}
                       </select>
                     </Field>
-                    <Field label="Fecha">
+                    <Field label="Fecha de actividad">
                       <input
                         type="date"
                         className={inputClass}
@@ -1206,7 +1245,7 @@ export default function ProspectFichaPage() {
                         onChange={(e) => updateActividad(i, { fecha: e.target.value })}
                       />
                     </Field>
-                    <Field label="Hora">
+                    <Field label="Hora (opcional)">
                       <input
                         type="time"
                         className={inputClass}
@@ -1286,7 +1325,7 @@ export default function ProspectFichaPage() {
                 ))}
             </div>
           )}
-        </SectionCard>
+        </CollapsibleSection>
 
         {/* Barra de acciones */}
         <div className="sticky bottom-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/90 px-5 py-4 backdrop-blur">

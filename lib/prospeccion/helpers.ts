@@ -177,6 +177,15 @@ export const PRODUCT_OPP_STATUS_LABELS: Record<ProductOpportunityStatus, string>
   descartado: "Descartado",
 };
 
+/** Orden por defecto de los estados de oportunidad de producto. */
+export const PRODUCT_OPP_STATUS_ORDER: ProductOpportunityStatus[] = [
+  "idea",
+  "evaluar",
+  "buscar_proveedor",
+  "desarrollar",
+  "descartado",
+];
+
 export const TRAFFIC_LIGHT_LABELS: Record<ProspectTrafficLight, string> = {
   verde: "En marcha",
   amarillo: "Faltan datos",
@@ -657,13 +666,23 @@ export function getProductOpportunityStats(
       menciones: e.menciones,
       rubros: [...e.rubros],
       empresas: [...e.empresas],
-      potencial: (e.estrategica || e.menciones >= 3
-        ? "alto"
-        : e.menciones >= 2
-          ? "medio"
-          : "bajo") as ProductOpportunityPotential,
+      potencial: potencialFromMenciones(e.menciones),
     }))
     .sort((a, b) => b.menciones - a.menciones);
+}
+
+/**
+ * Potencial de una oportunidad de producto según la cantidad de menciones:
+ *  - 1 a 4 → bajo
+ *  - 5 a 14 → medio
+ *  - 15 o más → alto
+ */
+export function potencialFromMenciones(
+  menciones: number,
+): ProductOpportunityPotential {
+  if (menciones >= 15) return "alto";
+  if (menciones >= 5) return "medio";
+  return "bajo";
 }
 
 // ─────────────────────────────────────────────── Etiquetas auxiliares
@@ -721,6 +740,12 @@ export function buildDefaultCatalogos(): ProspectCatalogos {
     tiposActividad: fromLabels(
       Object.entries(ACTIVITY_TYPE_LABELS) as [ActivityType, string][],
     ),
+    estadosProducto: PRODUCT_OPP_STATUS_ORDER.map((id, i) => ({
+      id,
+      nombre: PRODUCT_OPP_STATUS_LABELS[id],
+      orden: i + 1,
+      activo: true,
+    })),
     departamentos: DEPARTAMENTOS_URUGUAY.map(
       (nombre, i): ProspectDepartamento => ({
         id: deptoSlug(nombre),
@@ -749,6 +774,19 @@ const CANON_FIX: Record<string, string> = {
 const CANON_ALIAS: Record<string, string> = {
   "upm oriental": "upm forestal oriental",
 };
+
+/**
+ * Clave canónica de un producto/necesidad: minúsculas, sin acentos, espacios
+ * normalizados. Evita duplicar "Cargadores eléctricos" vs "Cargadores electricos".
+ */
+export function canonicalProductKey(nombre: string): string {
+  return (nombre ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /** Clave canónica de empresa (igual criterio que el script de importación). */
 export function canonicalProspectKey(nombre: string): string {

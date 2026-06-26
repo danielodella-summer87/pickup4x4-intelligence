@@ -10,7 +10,6 @@ import {
   EstadoVacioConsulta,
   FilterField,
   FilterSelect,
-  ResultadosMeta,
 } from "@/components/module/ConsultaToolbar";
 import {
   GuiaUso,
@@ -22,6 +21,12 @@ import {
   TrafficLightDot,
 } from "@/components/prospeccion/ProspeccionUI";
 import { ProductOpportunitiesBlock } from "@/components/prospeccion/ProductOpportunitiesBlock";
+import {
+  buildProspectsPdfBlob,
+  downloadPdf,
+  reportDateStamp,
+  sharePdfFile,
+} from "@/lib/prospeccion/pdf-export";
 import { useProspeccion } from "@/contexts/ProspeccionContext";
 import type {
   ActivityType,
@@ -83,6 +88,33 @@ export default function ProspeccionEmpresasPage() {
 
   function patch(changes: Partial<ProspectFilters>) {
     setFiltros((prev) => ({ ...prev, ...changes }));
+  }
+
+  const pdfFileName = () => `prospeccion-empresas-${reportDateStamp()}.pdf`;
+
+  // Exporta el listado actualmente filtrado como PDF (descarga).
+  function exportarPdf() {
+    if (filtradas.length === 0) return;
+    const blob = buildProspectsPdfBlob(filtradas, {
+      totalGeneral: prospects.length,
+      filtrosActivos,
+    });
+    downloadPdf(blob, pdfFileName());
+  }
+
+  // Comparte el PDF vía Web Share API (menú nativo → WhatsApp); fallback descarga.
+  function compartirPdf() {
+    if (filtradas.length === 0) return;
+    const blob = buildProspectsPdfBlob(filtradas, {
+      totalGeneral: prospects.length,
+      filtrosActivos,
+    });
+    void sharePdfFile(
+      blob,
+      pdfFileName(),
+      "Prospección Empresas",
+      "Listado de oportunidades B2B (Pickup 4x4 Intelligence).",
+    );
   }
 
   if (!isHydrated) {
@@ -153,7 +185,11 @@ export default function ProspeccionEmpresasPage() {
 
         {/* Listado */}
         <SectionCard
-          title="Oportunidades"
+          title={
+            filtradas.length !== prospects.length
+              ? `Oportunidades (${filtradas.length} de ${prospects.length})`
+              : `Oportunidades (${prospects.length})`
+          }
           description="Empresas en prospección. Una empresa sugerida por estrategia se marca con su etiqueta."
           action={
             <div className="flex flex-wrap items-center gap-2">
@@ -349,12 +385,23 @@ export default function ProspeccionEmpresasPage() {
             </FiltroToggle>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <ResultadosMeta
-              total={prospects.length}
-              filtrados={filtradas.length}
-              truncated={false}
-            />
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={exportarPdf}
+              disabled={filtradas.length === 0}
+              className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
+            >
+              Exportar PDF
+            </button>
+            <button
+              type="button"
+              onClick={compartirPdf}
+              disabled={filtradas.length === 0}
+              className={`${secondaryButton} disabled:cursor-default disabled:opacity-40`}
+            >
+              Compartir PDF
+            </button>
             <div className="flex items-center gap-3">
               {saveState === "guardando" ? (
                 <span className="text-xs text-amber-300">Guardando…</span>

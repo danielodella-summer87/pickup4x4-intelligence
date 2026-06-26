@@ -51,6 +51,37 @@ export type ProspeccionSaveState = "idle" | "guardando" | "guardado" | "error";
 // como referencia del patrón remoto).
 const STORAGE_KEY = "pickup4x4:prospeccion";
 const STORAGE_VERSION = 1;
+// Catálogo de estados de oportunidad de producto: editable, sin tabla SQL,
+// persiste local (clave propia) hasta que exista una tabla en Supabase.
+const ESTADOS_PRODUCTO_KEY = "pickup4x4:prospeccion:estados-producto";
+
+function readEstadosProductoFromStorage(): ProspectCatalogItem[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(ESTADOS_PRODUCTO_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(
+      (x): x is ProspectCatalogItem =>
+        typeof x === "object" &&
+        x !== null &&
+        typeof (x as { id?: unknown }).id === "string" &&
+        typeof (x as { nombre?: unknown }).nombre === "string",
+    );
+  } catch {
+    return null;
+  }
+}
+
+function writeEstadosProductoToStorage(items: ProspectCatalogItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ESTADOS_PRODUCTO_KEY, JSON.stringify(items));
+  } catch {
+    /* quota / modo privado */
+  }
+}
 
 // Seed generado desde los Excel reales (scripts/build-prospeccion.cjs).
 // Servido estáticamente desde public/. Si no existe, se usa el mock como fallback.
@@ -243,6 +274,11 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
     // callback asíncrono para no llamar setState de forma síncrona en el efecto.
     let cancelled = false;
     void (async () => {
+      // Estados de oportunidad de producto editados (localStorage).
+      const estadosStored = readEstadosProductoFromStorage();
+      if (!cancelled && estadosStored && estadosStored.length > 0) {
+        setCatalogos((prev) => ({ ...prev, estadosProducto: estadosStored }));
+      }
       // 1) Supabase como fuente principal si está configurado y tiene datos.
       if (isSupabaseConfigured()) {
         const remote = await loadProspeccionFromSupabase();
@@ -254,7 +290,11 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
           setSource("supabase");
           const cat = await loadCatalogosFromSupabase();
           if (!cancelled && cat.ok && cat.catalogos.rubros.length > 0) {
-            setCatalogos(cat.catalogos);
+            // estadosProducto no viene de Supabase: se conserva el local/default.
+            setCatalogos((prev) => ({
+              ...cat.catalogos,
+              estadosProducto: prev.estadosProducto,
+            }));
           }
           if (!cancelled) setIsHydrated(true);
           return;
@@ -507,21 +547,31 @@ export function ProspeccionProvider({ children }: { children: ReactNode }) {
   // Alta/edición de catálogo (local optimista + Supabase fire-and-forget).
   const upsertCatalogItem = useCallback(
     (kind: ProspectCatalogKind, item: ProspectCatalogItem) => {
-      const key =
+      const key: keyof ProspectCatalogos =
         kind === "rubros"
           ? "rubros"
           : kind === "etapas"
             ? "etapas"
-            : "tiposActividad";
+            : kind === "tipos_actividad"
+              ? "tiposActividad"
+              : "estadosProducto";
       setCatalogos((prev) => {
-        const list = prev[key];
+        const list = prev[key] as ProspectCatalogItem[];
         const exists = list.some((c) => c.id === item.id);
         const nextList = exists
           ? list.map((c) => (c.id === item.id ? item : c))
           : [...list, item];
-        return { ...prev, [key]: nextList };
+        const next = { ...prev, [key]: nextList };
+        // estadosProducto persiste local (no hay tabla Supabase).
+        if (kind === "estados_producto") {
+          writeEstadosProductoToStorage(next.estadosProducto);
+        }
+        return next;
       });
-      if (isSupabaseConfigured()) void upsertCatalogoItemInSupabase(kind, item);
+      // rubros/etapas/tipos_actividad sí van a Supabase; estados_producto no.
+      if (kind !== "estados_producto" && isSupabaseConfigured()) {
+        void upsertCatalogoItemInSupabase(kind, item);
+      }
     },
     [],
   );

@@ -28,10 +28,22 @@ function slugify(value: string): string {
 
 type Draft = { nombre: string; descripcion: string; orden: number };
 
-const CATALOGOS: { kind: ProspectCatalogKind; key: "rubros" | "etapas" | "tiposActividad"; titulo: string }[] = [
+const CATALOGOS: {
+  kind: ProspectCatalogKind;
+  key: "rubros" | "etapas" | "tiposActividad" | "estadosProducto";
+  titulo: string;
+  descripcion?: string;
+}[] = [
   { kind: "rubros", key: "rubros", titulo: "Rubros" },
   { kind: "etapas", key: "etapas", titulo: "Etapas" },
   { kind: "tipos_actividad", key: "tiposActividad", titulo: "Tipos de actividad" },
+  {
+    kind: "estados_producto",
+    key: "estadosProducto",
+    titulo: "Estados de oportunidad de producto",
+    descripcion:
+      "Estados editables para las oportunidades de producto no disponible (Idea, Evaluar, Buscar proveedor, Desarrollar, Descartado). Persisten localmente.",
+  },
 ];
 
 export default function ConfiguracionCatalogosPage() {
@@ -121,14 +133,17 @@ export default function ConfiguracionCatalogosPage() {
           ) : null}
         </GuiaUso>
 
-        {CATALOGOS.map(({ kind, key, titulo }) => {
+        {CATALOGOS.map(({ kind, key, titulo, descripcion }) => {
           const items = catalogos[key];
           const nuevo = nuevos[key] ?? { nombre: "", descripcion: "", orden: 0 };
           return (
             <SectionCard
               key={key}
               title={titulo}
-              description="Editá nombre, descripción y orden. Para quitar un valor, desactivalo."
+              description={
+                descripcion ??
+                "Editá nombre, descripción y orden. Para quitar un valor, desactivalo."
+              }
             >
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm [&_th]:px-3 [&_td]:px-3 [&_th:first-child]:pl-0 [&_td:first-child]:pl-0">

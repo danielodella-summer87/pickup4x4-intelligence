@@ -14,7 +14,7 @@ import type {
 import { ACTIVITY_TYPE_LABELS, todayISO } from "@/lib/prospeccion/helpers";
 
 const inputClass =
-  "min-h-[2.75rem] w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
+  "min-h-[2.75rem] w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 [color-scheme:dark] focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
 const selectClass =
   "min-h-[2.75rem] w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500/40 focus:outline-none";
 const textareaClass = `${inputClass} min-h-[5rem]`;
@@ -40,7 +40,10 @@ const ESTADO_LABELS: Record<ActivityStatus, string> = {
 function NuevaActividadForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { prospects, isHydrated, addActivity, catalogos } = useProspeccion();
+  const { prospects, isHydrated, addActivity, updateActivity, catalogos } =
+    useProspeccion();
+  const activityId = searchParams.get("activityId");
+  const editing = Boolean(activityId);
 
   const tiposActividad = useMemo(() => {
     const activos = catalogos.tiposActividad.filter((t) => t.activo);
@@ -69,9 +72,32 @@ function NuevaActividadForm() {
   const [resultadoObtenido, setResultadoObtenido] = useState("");
   const [notas, setNotas] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Prefill en modo edición (patrón de reset-en-render: sin setState en effect).
+  const [loadedId, setLoadedId] = useState<string | null>(null);
 
   if (!isHydrated) {
     return <p className="text-sm text-slate-400">Cargando…</p>;
+  }
+
+  if (editing && activityId && loadedId !== activityId) {
+    setLoadedId(activityId);
+    const emp = searchParams.get("empresa") ?? "";
+    const act = prospects
+      .find((p) => p.id === emp)
+      ?.actividades.find((a) => a.id === activityId);
+    if (act) {
+      setEmpresaId(emp);
+      setTipo(act.tipo);
+      setFecha(act.fecha);
+      setHora(act.hora ?? "");
+      setLugar(act.lugar ?? "");
+      setParticipantes(act.participantes ?? "");
+      setResponsable(act.responsable ?? "");
+      setEstado(act.estado);
+      setResultadoEsperado(act.resultadoEsperado ?? "");
+      setResultadoObtenido(act.resultadoObtenido ?? "");
+      setNotas(act.notas ?? "");
+    }
   }
 
   function handleSubmit(e: FormEvent) {
@@ -80,7 +106,7 @@ function NuevaActividadForm() {
       setError("Elegí la empresa asociada a la actividad.");
       return;
     }
-    const actividad: Omit<ProspectActivity, "id"> = {
+    const datos = {
       tipo: tipo as ActivityType,
       fecha,
       hora: hora || undefined,
@@ -91,16 +117,24 @@ function NuevaActividadForm() {
       resultadoEsperado: resultadoEsperado.trim() || undefined,
       resultadoObtenido: resultadoObtenido.trim() || undefined,
       notas: notas.trim() || undefined,
-    };
-    addActivity(empresaId, actividad);
+    } satisfies Omit<ProspectActivity, "id">;
+    if (editing && activityId) {
+      updateActivity(empresaId, activityId, datos);
+    } else {
+      addActivity(empresaId, datos);
+    }
     router.push("/prospeccion-empresas/agenda");
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <SectionCard
-        title="Datos de la actividad"
-        description="Definí el próximo paso y a qué empresa pertenece."
+        title={editing ? "Editar actividad" : "Datos de la actividad"}
+        description={
+          editing
+            ? "Modificá los datos de la actividad y guardá."
+            : "Definí el próximo paso y a qué empresa pertenece."
+        }
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
@@ -109,6 +143,7 @@ function NuevaActividadForm() {
               className={selectClass}
               value={empresaId}
               onChange={(e) => setEmpresaId(e.target.value)}
+              disabled={editing}
             >
               <option value="">Elegí una empresa…</option>
               {empresasOrdenadas.map((p) => (
@@ -150,7 +185,7 @@ function NuevaActividadForm() {
           </label>
 
           <label className="block">
-            <span className={labelClass}>Fecha</span>
+            <span className={labelClass}>Fecha de actividad</span>
             <input
               type="date"
               className={inputClass}
@@ -160,7 +195,7 @@ function NuevaActividadForm() {
           </label>
 
           <label className="block">
-            <span className={labelClass}>Hora</span>
+            <span className={labelClass}>Hora (opcional)</span>
             <input
               type="time"
               className={inputClass}
@@ -232,7 +267,7 @@ function NuevaActividadForm() {
 
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="submit" className={primaryCta}>
-            Crear actividad
+            {editing ? "Guardar actividad" : "Crear actividad"}
           </button>
           <Link href="/prospeccion-empresas/agenda" className={secondaryButton}>
             Cancelar

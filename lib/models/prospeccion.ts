@@ -258,7 +258,11 @@ export interface ProductOpportunity {
   menciones: number;
   potencial: ProductOpportunityPotential;
   comentario?: string;
-  estado: ProductOpportunityStatus;
+  /**
+   * Estado de la oportunidad. Los valores por defecto son ProductOpportunityStatus,
+   * pero el catálogo editable permite estados personalizados (de ahí `string`).
+   */
+  estado: ProductOpportunityStatus | string;
 }
 
 // ──────────────────────────────────────────────────── A + raíz: CompanyProspect
@@ -316,7 +320,11 @@ export interface ProspectCatalogItem {
   activo: boolean;
 }
 
-export type ProspectCatalogKind = "rubros" | "etapas" | "tipos_actividad";
+export type ProspectCatalogKind =
+  | "rubros"
+  | "etapas"
+  | "tipos_actividad"
+  | "estados_producto";
 
 export interface ProspectDepartamento {
   id: string;
@@ -329,6 +337,8 @@ export interface ProspectCatalogos {
   rubros: ProspectCatalogItem[];
   etapas: ProspectCatalogItem[];
   tiposActividad: ProspectCatalogItem[];
+  /** Estados de oportunidad de producto (editable; persiste local, sin tabla SQL). */
+  estadosProducto: ProspectCatalogItem[];
   departamentos: ProspectDepartamento[];
 }
 

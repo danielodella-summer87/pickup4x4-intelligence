@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
-import { SectionCard } from "@/components/SectionCard";
 import {
   ConsultaToolbar,
   EstadoVacioConsulta,
@@ -13,6 +12,7 @@ import {
   ResultadosMeta,
 } from "@/components/module/ConsultaToolbar";
 import {
+  CollapsibleSection,
   GuiaUso,
   ProspeccionTabs,
   RubroBadge,
@@ -171,8 +171,13 @@ export default function PropuestasPage() {
           />
         </div>
 
-        <SectionCard
+        <CollapsibleSection
           title="Historial de propuestas"
+          countLabel={
+            filtradas.length !== filasBase.length
+              ? `${filtradas.length} de ${filasBase.length}`
+              : `${filasBase.length}`
+          }
           description="Propuestas generadas en todas las oportunidades B2B."
           action={
             <Link href="/prospeccion-empresas" className={secondaryLinkClass}>
@@ -310,7 +315,7 @@ export default function PropuestasPage() {
               </table>
             </div>
           )}
-        </SectionCard>
+        </CollapsibleSection>
       </div>
     </AppShell>
   );

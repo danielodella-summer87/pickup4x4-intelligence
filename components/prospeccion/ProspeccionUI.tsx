@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import type {
   ProspectPriority,
   ProspectStage,
@@ -159,6 +160,76 @@ export function ProspeccionTabs() {
         );
       })}
     </nav>
+  );
+}
+
+// ───────────────────────────────── Sección colapsable con contador
+
+/**
+ * Tarjeta de sección colapsable (mismo look que SectionCard). Muestra un
+ * contador opcional junto al título y un CTA de acción visible solo al expandir.
+ */
+export function CollapsibleSection({
+  title,
+  count,
+  countLabel,
+  description,
+  defaultOpen = false,
+  action,
+  children,
+}: {
+  title: string;
+  /** Contador simple: muestra "(count)". */
+  count?: number;
+  /** Etiqueta de contador libre (tiene prioridad), ej "1 de 12". */
+  countLabel?: string;
+  description?: string;
+  defaultOpen?: boolean;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="rounded-xl border border-slate-700/80 bg-slate-900/40">
+      <header
+        className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${
+          open ? "border-b border-slate-700/60" : ""
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          aria-expanded={open}
+        >
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+              open ? "rotate-90" : ""
+            }`}
+            aria-hidden
+          >
+            <path d="M7 5l6 5-6 5V5z" />
+          </svg>
+          <span className="min-w-0">
+            <h2 className="text-base font-semibold text-white">
+              {title}
+              {countLabel ? (
+                <span className="font-normal text-slate-400"> ({countLabel})</span>
+              ) : typeof count === "number" ? (
+                <span className="font-normal text-slate-400"> ({count})</span>
+              ) : null}
+            </h2>
+            {description && open ? (
+              <span className="mt-1 block text-sm text-slate-400">{description}</span>
+            ) : null}
+          </span>
+        </button>
+        {open && action ? <div className="shrink-0">{action}</div> : null}
+      </header>
+      {open ? <div className="p-5">{children}</div> : null}
+    </section>
   );
 }
 
