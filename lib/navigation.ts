@@ -79,6 +79,13 @@ export const sideMenuNavigation: SideMenuItem[] = [
       "Detectá, relevá y seguí oportunidades B2B para flotas, cuadrillas y vehículos de trabajo",
   },
   {
+    href: "/inteligencia-mercado",
+    label: "Inteligencia de Mercado",
+    initial: "IM",
+    description:
+      "Investigaciones continuas con la red de distribuidores: tendencias, oportunidades y voz del mercado",
+  },
+  {
     href: "/campanas/articulos",
     label: "Campañas",
     initial: "CA",

@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Temporales de inspección puntual
 _tmp_*.cjs
+
+# Playwright MCP artifacts
+.playwright-mcp/

@@ -239,6 +239,39 @@ export type DbProspeccionDepartamento = {
   created_at?: string;
 };
 
+// ── Inteligencia de Mercado ─────────────────────────────────────────────────
+// Motor de investigaciones: definición (bloques/preguntas) en JSONB + respuestas.
+
+export type DbMercadoInvestigacion = {
+  id: string;
+  slug: string;
+  titulo: string;
+  descripcion: string;
+  estado: string;
+  intro: string;
+  agradecimiento: string;
+  captura_distribuidor: boolean;
+  comentario_final_titulo: string;
+  bloques: unknown;
+  meta: unknown;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbMercadoRespuesta = {
+  id: string;
+  investigacion_id: string;
+  investigacion_slug: string;
+  distribuidor_nombre: string | null;
+  empresa: string | null;
+  departamento: string | null;
+  contacto: string | null;
+  respuestas: unknown;
+  comentario_libre: string | null;
+  meta: unknown;
+  created_at?: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -346,6 +379,20 @@ export type Database = {
         Row: DbProspeccionDepartamento;
         Insert: DbProspeccionDepartamento;
         Update: Partial<DbProspeccionDepartamento>;
+        Relationships: [];
+      };
+      mercado_investigaciones: {
+        Row: DbMercadoInvestigacion;
+        Insert: Omit<DbMercadoInvestigacion, "created_at" | "updated_at"> &
+          Partial<Pick<DbMercadoInvestigacion, "created_at" | "updated_at">>;
+        Update: Partial<DbMercadoInvestigacion>;
+        Relationships: [];
+      };
+      mercado_respuestas: {
+        Row: DbMercadoRespuesta;
+        Insert: Omit<DbMercadoRespuesta, "created_at"> &
+          Partial<Pick<DbMercadoRespuesta, "created_at">>;
+        Update: Partial<DbMercadoRespuesta>;
         Relationships: [];
       };
     };
