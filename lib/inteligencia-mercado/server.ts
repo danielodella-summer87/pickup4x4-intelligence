@@ -1,10 +1,10 @@
 /**
  * Acceso server-side a Inteligencia de Mercado (service role).
- * Solo se importa desde Route Handlers (app/api/encuestas/*) y desde el
- * Server Component de la landing (app/encuesta/[slug]). NO importar en cliente.
+ * Solo se importa desde Route Handlers (app/api/encuestas/*, app/api/inteligencia-mercado/*)
+ * y desde el Server Component de la landing (app/encuesta/[slug]). NO importar en cliente.
  */
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import type { DbMercadoInvestigacion } from "@/lib/supabase/types";
+import type { DbMercadoInvestigacion, DbMercadoRespuesta } from "@/lib/supabase/types";
 import {
   dbRowToInvestigacion,
   investigacionToPublica,
@@ -16,6 +16,7 @@ import {
   type Investigacion,
   type InvestigacionPublica,
   type RespuestaInput,
+  type RespuestaValor,
 } from "@/lib/inteligencia-mercado/types";
 
 export type ServerResult<T> =
@@ -129,4 +130,102 @@ export async function insertRespuesta(
     return { ok: false, status: 500, errorMessage: friendly(error.message) };
   }
   return { ok: true, data: { id } };
+}
+
+export type RespuestaAdminPatch = {
+  distribuidorNombre?: string | null;
+  departamento?: string | null;
+  respuestas?: Record<string, RespuestaValor>;
+};
+
+/**
+ * Edición administrativa desde el panel (corregir un dato mal escrito, etc).
+ * Solo usable por herramientas internas (Route Handler de admin) — nunca desde
+ * la landing pública.
+ */
+export async function updateRespuestaAdmin(
+  id: string,
+  patch: RespuestaAdminPatch,
+): Promise<ServerResult<{ id: string }>> {
+  const client = createSupabaseServiceClient();
+  if (!client) return missingServiceClient();
+
+  const { data: fila, error: fetchErr } = await client
+    .from("mercado_respuestas")
+    .select("investigacion_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchErr) {
+    return { ok: false, status: 500, errorMessage: friendly(fetchErr.message) };
+  }
+  if (!fila) {
+    return { ok: false, status: 404, errorMessage: "Respuesta no encontrada." };
+  }
+
+  const update: Partial<DbMercadoRespuesta> = {};
+  if (patch.distribuidorNombre !== undefined) {
+    const v = patch.distribuidorNombre?.trim();
+    update.distribuidor_nombre = v ? v : null;
+  }
+  if (patch.departamento !== undefined) {
+    const v = patch.departamento?.trim();
+    update.departamento = v ? v : null;
+  }
+  if (patch.respuestas !== undefined) {
+    const invResult = await getInvestigacionById(fila.investigacion_id);
+    if (!invResult.ok) return invResult;
+    const idsValidos = new Set(todasLasPreguntas(invResult.data).map((p) => p.id));
+    update.respuestas = Object.fromEntries(
+      Object.entries(patch.respuestas).filter(([qid]) => idsValidos.has(qid)),
+    );
+  }
+
+  const { error: updErr } = await client
+    .from("mercado_respuestas")
+    .update(update)
+    .eq("id", id);
+  if (updErr) {
+    return { ok: false, status: 500, errorMessage: friendly(updErr.message) };
+  }
+  return { ok: true, data: { id } };
+}
+
+/** Borra UNA fila de mercado_respuestas. No toca mercado_investigaciones. */
+export async function deleteRespuestaAdmin(
+  id: string,
+): Promise<ServerResult<{ id: string }>> {
+  const client = createSupabaseServiceClient();
+  if (!client) return missingServiceClient();
+
+  const { data, error } = await client
+    .from("mercado_respuestas")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    return { ok: false, status: 500, errorMessage: friendly(error.message) };
+  }
+  if (!data) {
+    return { ok: false, status: 404, errorMessage: "Respuesta no encontrada." };
+  }
+  return { ok: true, data: { id } };
+}
+
+async function getInvestigacionById(id: string): Promise<ServerResult<Investigacion>> {
+  const client = createSupabaseServiceClient();
+  if (!client) return missingServiceClient();
+
+  const { data, error } = await client
+    .from("mercado_investigaciones")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    return { ok: false, status: 500, errorMessage: friendly(error.message) };
+  }
+  if (!data) {
+    return { ok: false, status: 404, errorMessage: "Investigación no encontrada." };
+  }
+  return { ok: true, data: dbRowToInvestigacion(data as DbMercadoInvestigacion) };
 }

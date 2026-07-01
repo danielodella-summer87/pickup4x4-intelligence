@@ -20,11 +20,17 @@ import { ListaInvestigaciones } from "@/components/inteligencia-mercado/ListaInv
 import { exportInvestigacion } from "@/lib/inteligencia-mercado/export";
 import { InvestigacionFormModal } from "@/components/inteligencia-mercado/InvestigacionFormModal";
 import {
+  RespuestaEditModal,
+  type RespuestaEditPatch,
+} from "@/components/inteligencia-mercado/RespuestaEditModal";
+import {
   deleteInvestigacion,
+  deleteRespuestaAdmin,
   loadInvestigaciones,
   loadRespuestas,
   saveInvestigacion,
   setEstadoInvestigacion,
+  updateRespuestaAdmin,
 } from "@/lib/inteligencia-mercado/storage";
 import {
   computeComentarios,
@@ -32,6 +38,7 @@ import {
   computeTendencias,
 } from "@/lib/inteligencia-mercado/aggregations";
 import {
+  esRespuestaVacia,
   todasLasPreguntas,
   type Investigacion,
   type Respuesta,
@@ -81,6 +88,8 @@ export default function InteligenciaMercadoPage() {
   const [editando, setEditando] = useState<Investigacion | null>(null);
   const [saving, setSaving] = useState(false);
   const [detalle, setDetalle] = useState<Respuesta | null>(null);
+  const [respEditando, setRespEditando] = useState<Respuesta | null>(null);
+  const [guardandoRespuesta, setGuardandoRespuesta] = useState(false);
 
   // Filtros tab respuestas
   const [busqueda, setBusqueda] = useState("");
@@ -118,6 +127,22 @@ export default function InteligenciaMercadoPage() {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  // Los datos se leen directo de Supabase desde el navegador (sin polling ni
+  // realtime). Sin esto, una respuesta nueva enviada en otra pestaña no
+  // aparece hasta recargar manualmente la página.
+  useEffect(() => {
+    function onFocusOrVisible() {
+      if (document.visibilityState === "hidden") return;
+      void refresh();
+    }
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+    return () => {
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+    };
   }, [refresh]);
 
   const investigacionById = useMemo(() => {
@@ -217,6 +242,38 @@ export default function InteligenciaMercadoPage() {
     await refresh();
   }
 
+  async function handleGuardarRespuesta(patch: RespuestaEditPatch) {
+    if (!respEditando) return;
+    setActionError(null);
+    setGuardandoRespuesta(true);
+    const result = await updateRespuestaAdmin(respEditando.id, patch);
+    setGuardandoRespuesta(false);
+    if (!result.ok) {
+      setActionError(result.errorMessage);
+      return;
+    }
+    setRespEditando(null);
+    await refresh();
+  }
+
+  async function handleBorrarRespuesta(r: Respuesta) {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Vas a eliminar esta respuesta. Esta acción no se puede deshacer.",
+      )
+    ) {
+      return;
+    }
+    setActionError(null);
+    const result = await deleteRespuestaAdmin(r.id);
+    if (!result.ok) {
+      setActionError(result.errorMessage);
+      return;
+    }
+    await refresh();
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────-
 
   return (
@@ -252,7 +309,17 @@ export default function InteligenciaMercadoPage() {
           </div>
         ) : null}
 
-        <Tabs tabs={TABS} active={tab} onChange={setTab} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Tabs tabs={TABS} active={tab} onChange={setTab} />
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={isLoading}
+            className={`${secondaryBtnClass} shrink-0 disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            {isLoading ? "Actualizando…" : "↻ Actualizar"}
+          </button>
+        </div>
 
         {isLoading ? (
           <p className="text-sm text-slate-500">Cargando…</p>
@@ -512,29 +579,49 @@ export default function InteligenciaMercadoPage() {
                       {respuestasFiltradas.map((r) => {
                         const inv = investigacionById.get(r.investigacionId);
                         return (
-                          <li key={r.id}>
-                            <button
-                              type="button"
-                              onClick={() => setDetalle(r)}
-                              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.025] p-4 text-left transition hover:border-white/20"
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="font-medium text-white">
-                                  {r.distribuidorNombre || r.empresa || "Anónimo"}
-                                  {r.departamento ? (
-                                    <span className="text-slate-500"> · {r.departamento}</span>
-                                  ) : null}
-                                </p>
-                                <span className="text-xs text-slate-500">
-                                  {formatFecha(r.createdAt)}
-                                </span>
-                              </div>
-                              <p className="mt-1 text-xs text-slate-500">
-                                {inv?.titulo ?? r.investigacionSlug} ·{" "}
-                                {Object.keys(r.respuestas).length} respuesta(s)
-                                {r.comentarioLibre ? " · con comentario" : ""}
+                          <li
+                            key={r.id}
+                            className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-4"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-medium text-white">
+                                {r.distribuidorNombre || r.empresa || "Anónimo"}
+                                {r.departamento ? (
+                                  <span className="text-slate-500"> · {r.departamento}</span>
+                                ) : null}
                               </p>
-                            </button>
+                              <span className="text-xs text-slate-500">
+                                {formatFecha(r.createdAt)}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {inv?.titulo ?? r.investigacionSlug} ·{" "}
+                              {Object.keys(r.respuestas).length} respuesta(s)
+                              {r.comentarioLibre ? " · con comentario" : ""}
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDetalle(r)}
+                                className={actionBtnClass}
+                              >
+                                Ver
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRespEditando(r)}
+                                className={actionBtnClass}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleBorrarRespuesta(r)}
+                                className={dangerBtnClass}
+                              >
+                                Borrar
+                              </button>
+                            </div>
                           </li>
                         );
                       })}
@@ -608,6 +695,16 @@ export default function InteligenciaMercadoPage() {
           respuesta={detalle}
           investigacion={investigacionById.get(detalle.investigacionId) ?? null}
           onClose={() => setDetalle(null)}
+        />
+      ) : null}
+
+      {respEditando ? (
+        <RespuestaEditModal
+          respuesta={respEditando}
+          investigacion={investigacionById.get(respEditando.investigacionId) ?? null}
+          saving={guardandoRespuesta}
+          onSave={(patch) => void handleGuardarRespuesta(patch)}
+          onCancel={() => setRespEditando(null)}
         />
       ) : null}
     </AppShell>
@@ -785,8 +882,13 @@ function RespuestaDetalleModal({
   onClose: () => void;
 }) {
   const preguntas = investigacion ? todasLasPreguntas(investigacion) : [];
-  const tituloById = new Map(preguntas.map((p) => [p.id, p.titulo]));
-  const entradas = Object.entries(respuesta.respuestas);
+  const idsConPregunta = new Set(preguntas.map((p) => p.id));
+  // Preguntas guardadas que ya no están en la definición vigente de la
+  // investigación (por ejemplo, si se editó el cuestionario después). Se
+  // muestran igual para no perder información recibida.
+  const extras = Object.keys(respuesta.respuestas).filter(
+    (qid) => !idsConPregunta.has(qid),
+  );
 
   return (
     <div
@@ -795,53 +897,106 @@ function RespuestaDetalleModal({
       aria-modal="true"
       aria-label="Detalle de respuesta"
     >
-      <div className="my-4 w-full max-w-2xl rounded-xl border border-white/10 bg-[#0d2236] p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-white">
-              {respuesta.distribuidorNombre || respuesta.empresa || "Respuesta anónima"}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              {investigacion?.titulo ?? respuesta.investigacionSlug} ·{" "}
-              {formatFecha(respuesta.createdAt)}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className={secondaryBtnClass}>
-            Cerrar
-          </button>
+      <div className="my-4 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-[#0d2236]">
+        <div className="shrink-0 border-b border-white/[0.08] p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-white">
+            {respuesta.distribuidorNombre || respuesta.empresa || "Respuesta anónima"}
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            {investigacion?.titulo ?? respuesta.investigacionSlug} ·{" "}
+            {formatFecha(respuesta.createdAt)}
+          </p>
         </div>
 
-        <dl className="mt-5 space-y-2 text-sm">
-          {(respuesta.empresa || respuesta.departamento || respuesta.contacto) ? (
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3 text-xs text-slate-400">
-              {respuesta.empresa ? <p>Empresa: {respuesta.empresa}</p> : null}
-              {respuesta.departamento ? <p>Departamento: {respuesta.departamento}</p> : null}
-              {respuesta.contacto ? <p>Contacto: {respuesta.contacto}</p> : null}
-            </div>
-          ) : null}
-        </dl>
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+          <dl className="grid gap-x-4 gap-y-1 rounded-lg border border-white/[0.06] bg-white/[0.025] p-3 text-xs text-slate-400 sm:grid-cols-2">
+            <p>
+              Investigación:{" "}
+              <span className="text-slate-200">
+                {investigacion?.titulo ?? respuesta.investigacionSlug}
+              </span>
+            </p>
+            <p>
+              Distribuidor:{" "}
+              <span className="text-slate-200">
+                {respuesta.distribuidorNombre || "—"}
+              </span>
+            </p>
+            <p>
+              Empresa: <span className="text-slate-200">{respuesta.empresa || "—"}</span>
+            </p>
+            <p>
+              Departamento:{" "}
+              <span className="text-slate-200">{respuesta.departamento || "—"}</span>
+            </p>
+            <p>
+              Contacto: <span className="text-slate-200">{respuesta.contacto || "—"}</span>
+            </p>
+            <p>
+              Fecha:{" "}
+              <span className="text-slate-200">{formatFecha(respuesta.createdAt)}</span>
+            </p>
+          </dl>
 
-        <div className="mt-4 space-y-3">
-          {entradas.length === 0 ? (
-            <p className="text-sm text-slate-500">Sin respuestas a preguntas.</p>
-          ) : (
-            entradas.map(([qid, valor]) => (
-              <div key={qid} className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {tituloById.get(qid) ?? qid}
-                </p>
-                <p className="mt-1 text-sm text-slate-200">{valorLegible(valor)}</p>
-              </div>
-            ))
-          )}
-          {respuesta.comentarioLibre ? (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-emerald-300">
-                Comentario libre
+          <div className="mt-4 space-y-3">
+            {!investigacion ? (
+              <p className="text-sm text-amber-300">
+                No se encontró la definición de esta investigación; se muestran los
+                datos guardados tal cual.
               </p>
-              <p className="mt-1 text-sm text-slate-200">{respuesta.comentarioLibre}</p>
-            </div>
-          ) : null}
+            ) : null}
+
+            {preguntas.map((p) => {
+              const valor = respuesta.respuestas[p.id];
+              const vacia = esRespuestaVacia(valor);
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {p.titulo}
+                  </p>
+                  <p
+                    className={`mt-1 text-sm ${
+                      vacia ? "italic text-slate-500" : "text-slate-200"
+                    }`}
+                  >
+                    {vacia ? "Sin respuesta" : valorLegible(valor)}
+                  </p>
+                </div>
+              );
+            })}
+
+            {extras.map((qid) => (
+              <div
+                key={qid}
+                className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"
+              >
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {qid}
+                </p>
+                <p className="mt-1 text-sm text-slate-200">
+                  {valorLegible(respuesta.respuestas[qid])}
+                </p>
+              </div>
+            ))}
+
+            {respuesta.comentarioLibre ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-300">
+                  Comentario libre
+                </p>
+                <p className="mt-1 text-sm text-slate-200">{respuesta.comentarioLibre}</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-white/[0.08] p-4">
+          <button type="button" onClick={onClose} className={secondaryBtnClass}>
+            ← Volver al listado
+          </button>
         </div>
       </div>
     </div>

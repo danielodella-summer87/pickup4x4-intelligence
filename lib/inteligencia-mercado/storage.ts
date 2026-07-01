@@ -17,6 +17,7 @@ import {
 import type {
   Investigacion,
   Respuesta,
+  RespuestaValor,
 } from "@/lib/inteligencia-mercado/types";
 
 const NOT_CONFIGURED =
@@ -123,7 +124,11 @@ export async function deleteInvestigacion(id: string): Promise<Ok<object> | Err>
   return { ok: true };
 }
 
-// ── Respuestas (solo lectura) ────────────────────────────────────────────-
+// ── Respuestas ────────────────────────────────────────────────────────────-
+// La lectura es directa a Supabase (clave anon). La edición/borrado, en
+// cambio, pasa por Route Handlers con service role (misma razón que el
+// insert desde la landing): mercado_respuestas no da insert/update/delete a
+// anon a propósito. Ver supabase/migrations/20260629_inteligencia_mercado.sql.
 
 export async function loadRespuestas(options?: {
   investigacionId?: string;
@@ -148,4 +153,47 @@ export async function loadRespuestas(options?: {
     dbRowToRespuesta(row as DbMercadoRespuesta),
   );
   return { ok: true, respuestas };
+}
+
+export async function updateRespuestaAdmin(
+  id: string,
+  patch: {
+    distribuidorNombre?: string | null;
+    departamento?: string | null;
+    respuestas?: Record<string, RespuestaValor>;
+  },
+): Promise<Ok<object> | Err> {
+  try {
+    const res = await fetch(
+      `/api/inteligencia-mercado/respuestas/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      },
+    );
+    const data = (await res.json()) as { ok: boolean; errorMessage?: string };
+    if (!res.ok || !data.ok) {
+      return err(data.errorMessage ?? "No se pudo guardar la respuesta.");
+    }
+    return { ok: true };
+  } catch {
+    return err("No se pudo conectar con el servidor.");
+  }
+}
+
+export async function deleteRespuestaAdmin(id: string): Promise<Ok<object> | Err> {
+  try {
+    const res = await fetch(
+      `/api/inteligencia-mercado/respuestas/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    const data = (await res.json()) as { ok: boolean; errorMessage?: string };
+    if (!res.ok || !data.ok) {
+      return err(data.errorMessage ?? "No se pudo borrar la respuesta.");
+    }
+    return { ok: true };
+  } catch {
+    return err("No se pudo conectar con el servidor.");
+  }
 }
