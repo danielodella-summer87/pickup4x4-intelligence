@@ -114,7 +114,7 @@ values (
   'Estado del mercado 4x4',
   'Tu mirada como distribuidor sobre el mercado de pickups y vehículos 4x4 en Uruguay.',
   'activa',
-  'Esta es una entrevista breve (3 a 5 minutos). Queremos conocer tu visión real del mercado para tomar mejores decisiones comerciales. No hay respuestas correctas: nos interesa tu experiencia.',
+  'Queremos entender cómo está cambiando el mercado de pickups en tu zona desde la mirada de quienes están en contacto directo con clientes, vehículos y accesorios. La encuesta lleva 3 o 4 minutos y nos ayuda a tomar mejores decisiones sobre productos, importaciones, stock, tendencias y oportunidades comerciales.',
   '¡Gracias por compartir tu visión! Tu aporte ayuda a anticipar tendencias y oportunidades para toda la red.',
   true,
   'Comentario libre: lo que quieras agregar',
@@ -131,28 +131,37 @@ values (
     },
     {
       "id": "b-marcas",
-      "titulo": "Marcas",
+      "titulo": "Marcas y modelos",
+      "descripcion": "Marcá lo que veas con más movimiento. Podés elegir varias.",
       "preguntas": [
-        {"id": "marcas-mas-vendidas", "tipo": "texto_corto", "titulo": "¿Qué marcas son las más vendidas en tu zona?", "etiqueta": "marca", "placeholder": "Ej: Toyota, Ford, VW…"},
-        {"id": "marcas-en-crecimiento", "tipo": "texto_corto", "titulo": "¿Qué marca está creciendo o ganando terreno?", "etiqueta": "marca"}
+        {"id": "marcas-mas-vendidas", "tipo": "opcion_multiple", "titulo": "¿Qué marcas o modelos de pickups ves con más movimiento o consulta hoy en tu zona?", "etiqueta": "marca", "permiteOtro": true, "opciones": ["Toyota Hilux", "Ford Ranger", "Volkswagen Amarok", "Chevrolet S10", "Nissan Frontier", "RAM / Rampage", "Mitsubishi L200", "Fiat Toro", "BYD Shark", "GWM Poer", "JAC T8 / T9"]}
       ]
     },
     {
       "id": "b-productos",
       "titulo": "Productos",
+      "descripcion": "Marcá lo que corresponda. Podés elegir varias opciones.",
       "preguntas": [
-        {"id": "productos-mas-vendidos", "tipo": "texto_largo", "titulo": "Productos / repuestos más vendidos", "etiqueta": "producto"},
-        {"id": "productos-menos-vendidos", "tipo": "texto_largo", "titulo": "Productos que están perdiendo mercado", "etiqueta": "producto"},
-        {"id": "productos-dificiles", "tipo": "texto_largo", "titulo": "Productos difíciles de conseguir", "etiqueta": "barrera"},
-        {"id": "productos-importar", "tipo": "texto_largo", "titulo": "¿Qué deberíamos importar que hoy falta?", "etiqueta": "importacion"}
+        {"id": "productos-mas-vendidos", "tipo": "opcion_multiple", "titulo": "¿Qué productos o accesorios tienen más movimiento hoy?", "etiqueta": "producto", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos"]},
+        {"id": "productos-menos-vendidos", "tipo": "opcion_multiple", "titulo": "¿Qué productos notás que están perdiendo movimiento?", "etiqueta": "producto", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "No noto caída clara"]},
+        {"id": "productos-dificiles", "tipo": "opcion_multiple", "titulo": "¿Qué productos te cuesta conseguir o faltan en plaza?", "etiqueta": "barrera", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "Repuestos específicos", "Accesorios para nuevas marcas"]},
+        {"id": "productos-importar", "tipo": "texto_largo", "titulo": "¿Qué deberíamos importar o investigar mejor?", "etiqueta": "importacion", "placeholder": "Contanos qué oportunidad ves que hoy no estamos cubriendo…"}
       ]
     },
     {
       "id": "b-tendencias",
-      "titulo": "Tendencias",
+      "titulo": "Nuevas tendencias que estás notando",
+      "descripcion": "Marcá todas las que apliquen.",
       "preguntas": [
-        {"id": "tendencias-nuevas", "tipo": "texto_largo", "titulo": "Nuevas tendencias que estás notando", "etiqueta": "tendencia"},
-        {"id": "clientes-comportamiento", "tipo": "texto_largo", "titulo": "¿Cómo está cambiando el comportamiento de los clientes?", "etiqueta": "cliente"}
+        {"id": "tendencias-nuevas", "tipo": "opcion_multiple", "titulo": "¿Qué nuevas tendencias estás notando en el mercado?", "etiqueta": "tendencia", "permiteOtro": true, "opciones": ["Mayor consulta por pickups híbridas o eléctricas", "Más interés por bajo consumo", "Más preocupación por precio y financiación", "Más búsqueda de vehículos usados antes que 0 km", "Mayor interés por marcas chinas o nuevas marcas", "Clientes más cautelosos antes de comprar", "Mayor consulta por accesorios de protección y trabajo", "Más interés por equipamiento estético / deportivo", "Menor movimiento general del mercado", "No noto cambios importantes por ahora"]}
+      ]
+    },
+    {
+      "id": "b-comportamiento",
+      "titulo": "Cómo está cambiando el comportamiento de los clientes",
+      "descripcion": "Marcá todas las que apliquen.",
+      "preguntas": [
+        {"id": "clientes-comportamiento", "tipo": "opcion_multiple", "titulo": "¿Cómo está cambiando el comportamiento de los clientes?", "etiqueta": "cliente", "permiteOtro": true, "opciones": ["Comparan más precios antes de comprar", "Demoran más en tomar la decisión", "Consultan más, pero concretan menos", "Buscan más financiación", "Priorizan precio por encima de marca", "Priorizan confiabilidad, respaldo y reventa", "Buscan productos más económicos", "Siguen valorando productos de mejor calidad", "Preguntan más por instalación y garantía", "Están más atentos a promociones", "Compran solo lo necesario", "No noto cambios importantes por ahora"]}
       ]
     },
     {
@@ -182,4 +191,15 @@ values (
   ]
   $json$::jsonb
 )
-on conflict (id) do nothing;
+-- Idempotente y NO destructivo: re-ejecutar esta migración ACTUALIZA la
+-- definición de la encuesta (intro + bloques/preguntas) sin tocar las
+-- respuestas ya cargadas (viven en mercado_respuestas) ni el estado que se
+-- haya fijado desde el panel. Así se aplican nuevas preguntas/opciones sin
+-- perder datos reales ni demos.
+on conflict (id) do update set
+  titulo                  = excluded.titulo,
+  descripcion             = excluded.descripcion,
+  intro                   = excluded.intro,
+  agradecimiento          = excluded.agradecimiento,
+  comentario_final_titulo = excluded.comentario_final_titulo,
+  bloques                 = excluded.bloques;

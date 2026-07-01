@@ -436,7 +436,7 @@ export function EncuestaInterview({
                 {investigacion.intro}
               </p>
             ) : null}
-            <p className="mt-5 text-sm text-slate-400">⏱️ 3 a 5 minutos</p>
+            <p className="mt-5 text-sm text-slate-400">⏱️ 3 a 4 minutos</p>
           </div>
         ) : null}
 
