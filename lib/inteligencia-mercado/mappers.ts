@@ -10,6 +10,7 @@ import {
   type EstadoInvestigacion,
   type Investigacion,
   type InvestigacionPublica,
+  type OpcionJerarquica,
   type Pregunta,
   type Respuesta,
   type RespuestaInput,
@@ -38,7 +39,21 @@ function coercePregunta(value: unknown): Pregunta | null {
   if (typeof value.descripcion === "string") pregunta.descripcion = value.descripcion;
   if (typeof value.requerida === "boolean") pregunta.requerida = value.requerida;
   if (Array.isArray(value.opciones)) {
-    pregunta.opciones = value.opciones.filter((o): o is string => typeof o === "string");
+    if (pregunta.tipo === "jerarquico") {
+      pregunta.opciones = value.opciones.reduce<OpcionJerarquica[]>((acc, o) => {
+        if (isRecord(o) && typeof o.valor === "string") {
+          acc.push({
+            valor: o.valor,
+            ...(Array.isArray(o.hijos)
+              ? { hijos: o.hijos.filter((h): h is string => typeof h === "string") }
+              : {}),
+          });
+        }
+        return acc;
+      }, []);
+    } else {
+      pregunta.opciones = value.opciones.filter((o): o is string => typeof o === "string");
+    }
   }
   if (typeof value.permiteOtro === "boolean") pregunta.permiteOtro = value.permiteOtro;
   if (isRecord(value.escala)) {
@@ -91,6 +106,14 @@ function coerceRespuestasMap(value: unknown): Record<string, RespuestaValor> {
       out[key] = raw;
     } else if (Array.isArray(raw)) {
       out[key] = raw.filter((v): v is string => typeof v === "string");
+    } else if (isRecord(raw)) {
+      const hijos: Record<string, string[]> = {};
+      for (const [padre, valorHijos] of Object.entries(raw)) {
+        if (Array.isArray(valorHijos)) {
+          hijos[padre] = valorHijos.filter((v): v is string => typeof v === "string");
+        }
+      }
+      out[key] = hijos;
     }
   }
   return out;

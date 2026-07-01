@@ -132,17 +132,41 @@ values (
     {
       "id": "b-marcas",
       "titulo": "Marcas y modelos",
-      "descripcion": "Marcá lo que veas con más movimiento. Podés elegir varias.",
+      "descripcion": "Marcá la marca y, si aplica, el o los modelos con más movimiento. Podés elegir varias.",
       "preguntas": [
-        {"id": "marcas-mas-vendidas", "tipo": "opcion_multiple", "titulo": "¿Qué marcas o modelos de pickups ves con más movimiento o consulta hoy en tu zona?", "etiqueta": "marca", "permiteOtro": true, "opciones": ["Toyota Hilux", "Ford Ranger", "Volkswagen Amarok", "Chevrolet S10", "Nissan Frontier", "RAM / Rampage", "Mitsubishi L200", "Fiat Toro", "BYD Shark", "GWM Poer", "JAC T8 / T9"]}
+        {"id": "marcas-mas-vendidas", "tipo": "jerarquico", "titulo": "¿Qué marcas o modelos de pickups ves con más movimiento o consulta hoy en tu zona?", "etiqueta": "marca", "opciones": [
+          {"valor": "Toyota", "hijos": ["Hilux", "Otra"]},
+          {"valor": "Ford", "hijos": ["Ranger", "F-150", "Maverick", "Otra"]},
+          {"valor": "Volkswagen", "hijos": ["Amarok", "Otra"]},
+          {"valor": "Chevrolet", "hijos": ["S10", "Otra"]},
+          {"valor": "Nissan", "hijos": ["Frontier", "Otra"]},
+          {"valor": "RAM", "hijos": ["Rampage", "1500", "Otra"]},
+          {"valor": "Mitsubishi", "hijos": ["L200", "Otra"]},
+          {"valor": "Fiat", "hijos": ["Toro", "Strada", "Otra"]},
+          {"valor": "BYD", "hijos": ["Shark", "Otra"]},
+          {"valor": "GWM", "hijos": ["Poer", "Otra"]},
+          {"valor": "JAC", "hijos": ["T8", "T9", "Otra"]},
+          {"valor": "Peugeot", "hijos": ["Landtrek", "Otra"]},
+          {"valor": "Renault", "hijos": ["Oroch", "Otra"]},
+          {"valor": "Otra"}
+        ]}
       ]
     },
     {
       "id": "b-productos",
       "titulo": "Productos",
-      "descripcion": "Marcá lo que corresponda. Podés elegir varias opciones.",
+      "descripcion": "Marcá la categoría y, si aplica, el o los accesorios con más movimiento. Podés elegir varias opciones.",
       "preguntas": [
-        {"id": "productos-mas-vendidos", "tipo": "opcion_multiple", "titulo": "¿Qué productos o accesorios tienen más movimiento hoy?", "etiqueta": "producto", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos"]},
+        {"id": "productos-mas-vendidos", "tipo": "jerarquico", "titulo": "¿Qué categorías o accesorios tienen más movimiento hoy?", "etiqueta": "producto", "opciones": [
+          {"valor": "Protección y trabajo", "hijos": ["Cubre cárter", "Defensas", "Suspensión / refuerzos", "Otra"]},
+          {"valor": "Carga y transporte", "hijos": ["Cubre caja", "Lona marítima", "Enganche", "Portaequipajes", "Organizadores de caja", "Otra"]},
+          {"valor": "Acceso y estética", "hijos": ["Estribos", "Barras / accesorios deportivos", "Otra"]},
+          {"valor": "Iluminación y electricidad", "hijos": ["Iluminación LED", "Otra"]},
+          {"valor": "Off-road y aventura", "hijos": ["Snorkel", "Otra"]},
+          {"valor": "Seguridad", "hijos": ["Otra"]},
+          {"valor": "Repuestos y mantenimiento", "hijos": ["Otra"]},
+          {"valor": "Otros", "hijos": ["Otra"]}
+        ]},
         {"id": "productos-menos-vendidos", "tipo": "opcion_multiple", "titulo": "¿Qué productos notás que están perdiendo movimiento?", "etiqueta": "producto", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "No noto caída clara"]},
         {"id": "productos-dificiles", "tipo": "opcion_multiple", "titulo": "¿Qué productos te cuesta conseguir o faltan en plaza?", "etiqueta": "barrera", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "Repuestos específicos", "Accesorios para nuevas marcas"]},
         {"id": "productos-importar", "tipo": "texto_largo", "titulo": "¿Qué deberíamos importar o investigar mejor?", "etiqueta": "importacion", "placeholder": "Contanos qué oportunidad ves que hoy no estamos cubriendo…"}

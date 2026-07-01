@@ -14,6 +14,7 @@ export const TIPOS_PREGUNTA = [
   "texto_largo",
   "opcion_unica",
   "opcion_multiple",
+  "jerarquico",
   "escala",
   "numero",
   "si_no",
@@ -26,6 +27,7 @@ export const tipoPreguntaLabel: Record<TipoPregunta, string> = {
   texto_largo: "Texto largo / comentario",
   opcion_unica: "Opción única",
   opcion_multiple: "Opción múltiple",
+  jerarquico: "Jerárquico (padre → hijo)",
   escala: "Escala",
   numero: "Número",
   si_no: "Sí / No",
@@ -89,14 +91,20 @@ export type EscalaConfig = {
   etiquetaMax?: string;
 };
 
+/** Opción de un padre en una pregunta jerárquica (ej. marca → modelos). */
+export type OpcionJerarquica = {
+  valor: string;
+  hijos?: string[];
+};
+
 export type Pregunta = {
   id: string;
   tipo: TipoPregunta;
   titulo: string;
   descripcion?: string;
   requerida?: boolean;
-  /** Para opcion_unica / opcion_multiple. */
-  opciones?: string[];
+  /** Para opcion_unica / opcion_multiple: lista plana. Para jerarquico: padres con hijos anidados. */
+  opciones?: string[] | OpcionJerarquica[];
   /** Permite agregar una respuesta libre "Otro" en preguntas de opción. */
   permiteOtro?: boolean;
   /** Para tipo escala. */
@@ -158,7 +166,16 @@ export type InvestigacionPublica = {
 
 // ── Respuestas ───────────────────────────────────────────────────────────-
 
-export type RespuestaValor = string | string[] | number | boolean | null;
+/** Para preguntas jerarquico: padre seleccionado → hijos seleccionados. */
+export type RespuestaJerarquica = Record<string, string[]>;
+
+export type RespuestaValor =
+  | string
+  | string[]
+  | number
+  | boolean
+  | null
+  | RespuestaJerarquica;
 
 export type RespuestaInput = {
   distribuidorNombre: string | null;
@@ -215,5 +232,15 @@ export function esRespuestaVacia(valor: RespuestaValor | undefined): boolean {
   if (valor === undefined || valor === null) return true;
   if (typeof valor === "string") return valor.trim().length === 0;
   if (Array.isArray(valor)) return valor.length === 0;
+  if (typeof valor === "object") return Object.keys(valor).length === 0;
   return false;
+}
+
+/** Texto legible de un valor de respuesta jerárquica: "Ford: Ranger, Maverick; Toyota: Hilux". */
+export function respuestaJerarquicaLegible(valor: RespuestaJerarquica): string {
+  return Object.entries(valor)
+    .map(([padre, hijos]) =>
+      Array.isArray(hijos) && hijos.length > 0 ? `${padre}: ${hijos.join(", ")}` : padre,
+    )
+    .join("; ");
 }

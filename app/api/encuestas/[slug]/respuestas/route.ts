@@ -31,6 +31,14 @@ function coerceRespuestas(value: unknown): Record<string, RespuestaValor> {
       out[key] = raw;
     } else if (Array.isArray(raw)) {
       out[key] = raw.filter((v): v is string => typeof v === "string");
+    } else if (isRecord(raw)) {
+      const hijos: Record<string, string[]> = {};
+      for (const [padre, valorHijos] of Object.entries(raw)) {
+        if (Array.isArray(valorHijos)) {
+          hijos[padre] = valorHijos.filter((v): v is string => typeof v === "string");
+        }
+      }
+      out[key] = hijos;
     }
   }
   return out;

@@ -18,6 +18,7 @@ import {
 import { CommandCenter } from "@/components/inteligencia-mercado/CommandCenter";
 import { ListaInvestigaciones } from "@/components/inteligencia-mercado/ListaInvestigaciones";
 import { exportInvestigacion } from "@/lib/inteligencia-mercado/export";
+import { descargarRespuestaPdf } from "@/lib/inteligencia-mercado/pdf-export";
 import { InvestigacionFormModal } from "@/components/inteligencia-mercado/InvestigacionFormModal";
 import {
   RespuestaEditModal,
@@ -39,6 +40,7 @@ import {
 } from "@/lib/inteligencia-mercado/aggregations";
 import {
   esRespuestaVacia,
+  respuestaJerarquicaLegible,
   todasLasPreguntas,
   type Investigacion,
   type Respuesta,
@@ -66,6 +68,7 @@ function valorLegible(valor: RespuestaValor): string {
   if (valor === null || valor === undefined) return "—";
   if (typeof valor === "boolean") return valor ? "Sí" : "No";
   if (Array.isArray(valor)) return valor.join(", ");
+  if (typeof valor === "object") return respuestaJerarquicaLegible(valor);
   return String(valor);
 }
 
@@ -613,6 +616,18 @@ export default function InteligenciaMercadoPage() {
                                 className={actionBtnClass}
                               >
                                 Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  descargarRespuestaPdf(
+                                    investigacionById.get(r.investigacionId) ?? null,
+                                    r,
+                                  )
+                                }
+                                className={actionBtnClass}
+                              >
+                                PDF
                               </button>
                               <button
                                 type="button"

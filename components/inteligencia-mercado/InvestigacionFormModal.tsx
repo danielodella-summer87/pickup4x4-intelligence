@@ -43,6 +43,11 @@ export function slugify(texto: string): string {
 
 const TIPOS_CON_OPCIONES: TipoPregunta[] = ["opcion_unica", "opcion_multiple"];
 
+// "jerarquico" todavía no tiene editor visual (padres/hijos se definen por
+// migración/seed). Se oculta del selector para no dejar crear una pregunta
+// jerárquica sin forma de cargarle opciones desde el panel.
+const TIPOS_PREGUNTA_EDITABLES = TIPOS_PREGUNTA.filter((t) => t !== "jerarquico");
+
 export function nuevaInvestigacion(): Investigacion {
   const now = new Date().toISOString();
   return {
@@ -377,7 +382,7 @@ export function InvestigacionFormModal({
                           }
                           className={`mt-1 w-full ${selectClass}`}
                         >
-                          {TIPOS_PREGUNTA.map((tipo) => (
+                          {TIPOS_PREGUNTA_EDITABLES.map((tipo) => (
                             <option key={tipo} value={tipo}>
                               {tipoPreguntaLabel[tipo]}
                             </option>

@@ -7,13 +7,19 @@ import {
   ETIQUETAS_OPORTUNIDAD,
   etiquetaLabel,
   esRespuestaVacia,
+  respuestaJerarquicaLegible,
   todasLasPreguntas,
   type EtiquetaPregunta,
   type Investigacion,
   type Pregunta,
   type Respuesta,
+  type RespuestaJerarquica,
   type RespuestaValor,
 } from "@/lib/inteligencia-mercado/types";
+
+function esRespuestaJerarquica(valor: unknown): valor is RespuestaJerarquica {
+  return typeof valor === "object" && valor !== null && !Array.isArray(valor);
+}
 
 // ── Dashboard ───────────────────────────────────────────────────────────────
 
@@ -62,6 +68,17 @@ function valorAMenciones(valor: RespuestaValor | undefined, pregunta: Pregunta):
   if (typeof valor === "boolean") return [valor ? "Sí" : "No"];
   if (typeof valor === "number") return [String(valor)];
   if (Array.isArray(valor)) return valor.map((v) => v.trim()).filter(Boolean);
+  if (esRespuestaJerarquica(valor)) {
+    const menciones: string[] = [];
+    for (const [padre, hijos] of Object.entries(valor)) {
+      if (Array.isArray(hijos) && hijos.length > 0) {
+        for (const hijo of hijos) menciones.push(`${padre} - ${hijo}`);
+      } else {
+        menciones.push(padre);
+      }
+    }
+    return menciones;
+  }
 
   const texto = String(valor).trim();
   if (pregunta.tipo === "opcion_unica" || pregunta.tipo === "si_no") {
@@ -207,7 +224,11 @@ export function computeOportunidades(
     for (const r of respuestas) {
       const valor = r.respuestas[pregunta.id];
       if (esRespuestaVacia(valor)) continue;
-      const texto = Array.isArray(valor) ? valor.join(", ") : String(valor).trim();
+      const texto = Array.isArray(valor)
+        ? valor.join(", ")
+        : esRespuestaJerarquica(valor)
+          ? respuestaJerarquicaLegible(valor)
+          : String(valor).trim();
       if (!texto) continue;
       grupo.entradas.push({
         texto,
@@ -263,7 +284,11 @@ export function computeComentarios(
       if (esRespuestaVacia(valor)) continue;
       comentarios.push({
         id: `${r.id}-${pregunta.id}`,
-        texto: Array.isArray(valor) ? valor.join(", ") : String(valor).trim(),
+        texto: Array.isArray(valor)
+          ? valor.join(", ")
+          : esRespuestaJerarquica(valor)
+            ? respuestaJerarquicaLegible(valor)
+            : String(valor).trim(),
         origen: pregunta.titulo,
         ...base,
       });

@@ -6,8 +6,10 @@ import {
   esRespuestaVacia,
   todasLasPreguntas,
   type Investigacion,
+  type OpcionJerarquica,
   type Pregunta,
   type Respuesta,
+  type RespuestaJerarquica,
   type RespuestaValor,
 } from "@/lib/inteligencia-mercado/types";
 import {
@@ -33,7 +35,7 @@ function inicializarEdicion(
     if (valor === undefined) continue;
 
     if (p.permiteOtro && p.tipo === "opcion_unica") {
-      const opciones = p.opciones ?? [];
+      const opciones = (p.opciones as string[] | undefined) ?? [];
       if (typeof valor === "string" && valor !== "" && !opciones.includes(valor)) {
         answers[p.id] = OTRO;
         otros[p.id] = valor;
@@ -42,7 +44,7 @@ function inicializarEdicion(
     }
 
     if (p.permiteOtro && p.tipo === "opcion_multiple" && Array.isArray(valor)) {
-      const opciones = p.opciones ?? [];
+      const opciones = (p.opciones as string[] | undefined) ?? [];
       const base = valor.filter((v) => opciones.includes(v));
       const extra = valor.filter((v) => !opciones.includes(v));
       answers[p.id] = base;
@@ -108,7 +110,7 @@ function EditorPregunta({
   onChange: (valor: RespuestaValor) => void;
   onOtroChange: (texto: string) => void;
 }) {
-  const opciones = pregunta.opciones ?? [];
+  const opciones = (pregunta.opciones as string[] | undefined) ?? [];
 
   switch (pregunta.tipo) {
     case "texto_corto":
@@ -227,6 +229,61 @@ function EditorPregunta({
               className={inputClass}
             />
           ) : null}
+        </div>
+      );
+    }
+
+    case "jerarquico": {
+      const opcionesJerarquicas = (pregunta.opciones as OpcionJerarquica[] | undefined) ?? [];
+      const seleccion: RespuestaJerarquica =
+        valor && typeof valor === "object" && !Array.isArray(valor)
+          ? (valor as RespuestaJerarquica)
+          : {};
+
+      const togglePadre = (padre: string) => {
+        if (padre in seleccion) {
+          const { [padre]: _omit, ...resto } = seleccion;
+          onChange(resto);
+        } else {
+          onChange({ ...seleccion, [padre]: [] });
+        }
+      };
+
+      const toggleHijo = (padre: string, hijo: string) => {
+        const actuales = seleccion[padre] ?? [];
+        const nuevos = actuales.includes(hijo)
+          ? actuales.filter((h) => h !== hijo)
+          : [...actuales, hijo];
+        onChange({ ...seleccion, [padre]: nuevos });
+      };
+
+      return (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {opcionesJerarquicas.map((op) => (
+              <ToggleButton key={op.valor} active={op.valor in seleccion} onClick={() => togglePadre(op.valor)}>
+                {op.valor}
+              </ToggleButton>
+            ))}
+          </div>
+          {opcionesJerarquicas
+            .filter((op) => op.valor in seleccion && (op.hijos?.length ?? 0) > 0)
+            .map((op) => (
+              <div key={op.valor} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2">
+                <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">{op.valor}</p>
+                <div className="flex flex-wrap gap-2">
+                  {(op.hijos ?? []).map((hijo) => (
+                    <ToggleButton
+                      key={hijo}
+                      active={(seleccion[op.valor] ?? []).includes(hijo)}
+                      onClick={() => toggleHijo(op.valor, hijo)}
+                    >
+                      {hijo}
+                    </ToggleButton>
+                  ))}
+                </div>
+              </div>
+            ))}
         </div>
       );
     }

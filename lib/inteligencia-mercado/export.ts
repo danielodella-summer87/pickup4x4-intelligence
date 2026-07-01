@@ -6,6 +6,7 @@
  * No toca DB, esquema ni loaders: opera sobre la data ya cargada en memoria.
  */
 import {
+  respuestaJerarquicaLegible,
   todasLasPreguntas,
   type Investigacion,
   type Respuesta,
@@ -18,6 +19,7 @@ function valorLegible(valor: RespuestaValor | undefined): string {
   if (valor === null || valor === undefined) return "";
   if (typeof valor === "boolean") return valor ? "Sí" : "No";
   if (Array.isArray(valor)) return valor.join(", ");
+  if (typeof valor === "object") return respuestaJerarquicaLegible(valor);
   return String(valor);
 }
 

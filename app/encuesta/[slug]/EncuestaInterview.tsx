@@ -6,7 +6,9 @@ import {
   esRespuestaVacia,
   type Bloque,
   type InvestigacionPublica,
+  type OpcionJerarquica,
   type Pregunta,
+  type RespuestaJerarquica,
   type RespuestaValor,
 } from "@/lib/inteligencia-mercado/types";
 
@@ -61,7 +63,33 @@ function ChoiceButton({
       className={`w-full rounded-2xl border px-5 py-4 text-left text-base transition ${
         active
           ? "border-emerald-400/60 bg-emerald-500/15 text-white shadow-[0_0_0_1px_rgba(16,185,129,0.35)]"
-          : "border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25 hover:bg-white/[0.06]"
+          : "border-white/10 bg-white/[0.03] text-slate-100 hover:border-white/25 hover:bg-white/[0.06]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Chip (píldora) para opción múltiple: se distingue de las listas de opción única. */
+function ChipButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full border px-4 py-2.5 text-sm font-medium transition ${
+        active
+          ? "border-emerald-400/70 bg-emerald-500/20 text-white shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
+          : "border-white/15 bg-white/[0.05] text-slate-100 hover:border-white/30 hover:bg-white/[0.1]"
       }`}
     >
       {children}
@@ -82,7 +110,7 @@ function PreguntaInput({
   onChange: (valor: RespuestaValor) => void;
   onOtroChange: (texto: string) => void;
 }) {
-  const opciones = pregunta.opciones ?? [];
+  const opciones = (pregunta.opciones as string[] | undefined) ?? [];
 
   switch (pregunta.tipo) {
     case "texto_corto":
@@ -217,16 +245,18 @@ function PreguntaInput({
         );
       };
       return (
-        <div className="space-y-2">
-          {opciones.map((opt) => (
-            <ChoiceButton
-              key={opt}
-              active={seleccion.includes(opt)}
-              onClick={() => toggle(opt)}
-            >
-              {opt}
-            </ChoiceButton>
-          ))}
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {opciones.map((opt) => (
+              <ChipButton
+                key={opt}
+                active={seleccion.includes(opt)}
+                onClick={() => toggle(opt)}
+              >
+                {opt}
+              </ChipButton>
+            ))}
+          </div>
           {pregunta.permiteOtro ? (
             <input
               type="text"
@@ -236,6 +266,70 @@ function PreguntaInput({
               className={inputClass}
             />
           ) : null}
+        </div>
+      );
+    }
+
+    case "jerarquico": {
+      const opcionesJerarquicas = (pregunta.opciones as OpcionJerarquica[] | undefined) ?? [];
+      const seleccion: RespuestaJerarquica =
+        valor && typeof valor === "object" && !Array.isArray(valor)
+          ? (valor as RespuestaJerarquica)
+          : {};
+
+      const togglePadre = (padre: string) => {
+        if (padre in seleccion) {
+          const { [padre]: _omit, ...resto } = seleccion;
+          onChange(resto);
+        } else {
+          onChange({ ...seleccion, [padre]: [] });
+        }
+      };
+
+      const toggleHijo = (padre: string, hijo: string) => {
+        const actuales = seleccion[padre] ?? [];
+        const nuevos = actuales.includes(hijo)
+          ? actuales.filter((h) => h !== hijo)
+          : [...actuales, hijo];
+        onChange({ ...seleccion, [padre]: nuevos });
+      };
+
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {opcionesJerarquicas.map((op) => (
+              <ChipButton
+                key={op.valor}
+                active={op.valor in seleccion}
+                onClick={() => togglePadre(op.valor)}
+              >
+                {op.valor}
+              </ChipButton>
+            ))}
+          </div>
+          {opcionesJerarquicas
+            .filter((op) => op.valor in seleccion && (op.hijos?.length ?? 0) > 0)
+            .map((op) => (
+              <div
+                key={op.valor}
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4"
+              >
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                  {op.valor}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(op.hijos ?? []).map((hijo) => (
+                    <ChipButton
+                      key={hijo}
+                      active={(seleccion[op.valor] ?? []).includes(hijo)}
+                      onClick={() => toggleHijo(op.valor, hijo)}
+                    >
+                      {hijo}
+                    </ChipButton>
+                  ))}
+                </div>
+              </div>
+            ))}
         </div>
       );
     }
@@ -499,41 +593,43 @@ export function EncuestaInterview({
         ) : null}
 
         {step.kind === "bloque" ? (
-          <div className={`${cardClass} space-y-7`}>
-            <div>
-              <h2 className="text-lg font-semibold text-white">
+          <div className={cardClass}>
+            <div className="mb-7">
+              <h2 className="text-xl font-bold tracking-tight text-amber-300">
                 {step.bloque.titulo}
               </h2>
               {step.bloque.descripcion ? (
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-2 text-sm leading-relaxed text-slate-400">
                   {step.bloque.descripcion}
                 </p>
               ) : null}
             </div>
-            {step.bloque.preguntas.map((pregunta) => (
-              <div key={pregunta.id}>
-                <p className="mb-2 text-base font-medium text-slate-100">
-                  {pregunta.titulo}
-                  {pregunta.requerida ? (
-                    <span className="text-emerald-400"> *</span>
-                  ) : null}
-                </p>
-                {pregunta.descripcion ? (
-                  <p className="mb-2 text-sm text-slate-500">
-                    {pregunta.descripcion}
+            <div className="space-y-8 divide-y divide-white/[0.07]">
+              {step.bloque.preguntas.map((pregunta, index) => (
+                <div key={pregunta.id} className={index > 0 ? "pt-8" : ""}>
+                  <p className="mb-3 text-base font-semibold leading-snug text-sky-300">
+                    {pregunta.titulo}
+                    {pregunta.requerida ? (
+                      <span className="text-emerald-400"> *</span>
+                    ) : null}
                   </p>
-                ) : null}
-                <PreguntaInput
-                  pregunta={pregunta}
-                  valor={answers[pregunta.id]}
-                  otroTexto={otros[pregunta.id] ?? ""}
-                  onChange={(valor) => setAnswer(pregunta.id, valor)}
-                  onOtroChange={(texto) =>
-                    setOtros((prev) => ({ ...prev, [pregunta.id]: texto }))
-                  }
-                />
-              </div>
-            ))}
+                  {pregunta.descripcion ? (
+                    <p className="mb-3 text-sm text-slate-500">
+                      {pregunta.descripcion}
+                    </p>
+                  ) : null}
+                  <PreguntaInput
+                    pregunta={pregunta}
+                    valor={answers[pregunta.id]}
+                    otroTexto={otros[pregunta.id] ?? ""}
+                    onChange={(valor) => setAnswer(pregunta.id, valor)}
+                    onOtroChange={(texto) =>
+                      setOtros((prev) => ({ ...prev, [pregunta.id]: texto }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
