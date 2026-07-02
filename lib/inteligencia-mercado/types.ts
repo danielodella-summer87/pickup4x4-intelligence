@@ -54,6 +54,7 @@ export const ETIQUETAS_PREGUNTA = [
   "idea",
   "empresa",
   "comentario",
+  "evaluacion",
 ] as const;
 
 export type EtiquetaPregunta = (typeof ETIQUETAS_PREGUNTA)[number];
@@ -73,6 +74,7 @@ export const etiquetaLabel: Record<EtiquetaPregunta, string> = {
   idea: "Ideas",
   empresa: "Empresas a visitar",
   comentario: "Comentarios",
+  evaluacion: "Evaluación Pickup4x4",
 };
 
 /** Buckets que el panel de Oportunidades resalta para la dirección comercial. */

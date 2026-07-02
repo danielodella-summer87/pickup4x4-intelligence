@@ -157,7 +157,7 @@ values (
       "titulo": "Productos",
       "descripcion": "Marcá la categoría y, si aplica, el o los accesorios con más movimiento. Podés elegir varias opciones.",
       "preguntas": [
-        {"id": "productos-mas-vendidos", "tipo": "jerarquico", "titulo": "¿Qué categorías o accesorios tienen más movimiento hoy?", "etiqueta": "producto", "opciones": [
+        {"id": "productos-mas-vendidos", "tipo": "jerarquico", "titulo": "¿Podés marcar en qué categoría de accesorios se enfoca más la búsqueda de tu clientela?", "etiqueta": "producto", "opciones": [
           {"valor": "Protección y trabajo", "hijos": ["Cubre cárter", "Defensas", "Suspensión / refuerzos", "Otra"]},
           {"valor": "Carga y transporte", "hijos": ["Cubre caja", "Lona marítima", "Enganche", "Portaequipajes", "Organizadores de caja", "Otra"]},
           {"valor": "Acceso y estética", "hijos": ["Estribos", "Barras / accesorios deportivos", "Otra"]},
@@ -167,8 +167,8 @@ values (
           {"valor": "Repuestos y mantenimiento", "hijos": ["Otra"]},
           {"valor": "Otros", "hijos": ["Otra"]}
         ]},
-        {"id": "productos-menos-vendidos", "tipo": "opcion_multiple", "titulo": "¿Qué productos notás que están perdiendo movimiento?", "etiqueta": "producto", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "No noto caída clara"]},
-        {"id": "productos-dificiles", "tipo": "opcion_multiple", "titulo": "¿Qué productos te cuesta conseguir o faltan en plaza?", "etiqueta": "barrera", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "Repuestos específicos", "Accesorios para nuevas marcas"]},
+        {"id": "productos-menos-vendidos", "tipo": "opcion_multiple", "titulo": "¿Qué productos notás que ya no generan interés en las consultas de tus clientes?", "etiqueta": "producto", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "No noto caída clara"]},
+        {"id": "productos-dificiles", "tipo": "opcion_multiple", "titulo": "¿Qué productos considerás que podrían tener interés, pero hoy no hay en plaza o tienen un precio demasiado alto como para poder ofrecerlos?", "etiqueta": "barrera", "permiteOtro": true, "opciones": ["Lona marítima", "Cubre caja", "Estribos", "Enganche", "Barras / accesorios deportivos", "Cubre cárter", "Defensas", "Iluminación LED", "Portaequipajes", "Organizadores de caja", "Snorkel", "Suspensión / refuerzos", "Repuestos específicos", "Accesorios para nuevas marcas"]},
         {"id": "productos-importar", "tipo": "texto_largo", "titulo": "¿Qué deberíamos importar o investigar mejor?", "etiqueta": "importacion", "placeholder": "Contanos qué oportunidad ves que hoy no estamos cubriendo…"}
       ]
     },
@@ -192,24 +192,36 @@ values (
       "id": "b-competencia",
       "titulo": "Competencia",
       "preguntas": [
-        {"id": "competencia-acciones", "tipo": "texto_largo", "titulo": "¿Qué está haciendo la competencia que te llama la atención?", "etiqueta": "competencia"}
+        {"id": "competencia-acciones", "tipo": "texto_largo", "titulo": "¿Conocés más de un proveedor de accesorios? ¿Podés indicarnos cuáles?", "etiqueta": "competencia"}
       ]
     },
     {
       "id": "b-tecnologia",
       "titulo": "Nuevas tecnologías",
       "preguntas": [
-        {"id": "tecnologia-cambios", "tipo": "texto_largo", "titulo": "Cambios tecnológicos relevantes (híbridos, eléctricos, accesorios, etc.)", "etiqueta": "tecnologia"}
+        {"id": "tecnologia-adaptacion", "tipo": "opcion_unica", "titulo": "¿Cómo se adaptan tus clientes a las nuevas tecnologías?", "etiqueta": "tecnologia", "opciones": ["Son conservadores y prefieren lo que ya está probado", "La mayoría quiere incorporar esos cambios rápidamente", "Prefieren lo tradicional por miedo a complicarse con fallas o reparaciones", "En general siguen la tendencia del mercado y no tienen en cuenta esos factores"]}
       ]
     },
     {
-      "id": "b-oportunidades",
-      "titulo": "Oportunidades",
+      "id": "b-necesidades",
+      "titulo": "Necesidades y oportunidades",
       "preguntas": [
-        {"id": "oportunidades-detectadas", "tipo": "texto_largo", "titulo": "Oportunidades comerciales que detectaste", "etiqueta": "oportunidad"},
-        {"id": "necesidades-no-cubiertas", "tipo": "texto_largo", "titulo": "Necesidades que hoy nadie está resolviendo", "etiqueta": "necesidad"},
-        {"id": "empresas-interesantes", "tipo": "texto_largo", "titulo": "Empresas interesantes para visitar", "etiqueta": "empresa"},
-        {"id": "ideas-distribuidor", "tipo": "texto_largo", "titulo": "Ideas de negocio que se te ocurren", "etiqueta": "idea"}
+        {"id": "necesidad-proveedor", "tipo": "texto_largo", "titulo": "¿Qué tipo de productos o servicios te gustaría que un proveedor pudiera ofrecerte y hoy nadie te está resolviendo?", "etiqueta": "necesidad"}
+      ]
+    },
+    {
+      "id": "b-evaluacion-pickup4x4",
+      "titulo": "Evaluación de Pickup4x4",
+      "descripcion": "Cómo nos ves frente a otros proveedores. Cada punto es independiente.",
+      "preguntas": [
+        {"id": "eval-calidad", "tipo": "opcion_unica", "titulo": "Calidad de los productos", "etiqueta": "evaluacion", "opciones": ["Peor", "Igual", "Un poco mejor", "Mejor"]},
+        {"id": "eval-precios", "tipo": "opcion_unica", "titulo": "Precios", "etiqueta": "evaluacion", "opciones": ["Más bajos", "Igual", "Un poco más altos", "Más altos"]},
+        {"id": "eval-servicio", "tipo": "opcion_unica", "titulo": "Servicio de instalación, horarios y tiempos de entrega", "etiqueta": "evaluacion", "opciones": ["Peor", "Igual", "Mejor"]},
+        {"id": "eval-variedad", "tipo": "opcion_unica", "titulo": "Variedad de productos", "etiqueta": "evaluacion", "opciones": ["Menor variedad", "Igual", "Mayor variedad"]},
+        {"id": "eval-financiacion", "tipo": "opcion_unica", "titulo": "Planes de financiación", "etiqueta": "evaluacion", "opciones": ["Menos planes y menos flexibles", "Igual de flexibles", "Más planes y mayor flexibilidad"]},
+        {"id": "eval-atencion", "tipo": "opcion_unica", "titulo": "Atención y asesoramiento", "etiqueta": "evaluacion", "opciones": ["Peor", "Igual", "Mejor"]},
+        {"id": "eval-comunicacion", "tipo": "opcion_unica", "titulo": "Comunicación de ofertas, promociones y nuevos productos", "etiqueta": "evaluacion", "opciones": ["Mala comunicación", "Igual", "Mejor comunicación"]},
+        {"id": "eval-sugerencias", "tipo": "texto_largo", "titulo": "¿Qué sugerencia nos harías para mejorar nuestros productos, servicios, comunicación o atención?", "etiqueta": "comentario"}
       ]
     }
   ]

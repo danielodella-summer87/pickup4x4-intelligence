@@ -749,15 +749,22 @@ function TendenciasView({
               <div key={p.preguntaId}>
                 <p className="text-sm text-slate-300">{p.preguntaTitulo}</p>
                 <ul className="mt-2 flex flex-wrap gap-2">
-                  {p.menciones.slice(0, 12).map((m) => (
-                    <li
-                      key={m.termino}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-200"
-                    >
-                      {m.termino}
-                      <span className="ml-1.5 font-semibold text-emerald-300">{m.conteo}</span>
-                    </li>
-                  ))}
+                  {p.menciones.slice(0, 12).map((m) => {
+                    const pct =
+                      respuestas.length > 0
+                        ? Math.round((m.conteo / respuestas.length) * 100)
+                        : 0;
+                    return (
+                      <li
+                        key={m.termino}
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-200"
+                      >
+                        {m.termino}
+                        <span className="ml-1.5 font-semibold text-emerald-300">{m.conteo}</span>
+                        <span className="ml-1 text-slate-500">({pct}%)</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
