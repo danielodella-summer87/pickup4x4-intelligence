@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { SideMenu } from "@/components/SideMenu";
 import { ProyectoLink, TutorialLink } from "@/components/TutorialLink";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { getNavItemByPath } from "@/lib/navigation";
 
 type AppShellProps = {
@@ -42,6 +43,7 @@ export function AppShell({
             <div className="flex shrink-0 flex-wrap gap-2 self-start">
               <ProyectoLink />
               <TutorialLink />
+              <LogoutButton />
             </div>
           </div>
         </header>

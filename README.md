@@ -29,6 +29,22 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Auth interno
+
+Toda la app queda protegida por login excepto `/encuesta/*` (encuesta pública),
+`/login` y `/api/auth/login` / `/api/auth/logout`. Sesión mínima por cookie
+httpOnly firmada (sin base de datos), ver `lib/auth/session.ts` y `proxy.ts`.
+
+Variables de entorno (`.env.local`):
+
+- `PICKUP_ADMIN_USER` — usuario de acceso interno.
+- `PICKUP_ADMIN_PASSWORD` (o `PICKUP_ADMIN_PIN`) — contraseña o PIN.
+
+En desarrollo, si faltan estas variables se usa un fallback fijo
+(`admin` / `pickup4x4-dev`) solo cuando `NODE_ENV !== "production"`. En
+producción, si faltan, el acceso interno queda bloqueado (503) en vez de
+quedar abierto.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
