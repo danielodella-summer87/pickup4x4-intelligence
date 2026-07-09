@@ -345,8 +345,11 @@ function PreguntaInput({
 
 export function EncuestaInterview({
   investigacion,
+  preview = false,
 }: {
   investigacion: InvestigacionPublica;
+  /** Vista previa desde el panel admin: no guarda respuestas reales. */
+  preview?: boolean;
 }) {
   const steps = useMemo<Step[]>(() => {
     const list: Step[] = [{ kind: "intro" }];
@@ -427,6 +430,7 @@ export function EncuestaInterview({
   }
 
   async function enviar() {
+    if (preview) return; // Defensa extra: en preview nunca se envía nada.
     setEnviando(true);
     setError(null);
 
@@ -505,6 +509,15 @@ export function EncuestaInterview({
         className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(120%_100%_at_50%_0%,rgba(16,185,129,0.10),transparent_70%)]"
       />
       <div className="relative mx-auto flex min-h-screen max-w-xl flex-col px-5 pb-32 pt-10">
+        {preview ? (
+          <div
+            role="status"
+            className="mb-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+          >
+            <strong className="font-semibold">Vista previa (modo admin).</strong>{" "}
+            Las respuestas no se guardan.
+          </div>
+        ) : null}
         {/* Encabezado + progreso */}
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">
@@ -741,10 +754,11 @@ export function EncuestaInterview({
               <button
                 type="button"
                 onClick={() => void enviar()}
-                disabled={enviando}
+                disabled={enviando || preview}
+                title={preview ? "Envío deshabilitado en vista previa." : undefined}
                 className={`flex-1 ${btnPrimary}`}
               >
-                {enviando ? "Enviando…" : "Enviar respuestas"}
+                {preview ? "Envío deshabilitado (preview)" : enviando ? "Enviando…" : "Enviar respuestas"}
               </button>
             ) : (
               <button

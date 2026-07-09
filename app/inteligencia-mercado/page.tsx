@@ -18,6 +18,7 @@ import {
 import { CommandCenter } from "@/components/inteligencia-mercado/CommandCenter";
 import { ListaInvestigaciones } from "@/components/inteligencia-mercado/ListaInvestigaciones";
 import { SegmentoFiltroBar } from "@/components/inteligencia-mercado/SegmentoFiltroBar";
+import { CalidadRmaView } from "@/components/inteligencia-mercado/CalidadRmaView";
 import { exportInvestigacion } from "@/lib/inteligencia-mercado/export";
 import {
   filtrarPorSegmento,
@@ -59,7 +60,8 @@ type TabId =
   | "respuestas"
   | "tendencias"
   | "oportunidades"
-  | "comentarios";
+  | "comentarios"
+  | "calidad";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "resumen", label: "Resumen" },
@@ -68,6 +70,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "tendencias", label: "Tendencias" },
   { id: "oportunidades", label: "Oportunidades" },
   { id: "comentarios", label: "Comentarios" },
+  { id: "calidad", label: "Calidad/RMA" },
 ];
 
 function valorLegible(valor: RespuestaValor): string {
@@ -520,6 +523,16 @@ export default function InteligenciaMercadoPage() {
                               </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
+                              {inv.estado !== "activa" ? (
+                                <a
+                                  href={`/encuesta/${encodeURIComponent(inv.slug)}?preview=1`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={actionBtnClass}
+                                >
+                                  Vista previa
+                                </a>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -682,14 +695,19 @@ export default function InteligenciaMercadoPage() {
             ) : null}
 
             {/* ── Tabs analíticas: selector de investigación ── */}
-            {tab === "tendencias" || tab === "oportunidades" || tab === "comentarios" ? (
+            {tab === "tendencias" ||
+            tab === "oportunidades" ||
+            tab === "comentarios" ||
+            tab === "calidad" ? (
               <PanelCard
                 title={
                   tab === "tendencias"
                     ? "Tendencias"
                     : tab === "oportunidades"
                       ? "Oportunidades"
-                      : "Comentarios"
+                      : tab === "comentarios"
+                        ? "Comentarios"
+                        : "Calidad/RMA"
                 }
                 description="Análisis sobre la investigación seleccionada."
                 action={
@@ -718,8 +736,10 @@ export default function InteligenciaMercadoPage() {
                   <TendenciasView inv={selected} respuestas={respuestasSeleccionadas} />
                 ) : tab === "oportunidades" ? (
                   <OportunidadesView inv={selected} respuestas={respuestasSeleccionadas} />
-                ) : (
+                ) : tab === "comentarios" ? (
                   <ComentariosView inv={selected} respuestas={respuestasSeleccionadas} />
+                ) : (
+                  <CalidadRmaView inv={selected} respuestas={respuestasSeleccionadas} />
                 )}
               </PanelCard>
             ) : null}

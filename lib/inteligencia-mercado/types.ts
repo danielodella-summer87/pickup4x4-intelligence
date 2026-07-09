@@ -55,6 +55,18 @@ export const ETIQUETAS_PREGUNTA = [
   "empresa",
   "comentario",
   "evaluacion",
+  // Investigación "Calidad y Postventa" (errores internos, compatibilidad,
+  // instalación, RMA). Ver lib/inteligencia-mercado/calidad-rma.ts.
+  "area_origen",
+  "compatibilidad",
+  "informacion_incompleta",
+  "rma",
+  "cotizacion",
+  "retrabajo",
+  "reclamo",
+  "stock",
+  "comunicacion",
+  "severidad",
 ] as const;
 
 export type EtiquetaPregunta = (typeof ETIQUETAS_PREGUNTA)[number];
@@ -75,6 +87,16 @@ export const etiquetaLabel: Record<EtiquetaPregunta, string> = {
   empresa: "Empresas a visitar",
   comentario: "Comentarios",
   evaluacion: "Evaluación Pickup4x4",
+  area_origen: "Área / rol de origen",
+  compatibilidad: "Compatibilidad vehículo/producto",
+  informacion_incompleta: "Información incompleta (ventas → instalación)",
+  rma: "RMA / devoluciones",
+  cotizacion: "Cotización e instalación",
+  retrabajo: "Retrabajos / control final",
+  reclamo: "Reclamos del cliente",
+  stock: "Stock / piezas faltantes",
+  comunicacion: "Comunicación interna",
+  severidad: "Severidad de errores",
 };
 
 /** Buckets que el panel de Oportunidades resalta para la dirección comercial. */

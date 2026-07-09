@@ -1,12 +1,39 @@
 import type { Metadata } from "next";
-import { getInvestigacionPublica } from "@/lib/inteligencia-mercado/server";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import {
+  getInvestigacionParaPreview,
+  getInvestigacionPublica,
+} from "@/lib/inteligencia-mercado/server";
+import {
+  SESSION_COOKIE_NAME,
+  getAdminCredentials,
+  isValidSessionCookieValue,
+} from "@/lib/auth/session";
 import { EncuestaInterview } from "./EncuestaInterview";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ preview?: string }>;
+};
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+/** true si hay una sesión admin válida (mismo criterio que proxy.ts). */
+async function haySesionAdmin(): Promise<boolean> {
+  const creds = getAdminCredentials();
+  if (!creds) return false;
+  const store = await cookies();
+  return isValidSessionCookieValue(store.get(SESSION_COOKIE_NAME)?.value, creds);
+}
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getInvestigacionPublica(slug);
+  const { preview } = await searchParams;
+
+  const result =
+    preview === "1" && (await haySesionAdmin())
+      ? await getInvestigacionParaPreview(slug)
+      : await getInvestigacionPublica(slug);
+
   if (!result.ok) {
     return { title: "Encuesta · Pickup 4x4" };
   }
@@ -36,10 +63,22 @@ function EstadoNoDisponible({ mensaje }: { mensaje: string }) {
   );
 }
 
-export default async function EncuestaPage({ params }: Props) {
+export default async function EncuestaPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const result = await getInvestigacionPublica(slug);
+  const { preview } = await searchParams;
 
+  if (preview === "1") {
+    if (!(await haySesionAdmin())) {
+      redirect(`/login?from=${encodeURIComponent(`/encuesta/${slug}?preview=1`)}`);
+    }
+    const result = await getInvestigacionParaPreview(slug);
+    if (!result.ok) {
+      return <EstadoNoDisponible mensaje={result.errorMessage} />;
+    }
+    return <EncuestaInterview investigacion={result.data} preview />;
+  }
+
+  const result = await getInvestigacionPublica(slug);
   if (!result.ok) {
     return <EstadoNoDisponible mensaje={result.errorMessage} />;
   }

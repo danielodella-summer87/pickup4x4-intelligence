@@ -81,6 +81,20 @@ export async function getInvestigacionPublica(
   return { ok: true, data: investigacionToPublica(result.data) };
 }
 
+/**
+ * Vista previa para el panel admin: igual forma que getInvestigacionPublica
+ * pero SIN el filtro `estado === "activa"` (permite ver borrador/cerrada).
+ * El caller (app/encuesta/[slug]/page.tsx) es responsable de validar la
+ * sesión admin antes de llamar a esta función — nunca exponerla sin auth.
+ */
+export async function getInvestigacionParaPreview(
+  slug: string,
+): Promise<ServerResult<InvestigacionPublica>> {
+  const result = await getInvestigacionBySlug(slug);
+  if (!result.ok) return result;
+  return { ok: true, data: investigacionToPublica(result.data) };
+}
+
 /** Slug de la encuesta activa más reciente, para /encuesta → /encuesta/[slug]. */
 export async function getSlugEncuestaActiva(): Promise<string | null> {
   const client = createSupabaseServiceClient();
