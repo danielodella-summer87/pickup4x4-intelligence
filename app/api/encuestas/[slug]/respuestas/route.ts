@@ -75,8 +75,10 @@ export async function POST(request: Request, { params }: Context) {
   const input: RespuestaInput = {
     distribuidorNombre: asString(body.distribuidorNombre),
     empresa: asString(body.empresa),
+    giro: asString(body.giro),
     departamento: asString(body.departamento),
     contacto: asString(body.contacto),
+    cargo: asString(body.cargo),
     respuestas: coerceRespuestas(body.respuestas),
     comentarioLibre: asString(body.comentarioLibre),
     meta: isRecord(body.meta) ? body.meta : {},

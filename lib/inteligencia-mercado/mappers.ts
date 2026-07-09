@@ -173,18 +173,26 @@ export function investigacionToDbInsert(
 
 // ── Respuestas ───────────────────────────────────────────────────────────-
 
+function coerceMetaString(meta: Record<string, unknown>, key: string): string | null {
+  const v = meta[key];
+  return typeof v === "string" && v.trim() ? v : null;
+}
+
 export function dbRowToRespuesta(row: DbMercadoRespuesta): Respuesta {
+  const meta = isRecord(row.meta) ? row.meta : {};
   return {
     id: row.id,
     investigacionId: row.investigacion_id,
     investigacionSlug: row.investigacion_slug,
     distribuidorNombre: row.distribuidor_nombre,
     empresa: row.empresa,
+    giro: coerceMetaString(meta, "giro"),
     departamento: row.departamento,
     contacto: row.contacto,
+    cargo: coerceMetaString(meta, "cargo"),
     respuestas: coerceRespuestasMap(row.respuestas),
     comentarioLibre: row.comentario_libre,
-    meta: isRecord(row.meta) ? row.meta : {},
+    meta,
     createdAt: row.created_at ?? "",
   };
 }
@@ -199,6 +207,8 @@ export function respuestaInputToDbInsert(
     const t = v?.trim();
     return t ? t : null;
   };
+  const giro = trim(input.giro);
+  const cargo = trim(input.cargo);
   return {
     id,
     investigacion_id: investigacionId,
@@ -209,6 +219,6 @@ export function respuestaInputToDbInsert(
     contacto: trim(input.contacto),
     respuestas: input.respuestas,
     comentario_libre: trim(input.comentarioLibre),
-    meta: input.meta ?? {},
+    meta: { ...(input.meta ?? {}), ...(giro ? { giro } : {}), ...(cargo ? { cargo } : {}) },
   };
 }

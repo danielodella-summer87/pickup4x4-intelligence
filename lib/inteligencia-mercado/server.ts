@@ -152,6 +152,8 @@ export async function insertRespuesta(
 export type RespuestaAdminPatch = {
   distribuidorNombre?: string | null;
   departamento?: string | null;
+  giro?: string | null;
+  cargo?: string | null;
   respuestas?: Record<string, RespuestaValor>;
 };
 
@@ -169,7 +171,7 @@ export async function updateRespuestaAdmin(
 
   const { data: fila, error: fetchErr } = await client
     .from("mercado_respuestas")
-    .select("investigacion_id")
+    .select("investigacion_id, meta")
     .eq("id", id)
     .maybeSingle();
   if (fetchErr) {
@@ -187,6 +189,24 @@ export async function updateRespuestaAdmin(
   if (patch.departamento !== undefined) {
     const v = patch.departamento?.trim();
     update.departamento = v ? v : null;
+  }
+  if (patch.giro !== undefined || patch.cargo !== undefined) {
+    const metaActual =
+      typeof fila.meta === "object" && fila.meta !== null && !Array.isArray(fila.meta)
+        ? (fila.meta as Record<string, unknown>)
+        : {};
+    const metaNuevo = { ...metaActual };
+    if (patch.giro !== undefined) {
+      const v = patch.giro?.trim();
+      if (v) metaNuevo.giro = v;
+      else delete metaNuevo.giro;
+    }
+    if (patch.cargo !== undefined) {
+      const v = patch.cargo?.trim();
+      if (v) metaNuevo.cargo = v;
+      else delete metaNuevo.cargo;
+    }
+    update.meta = metaNuevo;
   }
   if (patch.respuestas !== undefined) {
     const invResult = await getInvestigacionById(fila.investigacion_id);

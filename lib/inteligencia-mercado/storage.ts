@@ -160,6 +160,8 @@ export async function updateRespuestaAdmin(
   patch: {
     distribuidorNombre?: string | null;
     departamento?: string | null;
+    giro?: string | null;
+    cargo?: string | null;
     respuestas?: Record<string, RespuestaValor>;
   },
 ): Promise<Ok<object> | Err> {

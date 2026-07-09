@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   DEPARTAMENTOS_URUGUAY,
   esRespuestaVacia,
+  GIRO_OPCIONES,
   todasLasPreguntas,
   type Investigacion,
   type OpcionJerarquica,
@@ -62,12 +63,16 @@ function inicializarEdicion(
 function snapshot(
   preguntas: Pregunta[],
   distribuidorNombre: string,
+  cargo: string,
   departamento: string,
+  giro: string,
   respuestas: Record<string, RespuestaValor>,
 ): string {
   return JSON.stringify({
     distribuidorNombre: distribuidorNombre.trim(),
+    cargo: cargo.trim(),
     departamento: departamento.trim(),
+    giro: giro.trim(),
     respuestas: preguntas.map((p) => [p.id, respuestas[p.id] ?? null]),
   });
 }
@@ -295,7 +300,9 @@ function EditorPregunta({
 
 export type RespuestaEditPatch = {
   distribuidorNombre: string | null;
+  cargo: string | null;
   departamento: string | null;
+  giro: string | null;
   respuestas: Record<string, RespuestaValor>;
 };
 
@@ -316,12 +323,27 @@ export function RespuestaEditModal({
   const [distribuidorNombre, setDistribuidorNombre] = useState(
     respuesta.distribuidorNombre ?? "",
   );
+  const [cargo, setCargo] = useState(respuesta.cargo ?? "");
   const [departamento, setDepartamento] = useState(respuesta.departamento ?? "");
+  const giroEnLista = (GIRO_OPCIONES as readonly string[]).includes(respuesta.giro ?? "");
+  const [giro, setGiro] = useState(
+    respuesta.giro ? (giroEnLista ? respuesta.giro : "Otros") : "",
+  );
+  const [giroOtro, setGiroOtro] = useState(
+    respuesta.giro && !giroEnLista ? respuesta.giro : "",
+  );
   const [edicion, setEdicion] = useState(() =>
     inicializarEdicion(preguntas, respuesta.respuestas),
   );
   const [snapshotInicial] = useState(() =>
-    snapshot(preguntas, respuesta.distribuidorNombre ?? "", respuesta.departamento ?? "", respuesta.respuestas),
+    snapshot(
+      preguntas,
+      respuesta.distribuidorNombre ?? "",
+      respuesta.cargo ?? "",
+      respuesta.departamento ?? "",
+      respuesta.giro ?? "",
+      respuesta.respuestas,
+    ),
   );
 
   function setAnswer(id: string, valor: RespuestaValor) {
@@ -357,8 +379,19 @@ export function RespuestaEditModal({
     return respuestasFinales;
   }
 
+  function giroFinal(): string {
+    return giro === "Otros" ? giroOtro : giro;
+  }
+
   function hayCambiosSinGuardar(): boolean {
-    const actual = snapshot(preguntas, distribuidorNombre, departamento, respuestasFinalesActuales());
+    const actual = snapshot(
+      preguntas,
+      distribuidorNombre,
+      cargo,
+      departamento,
+      giroFinal(),
+      respuestasFinalesActuales(),
+    );
     return actual !== snapshotInicial;
   }
 
@@ -376,7 +409,9 @@ export function RespuestaEditModal({
   function handleGuardar() {
     onSave({
       distribuidorNombre: distribuidorNombre.trim() || null,
+      cargo: cargo.trim() || null,
       departamento: departamento.trim() || null,
+      giro: giroFinal().trim() || null,
       respuestas: respuestasFinalesActuales(),
     });
   }
@@ -409,6 +444,15 @@ export function RespuestaEditModal({
               />
             </label>
             <label className="block text-sm text-slate-300">
+              Cargo
+              <input
+                type="text"
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                className={`mt-1 ${inputClass}`}
+              />
+            </label>
+            <label className="block text-sm text-slate-300">
               Departamento
               <select
                 value={departamento}
@@ -422,6 +466,30 @@ export function RespuestaEditModal({
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="block text-sm text-slate-300">
+              Giro
+              <select
+                value={giro}
+                onChange={(e) => setGiro(e.target.value)}
+                className={`mt-1 w-full ${selectClass}`}
+              >
+                <option value="">Sin especificar</option>
+                {GIRO_OPCIONES.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              {giro === "Otros" ? (
+                <input
+                  type="text"
+                  value={giroOtro}
+                  onChange={(e) => setGiroOtro(e.target.value)}
+                  placeholder="Especificá el giro"
+                  className={`mt-2 ${inputClass}`}
+                />
+              ) : null}
             </label>
           </div>
 

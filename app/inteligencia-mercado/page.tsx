@@ -17,7 +17,13 @@ import {
 } from "@/components/inteligencia-mercado/ui";
 import { CommandCenter } from "@/components/inteligencia-mercado/CommandCenter";
 import { ListaInvestigaciones } from "@/components/inteligencia-mercado/ListaInvestigaciones";
+import { SegmentoFiltroBar } from "@/components/inteligencia-mercado/SegmentoFiltroBar";
 import { exportInvestigacion } from "@/lib/inteligencia-mercado/export";
+import {
+  filtrarPorSegmento,
+  SEGMENTO_FILTRO_VACIO,
+  type SegmentoFiltro,
+} from "@/lib/inteligencia-mercado/filters";
 import { descargarRespuestaPdf } from "@/lib/inteligencia-mercado/pdf-export";
 import { InvestigacionFormModal } from "@/components/inteligencia-mercado/InvestigacionFormModal";
 import {
@@ -97,7 +103,10 @@ export default function InteligenciaMercadoPage() {
   // Filtros tab respuestas
   const [busqueda, setBusqueda] = useState("");
   const [filtroInvestigacion, setFiltroInvestigacion] = useState("");
-  const [filtroDepartamento, setFiltroDepartamento] = useState("");
+
+  // Filtro de segmento del dashboard (Departamento, Giro, Fecha, Distribuidor/Empresa).
+  // Compartido entre Resumen, Tendencias, Oportunidades, Comentarios, Respuestas y Export.
+  const [segmentoFiltro, setSegmentoFiltro] = useState<SegmentoFiltro>(SEGMENTO_FILTRO_VACIO);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -156,37 +165,54 @@ export default function InteligenciaMercadoPage() {
 
   const selected = selectedId ? investigacionById.get(selectedId) ?? null : null;
 
+  // Respuestas con el filtro de segmento aplicado (Departamento, Giro, Fecha,
+  // Distribuidor/Empresa). Único punto de filtrado: de acá salen todas las
+  // vistas analíticas, el listado de Respuestas y el Export.
+  const respuestasSegmento = useMemo(
+    () => filtrarPorSegmento(respuestas, segmentoFiltro),
+    [respuestas, segmentoFiltro],
+  );
+
   const respuestasSeleccionadas = useMemo(
-    () => respuestas.filter((r) => r.investigacionId === selectedId),
-    [respuestas, selectedId],
+    () => respuestasSegmento.filter((r) => r.investigacionId === selectedId),
+    [respuestasSegmento, selectedId],
   );
 
   // Dashboard por investigación (independiente del selector de los tabs analíticos).
   const dashInv = dashInvId ? investigacionById.get(dashInvId) ?? null : null;
   const dashRespuestas = useMemo(
-    () => (dashInvId ? respuestas.filter((r) => r.investigacionId === dashInvId) : []),
-    [respuestas, dashInvId],
+    () =>
+      dashInvId ? respuestasSegmento.filter((r) => r.investigacionId === dashInvId) : [],
+    [respuestasSegmento, dashInvId],
   );
 
+  // Opciones de los selects de la barra de filtros: se derivan de TODAS las
+  // respuestas cargadas (no de respuestasSegmento), para no ir angostando las
+  // opciones disponibles a medida que se filtra.
   const departamentosDisponibles = useMemo(() => {
     const set = new Set<string>();
     for (const r of respuestas) if (r.departamento) set.add(r.departamento);
     return Array.from(set).sort();
   }, [respuestas]);
 
+  const girosDisponibles = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of respuestas) if (r.giro) set.add(r.giro);
+    return Array.from(set).sort();
+  }, [respuestas]);
+
   const respuestasFiltradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return respuestas.filter((r) => {
+    return respuestasSegmento.filter((r) => {
       if (filtroInvestigacion && r.investigacionId !== filtroInvestigacion) {
-        return false;
-      }
-      if (filtroDepartamento && r.departamento !== filtroDepartamento) {
         return false;
       }
       if (q) {
         const haystack = [
           r.distribuidorNombre,
+          r.cargo,
           r.empresa,
+          r.giro,
           r.departamento,
           r.comentarioLibre,
           ...Object.values(r.respuestas).map(valorLegible),
@@ -198,7 +224,7 @@ export default function InteligenciaMercadoPage() {
       }
       return true;
     });
-  }, [respuestas, busqueda, filtroInvestigacion, filtroDepartamento]);
+  }, [respuestasSegmento, busqueda, filtroInvestigacion]);
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
@@ -328,6 +354,17 @@ export default function InteligenciaMercadoPage() {
           <p className="text-sm text-slate-500">Cargando…</p>
         ) : (
           <>
+            {tab !== "investigaciones" ? (
+              <SegmentoFiltroBar
+                filtro={segmentoFiltro}
+                onChange={setSegmentoFiltro}
+                departamentosDisponibles={departamentosDisponibles}
+                girosDisponibles={girosDisponibles}
+                resultados={respuestasSegmento.length}
+                total={respuestas.length}
+              />
+            ) : null}
+
             {/* ── Resumen · Command Center por investigación ── */}
             {tab === "resumen" ? (
               vistaGlobal ? (
@@ -352,7 +389,7 @@ export default function InteligenciaMercadoPage() {
                   </div>
                   <CommandCenter
                     investigaciones={investigaciones}
-                    respuestas={respuestas}
+                    respuestas={respuestasSegmento}
                     scope="global"
                   />
                 </div>
@@ -429,7 +466,7 @@ export default function InteligenciaMercadoPage() {
               ) : (
                 <ListaInvestigaciones
                   investigaciones={investigaciones}
-                  respuestas={respuestas}
+                  respuestas={respuestasSegmento}
                   onSelect={setDashInvId}
                   onVerGlobal={() => setVistaGlobal(true)}
                 />
@@ -558,18 +595,6 @@ export default function InteligenciaMercadoPage() {
                       </option>
                     ))}
                   </select>
-                  <select
-                    value={filtroDepartamento}
-                    onChange={(e) => setFiltroDepartamento(e.target.value)}
-                    className={selectClass}
-                  >
-                    <option value="">Todos los departamentos</option>
-                    {departamentosDisponibles.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="mt-5">
@@ -589,6 +614,9 @@ export default function InteligenciaMercadoPage() {
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="font-medium text-white">
                                 {r.distribuidorNombre || r.empresa || "Anónimo"}
+                                {r.cargo ? (
+                                  <span className="text-slate-500"> · {r.cargo}</span>
+                                ) : null}
                                 {r.departamento ? (
                                   <span className="text-slate-500"> · {r.departamento}</span>
                                 ) : null}
@@ -597,6 +625,13 @@ export default function InteligenciaMercadoPage() {
                                 {formatFecha(r.createdAt)}
                               </span>
                             </div>
+                            {r.empresa || r.giro ? (
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {r.empresa}
+                                {r.empresa && r.giro ? " · " : ""}
+                                {r.giro}
+                              </p>
+                            ) : null}
                             <p className="mt-1 text-xs text-slate-500">
                               {inv?.titulo ?? r.investigacionSlug} ·{" "}
                               {Object.keys(r.respuestas).length} respuesta(s)
@@ -945,7 +980,13 @@ function RespuestaDetalleModal({
               </span>
             </p>
             <p>
+              Cargo: <span className="text-slate-200">{respuesta.cargo || "—"}</span>
+            </p>
+            <p>
               Empresa: <span className="text-slate-200">{respuesta.empresa || "—"}</span>
+            </p>
+            <p>
+              Giro: <span className="text-slate-200">{respuesta.giro || "—"}</span>
             </p>
             <p>
               Departamento:{" "}

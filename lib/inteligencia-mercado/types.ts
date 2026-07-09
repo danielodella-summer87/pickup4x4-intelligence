@@ -182,8 +182,12 @@ export type RespuestaValor =
 export type RespuestaInput = {
   distribuidorNombre: string | null;
   empresa: string | null;
+  /** Rubro del negocio que responde. Se persiste dentro de la columna meta (JSONB). */
+  giro: string | null;
   departamento: string | null;
   contacto: string | null;
+  /** Cargo/rol de la persona que completa la encuesta. Se persiste dentro de meta (JSONB). */
+  cargo: string | null;
   /** Keyed por pregunta.id. */
   respuestas: Record<string, RespuestaValor>;
   comentarioLibre: string | null;
@@ -197,6 +201,21 @@ export type Respuesta = RespuestaInput & {
   meta: Record<string, unknown>;
   createdAt: string;
 };
+
+// ── Giro del negocio (constante, sin dependencia de DB en la landing) ───────
+
+export const GIRO_OPCIONES = [
+  "Arrendadora",
+  "Casa de repuestos",
+  "Compra venta de usados",
+  "Concesionario oficial",
+  "Polarizados y alarmas",
+  "Estado",
+  "Taller",
+  "Otros",
+] as const;
+
+export type GiroOpcion = (typeof GIRO_OPCIONES)[number];
 
 // ── Departamentos de Uruguay (constante, sin dependencia de DB en la landing) ─
 

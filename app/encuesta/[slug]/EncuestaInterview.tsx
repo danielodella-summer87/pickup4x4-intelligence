@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   DEPARTAMENTOS_URUGUAY,
   esRespuestaVacia,
+  GIRO_OPCIONES,
   type Bloque,
   type InvestigacionPublica,
   type OpcionJerarquica,
@@ -36,7 +37,10 @@ type Step =
 
 type Identidad = {
   distribuidorNombre: string;
+  cargo: string;
   empresa: string;
+  giro: string;
+  giroOtro: string;
   departamento: string;
   contacto: string;
 };
@@ -359,7 +363,10 @@ export function EncuestaInterview({
   const [otros, setOtros] = useState<Record<string, string>>({});
   const [identidad, setIdentidad] = useState<Identidad>({
     distribuidorNombre: "",
+    cargo: "",
     empresa: "",
+    giro: "",
+    giroOtro: "",
     departamento: "",
     contacto: "",
   });
@@ -433,6 +440,9 @@ export function EncuestaInterview({
       }
     }
 
+    const giroFinal =
+      identidad.giro === "Otros" ? identidad.giroOtro || null : identidad.giro || null;
+
     try {
       const res = await fetch(
         `/api/encuestas/${encodeURIComponent(investigacion.slug)}/respuestas`,
@@ -441,7 +451,9 @@ export function EncuestaInterview({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             distribuidorNombre: identidad.distribuidorNombre || null,
+            cargo: identidad.cargo || null,
             empresa: identidad.empresa || null,
+            giro: giroFinal,
             departamento: identidad.departamento || null,
             contacto: identidad.contacto || null,
             respuestas: respuestasFinales,
@@ -551,6 +563,18 @@ export function EncuestaInterview({
               />
             </label>
             <label className="block text-sm text-slate-300">
+              Cargo <span className="text-slate-500">(opcional)</span>
+              <input
+                type="text"
+                value={identidad.cargo}
+                onChange={(e) =>
+                  setIdentidad({ ...identidad, cargo: e.target.value })
+                }
+                placeholder="Ej: Dueño, encargado, vendedor…"
+                className={`mt-1.5 ${inputClass}`}
+              />
+            </label>
+            <label className="block text-sm text-slate-300">
               Empresa / comercio
               <input
                 type="text"
@@ -560,6 +584,35 @@ export function EncuestaInterview({
                 }
                 className={`mt-1.5 ${inputClass}`}
               />
+            </label>
+            <label className="block text-sm text-slate-300">
+              Giro <span className="text-slate-500">(opcional)</span>
+              <select
+                value={identidad.giro}
+                onChange={(e) =>
+                  setIdentidad({ ...identidad, giro: e.target.value })
+                }
+                className={`mt-1.5 ${inputClass}`}
+              >
+                <option value="">Seleccioná…</option>
+                {GIRO_OPCIONES.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              {identidad.giro === "Otros" ? (
+                <input
+                  type="text"
+                  value={identidad.giroOtro}
+                  onChange={(e) =>
+                    setIdentidad({ ...identidad, giroOtro: e.target.value })
+                  }
+                  placeholder="Especificá el giro"
+                  className={`mt-2 ${inputClass}`}
+                  autoFocus
+                />
+              ) : null}
             </label>
             <label className="block text-sm text-slate-300">
               Departamento

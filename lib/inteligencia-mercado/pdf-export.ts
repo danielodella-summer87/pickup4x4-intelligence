@@ -66,7 +66,9 @@ export function buildRespuestaPdfBlob(
   const meta = [
     `Investigación: ${investigacion?.titulo ?? respuesta.investigacionSlug}`,
     `Distribuidor: ${respuesta.distribuidorNombre || "—"}`,
+    `Cargo: ${respuesta.cargo || "—"}`,
     `Empresa: ${respuesta.empresa || "—"}`,
+    `Giro: ${respuesta.giro || "—"}`,
     `Departamento: ${respuesta.departamento || "—"}`,
     `Fecha: ${fechaLegible(respuesta.createdAt)}`,
   ];

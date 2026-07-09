@@ -43,7 +43,9 @@ export function buildAoa(
   const headers = [
     "Fecha",
     "Distribuidor",
+    "Cargo",
     "Empresa",
+    "Giro",
     "Departamento",
     "Contacto",
     ...preguntas.map((p) => p.titulo),
@@ -58,7 +60,9 @@ export function buildAoa(
   const filas = ordenadas.map((r) => [
     fechaLegible(r.createdAt),
     r.distribuidorNombre ?? "",
+    r.cargo ?? "",
     r.empresa ?? "",
+    r.giro ?? "",
     r.departamento ?? "",
     r.contacto ?? "",
     ...preguntas.map((p) => valorLegible(r.respuestas[p.id])),

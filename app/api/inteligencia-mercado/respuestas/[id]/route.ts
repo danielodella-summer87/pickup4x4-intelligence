@@ -73,6 +73,8 @@ export async function PATCH(request: Request, { params }: Context) {
   const patch: {
     distribuidorNombre?: string | null;
     departamento?: string | null;
+    giro?: string | null;
+    cargo?: string | null;
     respuestas?: Record<string, RespuestaValor>;
   } = {};
   if ("distribuidorNombre" in body) {
@@ -81,6 +83,12 @@ export async function PATCH(request: Request, { params }: Context) {
   }
   if ("departamento" in body) {
     patch.departamento = typeof body.departamento === "string" ? body.departamento : null;
+  }
+  if ("giro" in body) {
+    patch.giro = typeof body.giro === "string" ? body.giro : null;
+  }
+  if ("cargo" in body) {
+    patch.cargo = typeof body.cargo === "string" ? body.cargo : null;
   }
   if ("respuestas" in body) {
     patch.respuestas = coerceRespuestas(body.respuestas);
