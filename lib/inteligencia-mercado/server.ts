@@ -95,23 +95,6 @@ export async function getInvestigacionParaPreview(
   return { ok: true, data: investigacionToPublica(result.data) };
 }
 
-/** Slug de la encuesta activa más reciente, para /encuesta → /encuesta/[slug]. */
-export async function getSlugEncuestaActiva(): Promise<string | null> {
-  const client = createSupabaseServiceClient();
-  if (!client) return null;
-
-  const { data, error } = await client
-    .from("mercado_investigaciones")
-    .select("slug")
-    .eq("estado", "activa")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return (data as { slug: string }).slug;
-}
-
 /** Inserta una respuesta validando contra la definición vigente. */
 export async function insertRespuesta(
   slug: string,
