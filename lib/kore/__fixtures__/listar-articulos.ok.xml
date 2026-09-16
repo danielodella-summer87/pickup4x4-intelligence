@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura de ListarArticulos (KORE-6); códigos y textos sintéticos. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarArticulosResponse xmlns="http://tempuri.org/">
+      <ListarArticulosResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Articulo">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="CODIGOUNICO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOFAMILIA" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOSUBGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESCRIPCION" type="xs:string" minOccurs="0" />
+                        <xs:element name="BASICO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="MINIMO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="EXENTO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="DESHABILITADO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="CONTROLASTOCK" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="OBSERVACIONES" type="xs:string" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Articulo diffgr:id="Articulo1" msdata:rowOrder="0">
+                <CODIGOUNICO>SINT-0001</CODIGOUNICO>
+                <CODIGOFAMILIA>007</CODIGOFAMILIA>
+                <CODIGOGRUPO>012</CODIGOGRUPO>
+                <CODIGOSUBGRUPO>0003</CODIGOSUBGRUPO>
+                <DESCRIPCION>ARTICULO SINTETICO UNO</DESCRIPCION>
+                <BASICO>1</BASICO>
+                <MINIMO>0</MINIMO>
+                <EXENTO>1</EXENTO>
+                <DESHABILITADO>0</DESHABILITADO>
+                <CONTROLASTOCK>1</CONTROLASTOCK>
+                <OBSERVACIONES>OBSERVACION SINTETICA</OBSERVACIONES>
+              </Articulo>
+              <Articulo diffgr:id="Articulo2" msdata:rowOrder="1">
+                <CODIGOUNICO>  00042     </CODIGOUNICO>
+                <CODIGOFAMILIA>1</CODIGOFAMILIA>
+                <CODIGOGRUPO>20</CODIGOGRUPO>
+                <CODIGOSUBGRUPO>300</CODIGOSUBGRUPO>
+                <DESCRIPCION>  DESCRIPCION SINTETICA CON ESPACIOS  </DESCRIPCION>
+                <BASICO>0</BASICO>
+                <MINIMO>1</MINIMO>
+                <EXENTO>0</EXENTO>
+                <DESHABILITADO>1</DESHABILITADO>
+                <CONTROLASTOCK>0</CONTROLASTOCK>
+                <OBSERVACIONES>   </OBSERVACIONES>
+              </Articulo>
+              <Articulo diffgr:id="Articulo3" msdata:rowOrder="2">
+                <CODIGOUNICO>A&amp;B-12/X.Ñ#</CODIGOUNICO>
+              </Articulo>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarArticulosResult>
+    </ListarArticulosResponse>
+  </soap:Body>
+</soap:Envelope>

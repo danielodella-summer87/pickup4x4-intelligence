@@ -1,3 +1,5 @@
+import { buildArticuloFilterFields, fetchKoreArticulos } from "./articulos.ts";
+import type { KoreArticulo, KoreArticuloFilters } from "./articulos.ts";
 import { createKoreClient } from "./client.ts";
 import type { KoreClient, KoreFetch, KoreResponseMeta } from "./client.ts";
 import { parseKoreConfig } from "./config.ts";
@@ -44,4 +46,14 @@ export async function listKoreCuentas(
   // Fail-fast: filtros inválidos o ausentes fallan antes de leer config o crear el cliente.
   buildCuentaFilterFields(filters);
   return fetchKoreCuentas(clientFrom(options), filters);
+}
+
+/** Requiere al menos un filtro con contenido; sin filtros falla antes de salir a red. */
+export async function listKoreArticulos(
+  filters: KoreArticuloFilters,
+  options: KoreServiceOptions = {},
+): Promise<KoreArticulo[]> {
+  // Fail-fast: filtros inválidos o ausentes fallan antes de leer config o crear el cliente.
+  buildArticuloFilterFields(filters);
+  return fetchKoreArticulos(clientFrom(options), filters);
 }

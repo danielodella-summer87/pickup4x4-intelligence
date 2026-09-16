@@ -12,8 +12,9 @@
  */
 import "server-only";
 
-export { listKoreCuentas, listKoreVendedores } from "./service.ts";
+export { listKoreArticulos, listKoreCuentas, listKoreVendedores } from "./service.ts";
 export type { KoreServiceOptions } from "./service.ts";
+export type { KoreArticulo, KoreArticuloFilters } from "./articulos.ts";
 export type { KoreCuenta, KoreCuentaFilters } from "./cuentas.ts";
 export type { KoreVendedor } from "./vendedores.ts";
 export { KoreError } from "./errors.ts";
