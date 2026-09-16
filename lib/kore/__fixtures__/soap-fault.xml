@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: SOAP 1.1 Fault de ASMX. __ECHOED_SECRET__ se reemplaza en el test por un secreto FALSO. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <soap:Fault>
+      <faultcode>soap:Server</faultcode>
+      <faultstring>Server was unable to process request. ---&gt; Credenciales inválidas: &lt;SecretKey&gt;__ECHOED_SECRET__&lt;/SecretKey&gt; valor recibido __ECHOED_SECRET__</faultstring>
+      <detail />
+    </soap:Fault>
+  </soap:Body>
+</soap:Envelope>

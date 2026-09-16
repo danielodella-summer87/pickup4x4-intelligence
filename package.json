@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:kore": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/kore/**/*.test.ts\"",
     "campania": "bash scripts/campania.sh",
     "campania:build": "node scripts/build-campania.cjs",
     "prospeccion:build": "node scripts/build-prospeccion.cjs",

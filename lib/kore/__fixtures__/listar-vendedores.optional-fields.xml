@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: campos opcionales (minOccurs=0) ausentes o vacíos. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ListarVendedoresResponse xmlns="http://tempuri.org/">
+      <ListarVendedoresResult>
+        <DataSet xmlns="">
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Vendedor diffgr:id="Vendedor1" msdata:rowOrder="0">
+                <NROVENDEDOR>3</NROVENDEDOR>
+              </Vendedor>
+              <Vendedor diffgr:id="Vendedor2" msdata:rowOrder="1">
+                <NROVENDEDOR>9</NROVENDEDOR>
+                <NOMBRE />
+              </Vendedor>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarVendedoresResult>
+    </ListarVendedoresResponse>
+  </soap:Body>
+</soap:Envelope>
