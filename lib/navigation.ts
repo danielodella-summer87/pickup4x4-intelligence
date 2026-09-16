@@ -104,6 +104,12 @@ export const sideMenuNavigation: SideMenuItem[] = [
     description: "Carga controlada desde Excel/KORE",
   },
   {
+    href: "/auditoria-catalogo",
+    label: "Auditoría de Catálogo",
+    initial: "AC",
+    description: "Importación y calidad de catálogos externos (ProtecCar y otros)",
+  },
+  {
     href: "/proyecto",
     label: "Proyecto",
     initial: "PR",
