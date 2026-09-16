@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura de ListarCuentas (KORE-4); todos los datos son sintéticos. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarCuentasResponse xmlns="http://tempuri.org/">
+      <ListarCuentasResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Cuenta">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="NROCUENTA" type="xs:int" minOccurs="0" />
+                        <xs:element name="RAZONSOCIAL" type="xs:string" minOccurs="0" />
+                        <xs:element name="NOMBREFANTASIA" type="xs:string" minOccurs="0" />
+                        <xs:element name="DIRECCION" type="xs:string" minOccurs="0" />
+                        <xs:element name="TELEFONO" type="xs:string" minOccurs="0" />
+                        <xs:element name="RUC" type="xs:string" minOccurs="0" />
+                        <xs:element name="EMAIL" type="xs:string" minOccurs="0" />
+                        <xs:element name="CELULAR" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOPOSTAL" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESHABILITADO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="NROLISTADEPRECIO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="OBSERVACIONES" type="xs:string" minOccurs="0" />
+                        <xs:element name="NROVENDEDOR" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="CODIGOLOCALIDAD" type="xs:string" minOccurs="0" />
+                        <xs:element name="CLIENTE" type="xs:int" minOccurs="0" />
+                        <xs:element name="PROVEEDOR" type="xs:int" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Cuenta diffgr:id="Cuenta1" msdata:rowOrder="0">
+                <NROCUENTA>101</NROCUENTA>
+                <RAZONSOCIAL>EMPRESA FICTICIA ALFA S.A.</RAZONSOCIAL>
+                <NOMBREFANTASIA>ALFA &amp; CIA FICTICIA</NOMBREFANTASIA>
+                <DIRECCION>CALLE FALSA 123</DIRECCION>
+                <TELEFONO>000 000 000</TELEFONO>
+                <RUC>RUT-FICTICIO-0001</RUC>
+                <EMAIL>contacto@ejemplo.invalid</EMAIL>
+                <CELULAR>099 FICTICIO</CELULAR>
+                <CODIGOPOSTAL>00000</CODIGOPOSTAL>
+                <DESHABILITADO>0</DESHABILITADO>
+                <NROLISTADEPRECIO>1</NROLISTADEPRECIO>
+                <OBSERVACIONES>OBSERVACION SINTETICA UNO</OBSERVACIONES>
+                <NROVENDEDOR>0</NROVENDEDOR>
+                <CODIGOLOCALIDAD>LOC-FICT-01</CODIGOLOCALIDAD>
+                <CLIENTE>1</CLIENTE>
+                <PROVEEDOR>0</PROVEEDOR>
+              </Cuenta>
+              <Cuenta diffgr:id="Cuenta2" msdata:rowOrder="1">
+                <NROCUENTA>70000</NROCUENTA>
+                <RAZONSOCIAL>PROVEEDOR FICTICIO BETA</RAZONSOCIAL>
+                <NOMBREFANTASIA />
+                <DIRECCION>AV. INVENTADA 4567 APTO 8</DIRECCION>
+                <TELEFONO>(000) 000-0000 int. 9</TELEFONO>
+                <RUC> RUT-FICTICIO-0002 </RUC>
+                <EMAIL>beta@ejemplo.invalid</EMAIL>
+                <CELULAR />
+                <CODIGOPOSTAL />
+                <DESHABILITADO>1</DESHABILITADO>
+                <NROLISTADEPRECIO>300</NROLISTADEPRECIO>
+                <OBSERVACIONES>NOTA &lt;SINTETICA&gt; &amp; PRUEBA</OBSERVACIONES>
+                <NROVENDEDOR>999</NROVENDEDOR>
+                <CODIGOLOCALIDAD>LOC-FICT-02</CODIGOLOCALIDAD>
+                <CLIENTE>0</CLIENTE>
+                <PROVEEDOR>1</PROVEEDOR>
+              </Cuenta>
+              <Cuenta diffgr:id="Cuenta3" msdata:rowOrder="2">
+                <NROCUENTA>102</NROCUENTA>
+                <CELULAR />
+              </Cuenta>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarCuentasResult>
+    </ListarCuentasResponse>
+  </soap:Body>
+</soap:Envelope>

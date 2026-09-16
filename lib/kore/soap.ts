@@ -24,16 +24,40 @@ export const SOAP_FAULT_MESSAGE_MAX_LENGTH = 300;
 
 export type SoapFault = { code: string; message: string };
 
+/**
+ * Tag adicional dentro de `<Data>` (filtros de la operación). `sensitive`
+ * marca valores con PII (RUT, nombre) para enmascararlos en errores.
+ */
+export type KoreDocField = {
+  name: string;
+  value: string;
+  sensitive?: boolean;
+};
+
+const DOC_FIELD_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
+const RESERVED_DOC_FIELDS = new Set(["NroEmpresa", "SecretKey"]);
+
 export function soapActionFor(operation: KoreReadOnlyOperation): string {
   return `"${KORE_SOAP_NAMESPACE}${operation}"`;
 }
 
 /** `<Data>` sin namespace: KORE no lo reconoce si hereda tempuri. */
-export function buildCredentialsDoc(companyNumber: string, secretKey: string): string {
+export function buildCredentialsDoc(
+  companyNumber: string,
+  secretKey: string,
+  fields: readonly KoreDocField[] = [],
+): string {
+  const extra = fields.map((field) => {
+    if (!DOC_FIELD_NAME.test(field.name) || RESERVED_DOC_FIELDS.has(field.name)) {
+      throw new KoreError({ kind: "invalid_argument", message: "Tag de doc KORE inválido" });
+    }
+    return `<${field.name}>${escapeXml(field.value)}</${field.name}>`;
+  });
   return (
     "<Data>" +
     `<NroEmpresa>${escapeXml(companyNumber)}</NroEmpresa>` +
     `<SecretKey>${escapeXml(secretKey)}</SecretKey>` +
+    extra.join("") +
     "</Data>"
   );
 }

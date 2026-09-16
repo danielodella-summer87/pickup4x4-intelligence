@@ -35,8 +35,8 @@ async function captureError(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe("allowlist read-only", () => {
-  it("solo habilita ListarVendedores", () => {
-    assert.deepEqual([...KORE_READ_ONLY_OPERATIONS], ["ListarVendedores"]);
+  it("solo habilita ListarVendedores y ListarCuentas", () => {
+    assert.deepEqual([...KORE_READ_ONLY_OPERATIONS], ["ListarVendedores", "ListarCuentas"]);
   });
 
   const forbidden = [

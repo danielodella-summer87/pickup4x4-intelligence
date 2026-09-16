@@ -12,7 +12,18 @@ import {
   soapFaultError,
   tryReadSoapFault,
 } from "./soap.ts";
+import type { KoreDocField } from "./soap.ts";
 import type { XmlElement } from "./xml.ts";
+
+export type { KoreDocField } from "./soap.ts";
+
+/**
+ * Reemplazo del texto libre de KORE (faultcode/faultstring, detalle de red)
+ * cuando la llamada envía filtros con PII: KORE podría repetirlos y un valor
+ * corto (1–2 caracteres) no se puede enmascarar literalmente sin destruir el
+ * mensaje, así que el texto externo se omite completo.
+ */
+export const KORE_SENSITIVE_DETAIL_OMITTED = "[detalle omitido: filtros con PII]";
 
 /**
  * Cliente SOAP 1.1 genérico y READ-ONLY para KoreStandard.asmx.
@@ -48,8 +59,11 @@ export type KoreClientOptions = {
 };
 
 export type KoreClient = {
-  /** Devuelve el elemento `<{operation}Result>` ya validado (sin Fault). */
-  call(operation: string): Promise<XmlElement>;
+  /**
+   * Devuelve el elemento `<{operation}Result>` ya validado (sin Fault).
+   * `docFields` agrega tags (filtros) dentro de `<Data>`, después de las credenciales.
+   */
+  call(operation: string, docFields?: readonly KoreDocField[]): Promise<XmlElement>;
 };
 
 function readCauseCode(error: unknown): string | undefined {
@@ -156,15 +170,22 @@ export function createKoreClient(options: KoreClientOptions): KoreClient {
     throw new KoreError({ kind: "config", message: "maxResponseBytes de KORE inválido" });
   }
 
-  const redact = createRedactor([config.secretKey]);
+  const redactSecret = createRedactor([config.secretKey]);
 
-  async function call(operation: string): Promise<XmlElement> {
+  async function call(
+    operation: string,
+    docFields: readonly KoreDocField[] = [],
+  ): Promise<XmlElement> {
     assertReadOnlyOperation(operation);
 
     const requestBody = buildSoapEnvelope(
       operation,
-      buildCredentialsDoc(config.companyNumber, config.secretKey),
+      buildCredentialsDoc(config.companyNumber, config.secretKey, docFields),
     );
+
+    // Con filtros PII en la llamada, ningún texto provisto por KORE llega a los errores.
+    const hasSensitiveFields = docFields.some((field) => field.sensitive);
+    const redact: Redactor = hasSensitiveFields ? () => KORE_SENSITIVE_DETAIL_OMITTED : redactSecret;
     const startedAt = Date.now();
 
     // Timer propio (no AbortSignal.timeout) para poder limpiarlo apenas termina

@@ -85,6 +85,15 @@ describe("ListarVendedores → KoreVendedor[]", () => {
     assert.match(error.message, /duplicado en la fila 4/);
   });
 
+  it("tabla desconocida junto a Vendedor → invalid_data (no se ignora)", async () => {
+    const xml = OK.replace(
+      "</NewDataSet>",
+      '<Otra diffgr:id="Otra1" msdata:rowOrder="0"><X>1</X></Otra></NewDataSet>',
+    );
+    const error = assertKoreError(await errorFrom(xml), "invalid_data");
+    assert.equal(error.message, "Unexpected KORE dataset entity: Otra");
+  });
+
   it("Result sin DataSet/diffgram → parse", async () => {
     const start = OK.indexOf("<ListarVendedoresResult>") + "<ListarVendedoresResult>".length;
     const end = OK.indexOf("</ListarVendedoresResult>");

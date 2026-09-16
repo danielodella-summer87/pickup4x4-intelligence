@@ -7,7 +7,7 @@ import { KoreError } from "./errors.ts";
  * únicamente con métodos de lectura revisados contra el WSDL y la
  * documentación oficial.
  */
-export const KORE_READ_ONLY_OPERATIONS = ["ListarVendedores"] as const;
+export const KORE_READ_ONLY_OPERATIONS = ["ListarVendedores", "ListarCuentas"] as const;
 
 export type KoreReadOnlyOperation = (typeof KORE_READ_ONLY_OPERATIONS)[number];
 

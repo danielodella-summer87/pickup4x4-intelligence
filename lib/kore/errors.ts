@@ -8,6 +8,7 @@
 
 export type KoreErrorKind =
   | "config"
+  | "invalid_argument"
   | "operation_not_allowed"
   | "network"
   | "timeout"
