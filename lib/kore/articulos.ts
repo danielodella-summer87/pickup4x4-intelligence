@@ -13,8 +13,13 @@ import type { XmlElement } from "./xml.ts";
  * Reglas:
  * - codigoUnicoRaw: exactamente como llega. codigoUnico: raw.trim(), obligatorio,
  *   único (la unicidad se valida sobre el valor normalizado). Siempre string.
- * - Códigos de familia/grupo/subgrupo son strings (nunca number).
- * - Texto ausente o solo whitespace → ""; con contenido visible se conserva exacto.
+ * - Taxonomía (familia/grupo/subgrupo): tag ausente → raw y normalizado null (sin
+ *   relación observable); presente → raw exacto y normalizado = raw.trim(), que puede
+ *   ser "" (relaciona con el blank KORE taxonomy record). Nunca number. Relaciones
+ *   (normalizadas): familia → Familia; (familia, grupo) → Grupo;
+ *   (familia, grupo, subgrupo) → Subgrupo.
+ * - Descripción/observaciones: ausente o solo whitespace → ""; con contenido
+ *   visible se conserva exacto.
  * - Flags: tag ausente → null; "0"/"1" → 0/1; cualquier otro valor → invalid_data.
  *   BASICO/MINIMO/EXENTO no se validan como mutuamente excluyentes (no documentado).
  *
@@ -27,9 +32,19 @@ export type KoreArticulo = {
   /** Valor exacto devuelto por KORE, incluido el padding. */
   codigoUnicoRaw: string;
 
-  codigoFamilia: string;
-  codigoGrupo: string;
-  codigoSubgrupo: string;
+  /**
+   * Taxonomía normalizada (raw.trim()). null = KORE no envió el tag;
+   * "" = KORE envió explícitamente el código blank (blank KORE taxonomy record).
+   */
+  codigoFamilia: string | null;
+  /** Valor exacto devuelto por KORE (padding incluido); null si el tag no vino. */
+  codigoFamiliaRaw: string | null;
+
+  codigoGrupo: string | null;
+  codigoGrupoRaw: string | null;
+
+  codigoSubgrupo: string | null;
+  codigoSubgrupoRaw: string | null;
 
   descripcion: string;
 
@@ -152,12 +167,19 @@ export function normalizeArticuloRow(row: DataSetRow, rowNumber: number): KoreAr
     throw invalidData(rowNumber, "missing", "CODIGOUNICO");
   }
 
+  const codigoFamiliaRaw = row.CODIGOFAMILIA ?? null;
+  const codigoGrupoRaw = row.CODIGOGRUPO ?? null;
+  const codigoSubgrupoRaw = row.CODIGOSUBGRUPO ?? null;
+
   return {
     codigoUnico: codigoUnicoRaw.trim(),
     codigoUnicoRaw,
-    codigoFamilia: text(row, "CODIGOFAMILIA"),
-    codigoGrupo: text(row, "CODIGOGRUPO"),
-    codigoSubgrupo: text(row, "CODIGOSUBGRUPO"),
+    codigoFamilia: codigoFamiliaRaw === null ? null : codigoFamiliaRaw.trim(),
+    codigoFamiliaRaw,
+    codigoGrupo: codigoGrupoRaw === null ? null : codigoGrupoRaw.trim(),
+    codigoGrupoRaw,
+    codigoSubgrupo: codigoSubgrupoRaw === null ? null : codigoSubgrupoRaw.trim(),
+    codigoSubgrupoRaw,
     descripcion: text(row, "DESCRIPCION"),
     basico: optionalFlag(row, "BASICO", rowNumber),
     minimo: optionalFlag(row, "MINIMO", rowNumber),

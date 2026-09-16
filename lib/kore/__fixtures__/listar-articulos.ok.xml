@@ -47,9 +47,9 @@
               </Articulo>
               <Articulo diffgr:id="Articulo2" msdata:rowOrder="1">
                 <CODIGOUNICO>  00042     </CODIGOUNICO>
-                <CODIGOFAMILIA>1</CODIGOFAMILIA>
-                <CODIGOGRUPO>20</CODIGOGRUPO>
-                <CODIGOSUBGRUPO>300</CODIGOSUBGRUPO>
+                <CODIGOFAMILIA>1     </CODIGOFAMILIA>
+                <CODIGOGRUPO>  20  </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>300   </CODIGOSUBGRUPO>
                 <DESCRIPCION>  DESCRIPCION SINTETICA CON ESPACIOS  </DESCRIPCION>
                 <BASICO>0</BASICO>
                 <MINIMO>1</MINIMO>

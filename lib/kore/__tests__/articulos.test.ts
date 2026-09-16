@@ -6,6 +6,7 @@ import type { KoreArticulo, KoreArticuloFilters } from "../articulos.ts";
 import { KORE_SENSITIVE_DETAIL_OMITTED, createKoreClient } from "../client.ts";
 import { parseKoreConfig } from "../config.ts";
 import { listKoreArticulos } from "../service.ts";
+import { grupoKey, subgrupoKey } from "../taxonomia.ts";
 import { childElements, escapeXml, firstChildElement, parseXml, textContent } from "../xml.ts";
 import {
   FAKE_ENV,
@@ -89,8 +90,11 @@ const EXPECTED: KoreArticulo[] = [
     codigoUnico: "SINT-0001",
     codigoUnicoRaw: "SINT-0001",
     codigoFamilia: "007",
+    codigoFamiliaRaw: "007",
     codigoGrupo: "012",
+    codigoGrupoRaw: "012",
     codigoSubgrupo: "0003",
+    codigoSubgrupoRaw: "0003",
     descripcion: "ARTICULO SINTETICO UNO",
     basico: 1,
     minimo: 0,
@@ -103,8 +107,11 @@ const EXPECTED: KoreArticulo[] = [
     codigoUnico: "00042",
     codigoUnicoRaw: "  00042     ",
     codigoFamilia: "1",
+    codigoFamiliaRaw: "1     ",
     codigoGrupo: "20",
+    codigoGrupoRaw: "  20  ",
     codigoSubgrupo: "300",
+    codigoSubgrupoRaw: "300   ",
     descripcion: "  DESCRIPCION SINTETICA CON ESPACIOS  ",
     basico: 0,
     minimo: 1,
@@ -116,9 +123,12 @@ const EXPECTED: KoreArticulo[] = [
   {
     codigoUnico: "A&B-12/X.Ñ#",
     codigoUnicoRaw: "A&B-12/X.Ñ#",
-    codigoFamilia: "",
-    codigoGrupo: "",
-    codigoSubgrupo: "",
+    codigoFamilia: null,
+    codigoFamiliaRaw: null,
+    codigoGrupo: null,
+    codigoGrupoRaw: null,
+    codigoSubgrupo: null,
+    codigoSubgrupoRaw: null,
     descripcion: "",
     basico: null,
     minimo: null,
@@ -137,8 +147,9 @@ describe("ListarArticulos → KoreArticulo[]", () => {
   it("KoreArticulo expone exactamente los campos del contrato (sin marca/modelo/stock/precio)", async () => {
     const [articulo] = await articulosFrom(OK);
     assert.deepEqual(Object.keys(articulo), [
-      "codigoUnico", "codigoUnicoRaw", "codigoFamilia", "codigoGrupo", "codigoSubgrupo", "descripcion",
-      "basico", "minimo", "exento", "deshabilitado", "controlaStock", "observaciones",
+      "codigoUnico", "codigoUnicoRaw",
+      "codigoFamilia", "codigoFamiliaRaw", "codigoGrupo", "codigoGrupoRaw", "codigoSubgrupo", "codigoSubgrupoRaw",
+      "descripcion", "basico", "minimo", "exento", "deshabilitado", "controlaStock", "observaciones",
     ]);
   });
 
@@ -194,26 +205,80 @@ describe("ListarArticulos: identidad", () => {
   });
 });
 
-describe("ListarArticulos: taxonomía", () => {
-  it("códigos de familia/grupo/subgrupo son strings y conservan ceros iniciales", async () => {
-    const [sint, padded] = await articulosFrom(OK);
+describe("ListarArticulos: taxonomía raw + normalizada", () => {
+  it("códigos sin padding: raw y normalizado iguales, strings con ceros iniciales", async () => {
+    const [sint] = await articulosFrom(OK);
     assert.deepEqual([sint.codigoFamilia, sint.codigoGrupo, sint.codigoSubgrupo], ["007", "012", "0003"]);
-    assert.deepEqual([padded.codigoFamilia, padded.codigoGrupo, padded.codigoSubgrupo], ["1", "20", "300"]);
+    assert.deepEqual([sint.codigoFamiliaRaw, sint.codigoGrupoRaw, sint.codigoSubgrupoRaw], ["007", "012", "0003"]);
     for (const value of [sint.codigoFamilia, sint.codigoGrupo, sint.codigoSubgrupo]) assert.equal(typeof value, "string");
   });
 
-  it("taxonomía ausente → \"\"", async () => {
-    const [, , minimal] = await articulosFrom(OK);
-    assert.deepEqual([minimal.codigoFamilia, minimal.codigoGrupo, minimal.codigoSubgrupo], ["", "", ""]);
+  it("códigos con padding: raw preservado exacto, normalizado = trim", async () => {
+    const [, padded] = await articulosFrom(OK);
+    assert.deepEqual([padded.codigoFamiliaRaw, padded.codigoGrupoRaw, padded.codigoSubgrupoRaw], ["1     ", "  20  ", "300   "]);
+    assert.deepEqual([padded.codigoFamilia, padded.codigoGrupo, padded.codigoSubgrupo], ["1", "20", "300"]);
   });
 
-  for (const [tag, key] of [["CODIGOFAMILIA", "codigoFamilia"], ["CODIGOGRUPO", "codigoGrupo"], ["CODIGOSUBGRUPO", "codigoSubgrupo"]] as const) {
-    it(`${tag} whitespace-only → ""`, async () => {
-      const xml = OK.replace(new RegExp(`<${tag}>[^<]*</${tag}>`), `<${tag}>  \t </${tag}>`);
+  it("taxonomía ausente (tag no enviado) → raw null y normalizado null", async () => {
+    const [, , minimal] = await articulosFrom(OK);
+    assert.deepEqual(
+      [minimal.codigoFamilia, minimal.codigoFamiliaRaw, minimal.codigoGrupo, minimal.codigoGrupoRaw, minimal.codigoSubgrupo, minimal.codigoSubgrupoRaw],
+      [null, null, null, null, null, null],
+    );
+  });
+
+  it("tag presente vacío (<X />) → raw \"\" y normalizado \"\" (no null)", async () => {
+    const xml = inRow(OK, 1, "<CODIGOFAMILIA>007</CODIGOFAMILIA>", "<CODIGOFAMILIA />");
+    const [sint] = await articulosFrom(xml);
+    assert.equal(sint.codigoFamiliaRaw, "");
+    assert.equal(sint.codigoFamilia, "");
+  });
+
+  const taxonomyTags = [
+    ["CODIGOFAMILIA", "codigoFamilia", "codigoFamiliaRaw"],
+    ["CODIGOGRUPO", "codigoGrupo", "codigoGrupoRaw"],
+    ["CODIGOSUBGRUPO", "codigoSubgrupo", "codigoSubgrupoRaw"],
+  ] as const;
+  for (const [tag, key, rawKey] of taxonomyTags) {
+    it(`${tag} blank (whitespace-only) es válido: normalizado "", raw preservado`, async () => {
+      const xml = OK.replace(new RegExp(`<${tag}>[^<]*</${tag}>`), `<${tag}>      </${tag}>`);
       const [sint] = await articulosFrom(xml);
       assert.equal(sint[key], "");
+      assert.equal(sint[rawKey], "      ");
+    });
+
+    it(`${tag} solo dígitos con ceros iniciales nunca se convierte a number`, async () => {
+      const xml = OK.replace(new RegExp(`<${tag}>[^<]*</${tag}>`), `<${tag}>000100</${tag}>`);
+      const [sint] = await articulosFrom(xml);
+      assert.equal(sint[key], "000100");
+      assert.equal(typeof sint[key], "string");
     });
   }
+
+  it("relación conceptual: null = sin relación observable; \"\" = relaciona con el blank real", async () => {
+    // Relación observable solo si KORE envió todos los componentes (ninguno null).
+    const grupoRelation = (a: KoreArticulo) =>
+      a.codigoFamilia === null || a.codigoGrupo === null ? null : grupoKey({ codigoFamilia: a.codigoFamilia, codigoGrupo: a.codigoGrupo });
+    const subgrupoRelation = (a: KoreArticulo) =>
+      a.codigoFamilia === null || a.codigoGrupo === null || a.codigoSubgrupo === null
+        ? null
+        : subgrupoKey({ codigoFamilia: a.codigoFamilia, codigoGrupo: a.codigoGrupo, codigoSubgrupo: a.codigoSubgrupo });
+
+    const blankXml = inRow(
+      inRow(inRow(OK, 1, "<CODIGOFAMILIA>007</CODIGOFAMILIA>", "<CODIGOFAMILIA>      </CODIGOFAMILIA>"), 1, "<CODIGOGRUPO>012</CODIGOGRUPO>", "<CODIGOGRUPO>      </CODIGOGRUPO>"),
+      1,
+      "<CODIGOSUBGRUPO>0003</CODIGOSUBGRUPO>",
+      "<CODIGOSUBGRUPO>      </CODIGOSUBGRUPO>",
+    );
+    const [blank, padded, absent] = await articulosFrom(blankXml);
+
+    assert.equal(subgrupoRelation(blank), JSON.stringify(["", "", ""]), "blank presente relaciona con el blank real");
+    assert.equal(grupoRelation(padded), JSON.stringify(["1", "20"]));
+    assert.equal(subgrupoRelation(padded), JSON.stringify(["1", "20", "300"]));
+    assert.equal(grupoRelation(absent), null, "tag ausente no produce relación");
+    assert.equal(subgrupoRelation(absent), null);
+    assert.notEqual(subgrupoRelation(absent), subgrupoRelation(blank));
+  });
 });
 
 describe("ListarArticulos: flags", () => {

@@ -35,8 +35,15 @@ async function captureError(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe("allowlist read-only", () => {
-  it("solo habilita ListarVendedores, ListarCuentas y ListarArticulos", () => {
-    assert.deepEqual([...KORE_READ_ONLY_OPERATIONS], ["ListarVendedores", "ListarCuentas", "ListarArticulos"]);
+  it("solo habilita los 6 métodos de lectura esperados", () => {
+    assert.deepEqual([...KORE_READ_ONLY_OPERATIONS], [
+      "ListarVendedores",
+      "ListarCuentas",
+      "ListarArticulos",
+      "ListarFamilias",
+      "ListarGrupos",
+      "ListarSubgrupos",
+    ]);
   });
 
   const forbidden = [

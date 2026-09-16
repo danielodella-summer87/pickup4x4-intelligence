@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura de ListarSubgrupos (KORE-8); códigos y descripciones sintéticos con padding de ancho fijo. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarSubgruposResponse xmlns="http://tempuri.org/">
+      <ListarSubgruposResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Subgrupo">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="CODIGOFAMILIA" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOSUBGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESCRIPCION" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESCUENTOMAXIMO" type="xs:double" minOccurs="0" />
+                        <xs:element name="AUTONUMERADO" type="xs:int" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Subgrupo diffgr:id="Subgrupo1" msdata:rowOrder="0">
+                <CODIGOFAMILIA>      </CODIGOFAMILIA>
+                <CODIGOGRUPO>      </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>      </CODIGOSUBGRUPO>
+                <DESCRIPCION>                              </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>30</AUTONUMERADO>
+              </Subgrupo>
+              <Subgrupo diffgr:id="Subgrupo2" msdata:rowOrder="1">
+                <CODIGOFAMILIA>01    </CODIGOFAMILIA>
+                <CODIGOGRUPO>10    </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>100   </CODIGOSUBGRUPO>
+                <DESCRIPCION>SUBGRUPO SINTETICO A          </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>31</AUTONUMERADO>
+              </Subgrupo>
+              <Subgrupo diffgr:id="Subgrupo3" msdata:rowOrder="2">
+                <CODIGOFAMILIA>007   </CODIGOFAMILIA>
+                <CODIGOGRUPO>10    </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>100   </CODIGOSUBGRUPO>
+                <DESCRIPCION>SUBGRUPO SINTETICO B          </DESCRIPCION>
+                <DESCUENTOMAXIMO>5</DESCUENTOMAXIMO>
+                <AUTONUMERADO>32</AUTONUMERADO>
+              </Subgrupo>
+              <Subgrupo diffgr:id="Subgrupo4" msdata:rowOrder="3">
+                <CODIGOFAMILIA>007   </CODIGOFAMILIA>
+                <CODIGOGRUPO>0011  </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>100   </CODIGOSUBGRUPO>
+                <DESCRIPCION>SUBGRUPO SINTETICO C          </DESCRIPCION>
+                <DESCUENTOMAXIMO>15</DESCUENTOMAXIMO>
+                <AUTONUMERADO>33</AUTONUMERADO>
+              </Subgrupo>
+              <Subgrupo diffgr:id="Subgrupo5" msdata:rowOrder="4">
+                <CODIGOFAMILIA>007   </CODIGOFAMILIA>
+                <CODIGOGRUPO>0011  </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>00200 </CODIGOSUBGRUPO>
+                <DESCRIPCION>SUBGRUPO SINTETICO D          </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>34</AUTONUMERADO>
+              </Subgrupo>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarSubgruposResult>
+    </ListarSubgruposResponse>
+  </soap:Body>
+</soap:Envelope>

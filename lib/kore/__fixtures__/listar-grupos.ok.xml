@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura de ListarGrupos (KORE-8); códigos y descripciones sintéticos con padding de ancho fijo. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarGruposResponse xmlns="http://tempuri.org/">
+      <ListarGruposResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Grupo">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="CODIGOFAMILIA" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESCRIPCION" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESCUENTOMAXIMO" type="xs:double" minOccurs="0" />
+                        <xs:element name="AUTONUMERADO" type="xs:int" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Grupo diffgr:id="Grupo1" msdata:rowOrder="0">
+                <CODIGOFAMILIA>      </CODIGOFAMILIA>
+                <CODIGOGRUPO>      </CODIGOGRUPO>
+                <DESCRIPCION>                              </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>19</AUTONUMERADO>
+              </Grupo>
+              <Grupo diffgr:id="Grupo2" msdata:rowOrder="1">
+                <CODIGOFAMILIA>01    </CODIGOFAMILIA>
+                <CODIGOGRUPO>10    </CODIGOGRUPO>
+                <DESCRIPCION>GRUPO SINTETICO A             </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>20</AUTONUMERADO>
+              </Grupo>
+              <Grupo diffgr:id="Grupo3" msdata:rowOrder="2">
+                <CODIGOFAMILIA>007   </CODIGOFAMILIA>
+                <CODIGOGRUPO>10    </CODIGOGRUPO>
+                <DESCRIPCION>GRUPO SINTETICO B             </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>21</AUTONUMERADO>
+              </Grupo>
+              <Grupo diffgr:id="Grupo4" msdata:rowOrder="3">
+                <CODIGOFAMILIA>007   </CODIGOFAMILIA>
+                <CODIGOGRUPO>0011  </CODIGOGRUPO>
+                <DESCRIPCION>GRUPO SINTETICO C             </DESCRIPCION>
+                <DESCUENTOMAXIMO>0</DESCUENTOMAXIMO>
+                <AUTONUMERADO>22</AUTONUMERADO>
+              </Grupo>
+              <Grupo diffgr:id="Grupo5" msdata:rowOrder="4">
+                <CODIGOFAMILIA>ZQ7   </CODIGOFAMILIA>
+                <CODIGOGRUPO>0011  </CODIGOGRUPO>
+                <DESCRIPCION>GRUPO SINTETICO D             </DESCRIPCION>
+                <DESCUENTOMAXIMO>7.25</DESCUENTOMAXIMO>
+                <AUTONUMERADO>23</AUTONUMERADO>
+              </Grupo>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarGruposResult>
+    </ListarGruposResponse>
+  </soap:Body>
+</soap:Envelope>
