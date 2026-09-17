@@ -55,6 +55,15 @@ next-env.d.ts
 /public/data/*
 !/public/data/.gitkeep
 
+# Planillas reales NUNCA dentro de public/ (Next.js las serviría públicamente).
+# Los Excel reales viven fuera del repo: C:\Users\Andres\pickup4x4-local\imports
+/public/*.xlsx
+/public/*.xls
+/public/*.xlsm
+/public/**/*.xlsx
+/public/**/*.xls
+/public/**/*.xlsm
+
 # Temporales de inspección puntual
 _tmp_*.cjs
 
