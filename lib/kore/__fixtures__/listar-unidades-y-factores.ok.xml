@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarUnidadesYFactoresxArticulo (KORE-20, SOAP 1.2); unidades y factores sinteticos. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarUnidadesYFactoresxArticuloResponse xmlns="http://tempuri.org/">
+      <ListarUnidadesYFactoresxArticuloResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="UNIDADES">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="NROUNIDAD" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="UNIDAD" type="xs:string" minOccurs="0" />
+                        <xs:element name="FACTOR" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <UNIDADES diffgr:id="UNIDADES1" msdata:rowOrder="0">
+                <NROUNIDAD>2</NROUNIDAD>
+                <UNIDAD>UNIDAD SINT A       </UNIDAD>
+                <FACTOR>0.05</FACTOR>
+              </UNIDADES>
+              <UNIDADES diffgr:id="UNIDADES2" msdata:rowOrder="1">
+                <NROUNIDAD>0</NROUNIDAD>
+                <UNIDAD />
+                <FACTOR>12</FACTOR>
+              </UNIDADES>
+              <UNIDADES diffgr:id="UNIDADES3" msdata:rowOrder="2">
+                <NROUNIDAD>255</NROUNIDAD>
+                <UNIDAD>   </UNIDAD>
+                <FACTOR>-2.5E-1</FACTOR>
+              </UNIDADES>
+              <UNIDADES diffgr:id="UNIDADES4" msdata:rowOrder="3">
+              </UNIDADES>
+              <UNIDADES diffgr:id="UNIDADES5" msdata:rowOrder="4">
+                <NROUNIDAD>2</NROUNIDAD>
+                <UNIDAD>UNIDAD SINT A       </UNIDAD>
+                <FACTOR>0.05</FACTOR>
+              </UNIDADES>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarUnidadesYFactoresxArticuloResult>
+    </ListarUnidadesYFactoresxArticuloResponse>
+  </soap:Body>
+</soap:Envelope>

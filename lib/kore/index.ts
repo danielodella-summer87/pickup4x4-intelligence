@@ -15,16 +15,31 @@ import "server-only";
 export {
   listKoreArticulos,
   listKoreCuentas,
+  listKoreCuentasGruposDescuentos,
+  listKoreDescuentosXCantidad,
   listKoreFamilias,
   listKoreGrupos,
+  listKoreImagenes,
+  listKoreLotes,
+  listKoreLotesYUbicaciones,
   listKoreMarcasModelos,
   listKorePrecios,
   listKorePreciosxArticulo,
   listKoreStock,
   listKoreSubgrupos,
+  listKoreUnidadesYFactores,
   listKoreVendedores,
 } from "./service.ts";
 export type { KoreServiceOptions } from "./service.ts";
+export type {
+  KoreCuentaGrupoDescuento,
+  KoreCuentaGrupoDescuentoFilters,
+  KoreDescuentoXCantidad,
+  KoreDescuentoXCantidadFilters,
+} from "./descuentos.ts";
+export type { KoreImagen, KoreImagenFilters } from "./imagenes.ts";
+export type { KoreLote, KoreLoteUbicacion } from "./lotes.ts";
+export type { KoreUnidadArticulo } from "./unidades.ts";
 export type { KoreListaPrecioArticulo, KorePrecio, KorePrecioFilters } from "./precios.ts";
 export type { KoreStock, KoreStockFilters } from "./stock.ts";
 export type { KoreMarcaModelo, KoreMarcaModeloFilters } from "./marcas-modelos.ts";

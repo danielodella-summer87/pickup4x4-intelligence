@@ -92,6 +92,38 @@ function readRow(
   return row;
 }
 
+/**
+ * DataSet serializado SIN xs:schema ni diffgram (p. ej. ListarImagenes):
+ *
+ *   <XResult>
+ *     <DataSet>
+ *       <Tabla>…</Tabla>*
+ *
+ * Fail-closed: si aparece schema o diffgram el contrato cambió; cualquier
+ * entidad distinta de `tableName` también falla. DataSet sin hijos → [].
+ */
+export function readDirectDataSetRows(
+  result: XmlElement,
+  tableName: string,
+  operation: string,
+  options: ReadDataSetOptions = {},
+): DataSetRow[] {
+  const dataSets = childElements(result);
+  if (dataSets.length !== 1 || dataSets[0].localName !== "DataSet") {
+    throw parseError(operation, `${operation}Result sin DataSet`);
+  }
+  const entities = childElements(dataSets[0]);
+  const structural = entities.find((entity) => entity.localName === "schema" || entity.localName === "diffgram");
+  if (structural) throw parseError(operation, `${operation}Result con ${structural.localName} inesperado`);
+  const unexpected = entities.find((entity) => entity.localName !== tableName);
+  if (unexpected) throw unexpectedEntity(operation, unexpected.localName);
+
+  const expectedFields = options.expectedFields ? new Set(options.expectedFields) : undefined;
+  return entities.map((rowElement, index) =>
+    readRow(rowElement, index + 1, tableName, operation, expectedFields),
+  );
+}
+
 export function readDataSetRows(
   result: XmlElement,
   tableName: string,

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarLotesxCodigoUnico (KORE-20, SOAP 1.1); lotes, estados, fechas y cantidades sinteticos. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarLotesxCodigoUnicoResponse xmlns="http://tempuri.org/">
+      <ListarLotesxCodigoUnicoResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Lotes">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="Lote" type="xs:string" minOccurs="0" />
+                        <xs:element name="Estado" type="xs:string" minOccurs="0" />
+                        <xs:element name="FechaVencimiento" type="xs:string" minOccurs="0" />
+                        <xs:element name="Cantidad" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Lotes diffgr:id="Lotes1" msdata:rowOrder="0">
+                <Lote>LOTE-SINT-1    </Lote>
+                <Estado>ESTADO SINT A</Estado>
+                <FechaVencimiento>31/12/2099</FechaVencimiento>
+                <Cantidad>15</Cantidad>
+              </Lotes>
+              <Lotes diffgr:id="Lotes2" msdata:rowOrder="1">
+                <Lote>LOTE-SINT-1    </Lote>
+                <Estado>ESTADO SINT B</Estado>
+                <FechaVencimiento />
+                <Cantidad>-2.5</Cantidad>
+              </Lotes>
+              <Lotes diffgr:id="Lotes3" msdata:rowOrder="2">
+                <Lote />
+                <Estado>  </Estado>
+                <FechaVencimiento>FECHA-SINT</FechaVencimiento>
+                <Cantidad>0</Cantidad>
+              </Lotes>
+              <Lotes diffgr:id="Lotes4" msdata:rowOrder="3">
+              </Lotes>
+              <Lotes diffgr:id="Lotes5" msdata:rowOrder="4">
+                <Lote>LOTE-SINT-1    </Lote>
+                <Estado>ESTADO SINT A</Estado>
+                <FechaVencimiento>31/12/2099</FechaVencimiento>
+                <Cantidad>15</Cantidad>
+              </Lotes>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarLotesxCodigoUnicoResult>
+    </ListarLotesxCodigoUnicoResponse>
+  </soap:Body>
+</soap:Envelope>

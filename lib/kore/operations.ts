@@ -18,6 +18,12 @@ export const KORE_READ_ONLY_OPERATIONS = [
   "ListarStock",
   "ListarPreciosxArticulo",
   "ListarPrecios",
+  "ListarImagenes",
+  "ListarDescuentosXCantidad",
+  "ListarCuentasGruposDescuentos",
+  "ListarUnidadesYFactoresxArticulo",
+  "ListarLotesxCodigoUnico",
+  "ListarLotesYUbicacionesxCodigoUnico",
 ] as const;
 
 export type KoreReadOnlyOperation = (typeof KORE_READ_ONLY_OPERATIONS)[number];

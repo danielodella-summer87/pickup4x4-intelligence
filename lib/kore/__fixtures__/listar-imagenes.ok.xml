@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarImagenes (KORE-20, SOAP 1.2, DataSet sin schema/diffgram); codigos y Base64 sinteticos (no son imagenes reales). -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarImagenesResponse xmlns="http://tempuri.org/">
+      <ListarImagenesResult>
+        <DataSet xmlns="">
+          <Imagenes>
+            <CodigoUnico>SINT-IMG-01</CodigoUnico>
+            <Imagen>U0lOVEVUSUNPLUlNQUdFTi0x</Imagen>
+          </Imagenes>
+          <Imagenes>
+            <CodigoUnico>SINT-IMG-01</CodigoUnico>
+            <Imagen>U0lO
+VEVU
+SUNP</Imagen>
+          </Imagenes>
+          <Imagenes>
+            <CodigoUnico>000123                </CodigoUnico>
+            <Imagen />
+          </Imagenes>
+          <Imagenes>
+            <CodigoUnico>000123</CodigoUnico>
+          </Imagenes>
+          <Imagenes>
+            <CodigoUnico>SINT-IMG-01</CodigoUnico>
+            <Imagen>U0lOVEVUSUNPLUlNQUdFTi0x</Imagen>
+          </Imagenes>
+        </DataSet>
+      </ListarImagenesResult>
+    </ListarImagenesResponse>
+  </soap:Body>
+</soap:Envelope>

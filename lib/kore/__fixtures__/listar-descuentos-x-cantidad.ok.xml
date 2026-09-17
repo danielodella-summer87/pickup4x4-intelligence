@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarDescuentosXCantidad (KORE-20, SOAP 1.2); listas, codigos, cantidades y porcentajes sinteticos. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarDescuentosXCantidadResponse xmlns="http://tempuri.org/">
+      <ListarDescuentosXCantidadResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="DescuentoXCantidad">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="NROLISTAPRECIO" type="xs:int" minOccurs="0" />
+                        <xs:element name="CODIGOUNICO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CANTIDADAPARTIRDE" type="xs:double" minOccurs="0" />
+                        <xs:element name="PORCDESCUENTO" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad1" msdata:rowOrder="0">
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-DC-01            </CODIGOUNICO>
+                <CANTIDADAPARTIRDE>6</CANTIDADAPARTIRDE>
+                <PORCDESCUENTO>4.62</PORCDESCUENTO>
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad2" msdata:rowOrder="1">
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-DC-01            </CODIGOUNICO>
+                <CANTIDADAPARTIRDE>12.5</CANTIDADAPARTIRDE>
+                <PORCDESCUENTO>0</PORCDESCUENTO>
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad3" msdata:rowOrder="2">
+                <NROLISTAPRECIO>-3</NROLISTAPRECIO>
+                <CODIGOUNICO>000123</CODIGOUNICO>
+                <CANTIDADAPARTIRDE>1E1</CANTIDADAPARTIRDE>
+                <PORCDESCUENTO>-1.5</PORCDESCUENTO>
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad4" msdata:rowOrder="3">
+                <CODIGOUNICO>000123</CODIGOUNICO>
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad5" msdata:rowOrder="4">
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-DC-01            </CODIGOUNICO>
+                <CANTIDADAPARTIRDE>6</CANTIDADAPARTIRDE>
+                <PORCDESCUENTO>4.62</PORCDESCUENTO>
+              </DescuentoXCantidad>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarDescuentosXCantidadResult>
+    </ListarDescuentosXCantidadResponse>
+  </soap:Body>
+</soap:Envelope>

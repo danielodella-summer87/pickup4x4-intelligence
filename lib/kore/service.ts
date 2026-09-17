@@ -9,6 +9,24 @@ import type { KoreCuenta, KoreCuentaFilters } from "./cuentas.ts";
 import { buildMarcaModeloFilterFields, fetchKoreMarcasModelos } from "./marcas-modelos.ts";
 import type { KoreMarcaModelo, KoreMarcaModeloFilters } from "./marcas-modelos.ts";
 import {
+  buildCuentaGrupoDescuentoFilterFields,
+  buildDescuentoXCantidadFilterFields,
+  fetchKoreCuentasGruposDescuentos,
+  fetchKoreDescuentosXCantidad,
+} from "./descuentos.ts";
+import type {
+  KoreCuentaGrupoDescuento,
+  KoreCuentaGrupoDescuentoFilters,
+  KoreDescuentoXCantidad,
+  KoreDescuentoXCantidadFilters,
+} from "./descuentos.ts";
+import { buildImagenFilterFields, fetchKoreImagenes } from "./imagenes.ts";
+import type { KoreImagen, KoreImagenFilters } from "./imagenes.ts";
+import { buildLotesFields, fetchKoreLotes, fetchKoreLotesYUbicaciones } from "./lotes.ts";
+import type { KoreLote, KoreLoteUbicacion } from "./lotes.ts";
+import { buildUnidadesFields, fetchKoreUnidadesYFactores } from "./unidades.ts";
+import type { KoreUnidadArticulo } from "./unidades.ts";
+import {
   buildPrecioFilterFields,
   buildPreciosxArticuloFields,
   fetchKorePrecios,
@@ -133,4 +151,58 @@ export async function listKorePrecios(
   // Fail-fast: filtros inválidos o incompletos fallan antes de leer config o crear el cliente.
   buildPrecioFilterFields(filters);
   return fetchKorePrecios(clientFrom(options), filters);
+}
+
+/** Imágenes Base64 (sin decodificar). Requiere al menos un código: nunca "todas las imágenes". */
+export async function listKoreImagenes(
+  filters: KoreImagenFilters,
+  options: KoreServiceOptions = {},
+): Promise<KoreImagen[]> {
+  // Fail-fast: filtros inválidos o sin rango fallan antes de leer config o crear el cliente.
+  buildImagenFilterFields(filters);
+  return fetchKoreImagenes(clientFrom(options), filters);
+}
+
+/** Descuentos por cantidad tal cual KORE. Requiere nroListaPrecio y al menos un código. */
+export async function listKoreDescuentosXCantidad(
+  filters: KoreDescuentoXCantidadFilters,
+  options: KoreServiceOptions = {},
+): Promise<KoreDescuentoXCantidad[]> {
+  // Fail-fast: filtros inválidos o incompletos fallan antes de leer config o crear el cliente.
+  buildDescuentoXCantidadFilterFields(filters);
+  return fetchKoreDescuentosXCantidad(clientFrom(options), filters);
+}
+
+/** Descuentos por cuenta/categoría/rango tal cual KORE. Requiere rango de códigos o categoría. */
+export async function listKoreCuentasGruposDescuentos(
+  filters: KoreCuentaGrupoDescuentoFilters,
+  options: KoreServiceOptions = {},
+): Promise<KoreCuentaGrupoDescuento[]> {
+  // Fail-fast: filtros inválidos o vacíos fallan antes de leer config o crear el cliente.
+  buildCuentaGrupoDescuentoFilterFields(filters);
+  return fetchKoreCuentasGruposDescuentos(clientFrom(options), filters);
+}
+
+/** Unidades y factores de un artículo. Código obligatorio; inválido falla antes de salir a red. */
+export async function listKoreUnidadesYFactores(
+  codigoUnico: string,
+  options: KoreServiceOptions = {},
+): Promise<KoreUnidadArticulo[]> {
+  buildUnidadesFields(codigoUnico);
+  return fetchKoreUnidadesYFactores(clientFrom(options), codigoUnico);
+}
+
+/** Lotes de un artículo tal cual KORE (sin interpretar estado ni disponibilidad). */
+export async function listKoreLotes(codigoUnico: string, options: KoreServiceOptions = {}): Promise<KoreLote[]> {
+  buildLotesFields("ListarLotesxCodigoUnico", codigoUnico);
+  return fetchKoreLotes(clientFrom(options), codigoUnico);
+}
+
+/** Lotes por ubicación de un artículo tal cual KORE (sin interpretar estado ni disponibilidad). */
+export async function listKoreLotesYUbicaciones(
+  codigoUnico: string,
+  options: KoreServiceOptions = {},
+): Promise<KoreLoteUbicacion[]> {
+  buildLotesFields("ListarLotesYUbicacionesxCodigoUnico", codigoUnico);
+  return fetchKoreLotesYUbicaciones(clientFrom(options), codigoUnico);
 }

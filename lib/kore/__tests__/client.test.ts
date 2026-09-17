@@ -35,7 +35,7 @@ async function captureError(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe("allowlist read-only", () => {
-  it("solo habilita los 10 métodos de lectura esperados", () => {
+  it("solo habilita los 16 métodos de lectura esperados", () => {
     assert.deepEqual([...KORE_READ_ONLY_OPERATIONS], [
       "ListarVendedores",
       "ListarCuentas",
@@ -47,6 +47,12 @@ describe("allowlist read-only", () => {
       "ListarStock",
       "ListarPreciosxArticulo",
       "ListarPrecios",
+      "ListarImagenes",
+      "ListarDescuentosXCantidad",
+      "ListarCuentasGruposDescuentos",
+      "ListarUnidadesYFactoresxArticulo",
+      "ListarLotesxCodigoUnico",
+      "ListarLotesYUbicacionesxCodigoUnico",
     ]);
   });
 
@@ -55,6 +61,8 @@ describe("allowlist read-only", () => {
     "ListarLineasDÉelComprobante",
     "ListarLineasDelComprobante",
     "ListarArticulosNuevos",
+    "GetTipodeCambio",
+    "ListarUnidadesyFactoresxArticulo",
     "Login",
     "ABMCuenta",
     "AltaPedido",

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarCuentasGruposDescuentos (KORE-20, SOAP 1.2); cuentas, categorias, rangos, descuentos y simbolos sinteticos. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarCuentasGruposDescuentosResponse xmlns="http://tempuri.org/">
+      <ListarCuentasGruposDescuentosResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="DescuentoXCantidad">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="AUTONUMERICO" type="xs:int" minOccurs="0" />
+                        <xs:element name="CODIGOFAMILIA" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOSUBGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="NROCUENTA" type="xs:int" minOccurs="0" />
+                        <xs:element name="CODIGOUNICOINICIAL" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOUNICOFINAL" type="xs:string" minOccurs="0" />
+                        <xs:element name="DESCUENTO3" type="xs:double" minOccurs="0" />
+                        <xs:element name="DESCUENTO2" type="xs:double" minOccurs="0" />
+                        <xs:element name="DESCUENTO1" type="xs:double" minOccurs="0" />
+                        <xs:element name="SIMBOLO" type="xs:string" minOccurs="0" />
+                        <xs:element name="NROLISTA" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad1" msdata:rowOrder="0">
+                <AUTONUMERICO>21</AUTONUMERICO>
+                <CODIGOFAMILIA>FS1   </CODIGOFAMILIA>
+                <CODIGOGRUPO>GS1   </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>SS1   </CODIGOSUBGRUPO>
+                <NROCUENTA>9001</NROCUENTA>
+                <CODIGOUNICOINICIAL>SINT-CG-01            </CODIGOUNICOINICIAL>
+                <CODIGOUNICOFINAL>SINT-CG-99            </CODIGOUNICOFINAL>
+                <DESCUENTO3>25</DESCUENTO3>
+                <DESCUENTO2>2.5</DESCUENTO2>
+                <DESCUENTO1>1</DESCUENTO1>
+                <SIMBOLO>MS1</SIMBOLO>
+                <NROLISTA>2</NROLISTA>
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad2" msdata:rowOrder="1">
+                <AUTONUMERICO>22</AUTONUMERICO>
+                <CODIGOFAMILIA />
+                <CODIGOGRUPO>   </CODIGOGRUPO>
+                <NROCUENTA>0</NROCUENTA>
+                <CODIGOUNICOINICIAL />
+                <CODIGOUNICOFINAL />
+                <DESCUENTO3>0</DESCUENTO3>
+                <DESCUENTO2>-3.75</DESCUENTO2>
+                <DESCUENTO1>1.5E1</DESCUENTO1>
+                <SIMBOLO>  </SIMBOLO>
+                <NROLISTA>2.5</NROLISTA>
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad3" msdata:rowOrder="2">
+              </DescuentoXCantidad>
+              <DescuentoXCantidad diffgr:id="DescuentoXCantidad4" msdata:rowOrder="3">
+                <AUTONUMERICO>21</AUTONUMERICO>
+                <CODIGOFAMILIA>FS1   </CODIGOFAMILIA>
+                <CODIGOGRUPO>GS1   </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>SS1   </CODIGOSUBGRUPO>
+                <NROCUENTA>9001</NROCUENTA>
+                <CODIGOUNICOINICIAL>SINT-CG-01            </CODIGOUNICOINICIAL>
+                <CODIGOUNICOFINAL>SINT-CG-99            </CODIGOUNICOFINAL>
+                <DESCUENTO3>25</DESCUENTO3>
+                <DESCUENTO2>2.5</DESCUENTO2>
+                <DESCUENTO1>1</DESCUENTO1>
+                <SIMBOLO>MS1</SIMBOLO>
+                <NROLISTA>2</NROLISTA>
+              </DescuentoXCantidad>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarCuentasGruposDescuentosResult>
+    </ListarCuentasGruposDescuentosResponse>
+  </soap:Body>
+</soap:Envelope>

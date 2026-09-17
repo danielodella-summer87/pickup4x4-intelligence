@@ -6,7 +6,7 @@ import { childElements, firstChildElement, parseXml, textContent } from "../xml.
 import { FAKE_ENV, FAKE_SECRET, assertKoreError, assertNoSecret, mockFetch, xmlResponse } from "./helpers.ts";
 import type { RecordedCall } from "./helpers.ts";
 
-/** Utilidades compartidas por los tests de precios (SOAP 1.2 y fixtures sintéticas). */
+/** Utilidades compartidas por los tests de operaciones KORE (SOAP 1.1/1.2 y fixtures sintéticas). */
 
 export function soap12Response(body: string, status = 200): Response {
   return xmlResponse(body, status, { "content-type": "application/soap+xml; charset=utf-8" });
@@ -84,3 +84,10 @@ export function soap12FaultEcho(text: string): string {
 }
 
 export { FAKE_SECRET, assertKoreError };
+
+export function assertSoap11Call(call: RecordedCall, operation: string): void {
+  const envelope = parseXml(String(call.init.body));
+  assert.equal(envelope.attributes["xmlns:soapenv"], "http://schemas.xmlsoap.org/soap/envelope/");
+  assert.equal(envelope.attributes["xmlns:soap"], undefined);
+  assert.deepEqual(call.init.headers, { "Content-Type": "text/xml; charset=utf-8", SOAPAction: `"http://tempuri.org/${operation}"` });
+}
