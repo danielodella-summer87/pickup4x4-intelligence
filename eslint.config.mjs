@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // Scripts CommonJS (.cjs) de build/seed que corren con node: `require` es el idioma
+    // correcto del formato, no una regresión a CJS dentro del código de la app.
+    files: ["**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

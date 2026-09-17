@@ -39,13 +39,14 @@ export function DonutChart({
   const cy = size / 2;
   const C = 2 * Math.PI * r;
 
-  let acumulado = 0;
+  // Offset de cada arco = longitud acumulada de los anteriores. Se calcula sin mutar
+  // variables durante el render (mismo resultado que un acumulador incremental).
   const arcos = segmentos.map((d, i) => {
     const frac = d.valor / total;
     const len = frac * C;
     const dash = `${len} ${C - len}`;
-    const offset = -acumulado;
-    acumulado += len;
+    const valorPrevio = segmentos.slice(0, i).reduce((suma, previo) => suma + previo.valor, 0);
+    const offset = -((valorPrevio / total) * C);
     return {
       key: i,
       color: serieColor(i),
