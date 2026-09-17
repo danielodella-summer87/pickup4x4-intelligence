@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarRecibosVivosxCuenta (KORE-21, SOAP 1.2); fechas, numeros, monedas e importes sinteticos. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarRecibosVivosxCuentaResponse xmlns="http://tempuri.org/">
+      <ListarRecibosVivosxCuentaResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="RecibosVivos">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="Fecha" type="xs:string" minOccurs="0" />
+                        <xs:element name="NUMERO" type="xs:int" minOccurs="0" />
+                        <xs:element name="MONEDA" type="xs:string" minOccurs="0" />
+                        <xs:element name="MONTO" type="xs:double" minOccurs="0" />
+                        <xs:element name="SALDO" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <RecibosVivos diffgr:id="RecibosVivos1" msdata:rowOrder="0">
+                <Fecha>26/08/2099</Fecha>
+                <NUMERO>920001</NUMERO>
+                <MONEDA>MS1</MONEDA>
+                <MONTO>606.67</MONTO>
+                <SALDO>-1.4210854715202004E-14</SALDO>
+              </RecibosVivos>
+              <RecibosVivos diffgr:id="RecibosVivos2" msdata:rowOrder="1">
+                <Fecha />
+                <NUMERO>0</NUMERO>
+                <MONEDA>  </MONEDA>
+                <MONTO>16855</MONTO>
+                <SALDO>0</SALDO>
+              </RecibosVivos>
+              <RecibosVivos diffgr:id="RecibosVivos3" msdata:rowOrder="2">
+                <Fecha>15/07/2099</Fecha>
+                <NUMERO>-3</NUMERO>
+                <MONEDA>MS2</MONEDA>
+                <MONTO>-181.11</MONTO>
+                <SALDO>181.11</SALDO>
+              </RecibosVivos>
+              <RecibosVivos diffgr:id="RecibosVivos4" msdata:rowOrder="3">
+              </RecibosVivos>
+              <RecibosVivos diffgr:id="RecibosVivos5" msdata:rowOrder="4">
+                <Fecha>26/08/2099</Fecha>
+                <NUMERO>920001</NUMERO>
+                <MONEDA>MS1</MONEDA>
+                <MONTO>606.67</MONTO>
+                <SALDO>-1.4210854715202004E-14</SALDO>
+              </RecibosVivos>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarRecibosVivosxCuentaResult>
+    </ListarRecibosVivosxCuentaResponse>
+  </soap:Body>
+</soap:Envelope>

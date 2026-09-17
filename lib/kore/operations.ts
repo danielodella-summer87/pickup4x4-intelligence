@@ -24,6 +24,9 @@ export const KORE_READ_ONLY_OPERATIONS = [
   "ListarUnidadesYFactoresxArticulo",
   "ListarLotesxCodigoUnico",
   "ListarLotesYUbicacionesxCodigoUnico",
+  "ListarFacturasVivasxCuenta",
+  "ListarNotasCreditoVivasxCuenta",
+  "ListarRecibosVivosxCuenta",
 ] as const;
 
 export type KoreReadOnlyOperation = (typeof KORE_READ_ONLY_OPERATIONS)[number];

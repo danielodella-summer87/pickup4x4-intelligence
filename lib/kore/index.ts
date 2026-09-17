@@ -17,14 +17,17 @@ export {
   listKoreCuentas,
   listKoreCuentasGruposDescuentos,
   listKoreDescuentosXCantidad,
+  listKoreFacturasVivas,
   listKoreFamilias,
   listKoreGrupos,
   listKoreImagenes,
   listKoreLotes,
   listKoreLotesYUbicaciones,
   listKoreMarcasModelos,
+  listKoreNotasCreditoVivas,
   listKorePrecios,
   listKorePreciosxArticulo,
+  listKoreRecibosVivos,
   listKoreStock,
   listKoreSubgrupos,
   listKoreUnidadesYFactores,
@@ -37,6 +40,7 @@ export type {
   KoreDescuentoXCantidad,
   KoreDescuentoXCantidadFilters,
 } from "./descuentos.ts";
+export type { KoreFacturaViva, KoreNotaCreditoViva, KoreReciboVivo } from "./documentos-vivos.ts";
 export type { KoreImagen, KoreImagenFilters } from "./imagenes.ts";
 export type { KoreLote, KoreLoteUbicacion } from "./lotes.ts";
 export type { KoreUnidadArticulo } from "./unidades.ts";

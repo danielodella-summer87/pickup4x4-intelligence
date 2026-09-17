@@ -20,6 +20,13 @@ import type {
   KoreDescuentoXCantidad,
   KoreDescuentoXCantidadFilters,
 } from "./descuentos.ts";
+import {
+  buildCuentaFields,
+  fetchKoreFacturasVivas,
+  fetchKoreNotasCreditoVivas,
+  fetchKoreRecibosVivos,
+} from "./documentos-vivos.ts";
+import type { KoreFacturaViva, KoreNotaCreditoViva, KoreReciboVivo } from "./documentos-vivos.ts";
 import { buildImagenFilterFields, fetchKoreImagenes } from "./imagenes.ts";
 import type { KoreImagen, KoreImagenFilters } from "./imagenes.ts";
 import { buildLotesFields, fetchKoreLotes, fetchKoreLotesYUbicaciones } from "./lotes.ts";
@@ -205,4 +212,22 @@ export async function listKoreLotesYUbicaciones(
 ): Promise<KoreLoteUbicacion[]> {
   buildLotesFields("ListarLotesYUbicacionesxCodigoUnico", codigoUnico);
   return fetchKoreLotesYUbicaciones(clientFrom(options), codigoUnico);
+}
+
+/** Facturas con saldo pendiente de la cuenta, tal cual KORE. NroCuenta obligatorio; inválido falla antes de salir a red. */
+export async function listKoreFacturasVivas(nroCuenta: number, options: KoreServiceOptions = {}): Promise<KoreFacturaViva[]> {
+  buildCuentaFields("ListarFacturasVivasxCuenta", nroCuenta);
+  return fetchKoreFacturasVivas(clientFrom(options), nroCuenta);
+}
+
+/** Notas de crédito con saldo pendiente de la cuenta, tal cual KORE (contrato separado de facturas). */
+export async function listKoreNotasCreditoVivas(nroCuenta: number, options: KoreServiceOptions = {}): Promise<KoreNotaCreditoViva[]> {
+  buildCuentaFields("ListarNotasCreditoVivasxCuenta", nroCuenta);
+  return fetchKoreNotasCreditoVivas(clientFrom(options), nroCuenta);
+}
+
+/** Recibos con saldo pendiente de la cuenta, tal cual KORE. NroCuenta obligatorio. */
+export async function listKoreRecibosVivos(nroCuenta: number, options: KoreServiceOptions = {}): Promise<KoreReciboVivo[]> {
+  buildCuentaFields("ListarRecibosVivosxCuenta", nroCuenta);
+  return fetchKoreRecibosVivos(clientFrom(options), nroCuenta);
 }

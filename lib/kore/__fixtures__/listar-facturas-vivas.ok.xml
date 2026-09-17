@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarFacturasVivasxCuenta (KORE-21, SOAP 1.1, tabla FacturasVivas); fechas, comprobantes, numeros, monedas e importes sinteticos. -->
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarFacturasVivasxCuentaResponse xmlns="http://tempuri.org/">
+      <ListarFacturasVivasxCuentaResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="FacturasVivas">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="Emision" type="xs:string" minOccurs="0" />
+                        <xs:element name="Vencimiento" type="xs:string" minOccurs="0" />
+                        <xs:element name="Comprobante" type="xs:string" minOccurs="0" />
+                        <xs:element name="Numero" type="xs:int" minOccurs="0" />
+                        <xs:element name="Moneda" type="xs:string" minOccurs="0" />
+                        <xs:element name="Total" type="xs:double" minOccurs="0" />
+                        <xs:element name="Saldo" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <FacturasVivas diffgr:id="FacturasVivas1" msdata:rowOrder="0">
+                <Emision>01/01/2099</Emision>
+                <Vencimiento>31/01/2099</Vencimiento>
+                <Comprobante>COMPROBANTE SINT A</Comprobante>
+                <Numero>910001</Numero>
+                <Moneda>MS1</Moneda>
+                <Total>4079.2164</Total>
+                <Saldo>4079.2164</Saldo>
+              </FacturasVivas>
+              <FacturasVivas diffgr:id="FacturasVivas2" msdata:rowOrder="1">
+                <Emision>02/01/2099</Emision>
+                <Vencimiento />
+                <Comprobante>  COMPROBANTE SINT B  </Comprobante>
+                <Numero>0</Numero>
+                <Moneda>MS2 </Moneda>
+                <Total>-120.5</Total>
+                <Saldo>-1.4210854715202004E-14</Saldo>
+              </FacturasVivas>
+              <FacturasVivas diffgr:id="FacturasVivas3" msdata:rowOrder="2">
+                <Emision>   </Emision>
+                <Comprobante />
+                <Numero>-7</Numero>
+                <Moneda />
+                <Total>0</Total>
+                <Saldo>2540.9916000000003</Saldo>
+              </FacturasVivas>
+              <FacturasVivas diffgr:id="FacturasVivas4" msdata:rowOrder="3">
+              </FacturasVivas>
+              <FacturasVivas diffgr:id="FacturasVivas5" msdata:rowOrder="4">
+                <Emision>01/01/2099</Emision>
+                <Vencimiento>31/01/2099</Vencimiento>
+                <Comprobante>COMPROBANTE SINT A</Comprobante>
+                <Numero>910001</Numero>
+                <Moneda>MS1</Moneda>
+                <Total>4079.2164</Total>
+                <Saldo>4079.2164</Saldo>
+              </FacturasVivas>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarFacturasVivasxCuentaResult>
+    </ListarFacturasVivasxCuentaResponse>
+  </soap:Body>
+</soap:Envelope>
