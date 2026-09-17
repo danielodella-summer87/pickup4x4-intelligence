@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarPrecios (KORE-18, SOAP 1.2); codigos, taxonomia, simbolos, precios y autonumerados sinteticos. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarPreciosResponse xmlns="http://tempuri.org/">
+      <ListarPreciosResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Precio">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="AUTONUMERADO" type="xs:int" minOccurs="0" />
+                        <xs:element name="NROLISTAPRECIO" type="xs:int" minOccurs="0" />
+                        <xs:element name="CODIGOUNICO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOFAMILIA" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CODIGOSUBGRUPO" type="xs:string" minOccurs="0" />
+                        <xs:element name="SIMBOLO" type="xs:string" minOccurs="0" />
+                        <xs:element name="PRECIO" type="xs:double" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Precio diffgr:id="Precio1" msdata:rowOrder="0">
+                <AUTONUMERADO>101</AUTONUMERADO>
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-PR-01            </CODIGOUNICO>
+                <CODIGOFAMILIA>F1    </CODIGOFAMILIA>
+                <CODIGOGRUPO>G01   </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>S001  </CODIGOSUBGRUPO>
+                <SIMBOLO>MS1</SIMBOLO>
+                <PRECIO>100.123456789012</PRECIO>
+              </Precio>
+              <Precio diffgr:id="Precio2" msdata:rowOrder="1">
+                <AUTONUMERADO>102</AUTONUMERADO>
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-PR-01            </CODIGOUNICO>
+                <CODIGOFAMILIA />
+                <CODIGOGRUPO>    </CODIGOGRUPO>
+                <SIMBOLO>MS1  </SIMBOLO>
+                <PRECIO>0</PRECIO>
+              </Precio>
+              <Precio diffgr:id="Precio3" msdata:rowOrder="2">
+                <AUTONUMERADO>103</AUTONUMERADO>
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>000123                </CODIGOUNICO>
+                <CODIGOFAMILIA>F2    </CODIGOFAMILIA>
+                <CODIGOGRUPO>G02   </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>S002  </CODIGOSUBGRUPO>
+                <SIMBOLO />
+                <PRECIO>-3.5</PRECIO>
+              </Precio>
+              <Precio diffgr:id="Precio4" msdata:rowOrder="3">
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-PR-02            </CODIGOUNICO>
+                <CODIGOFAMILIA>F1    </CODIGOFAMILIA>
+                <CODIGOGRUPO>G01   </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>S001  </CODIGOSUBGRUPO>
+                <SIMBOLO>   </SIMBOLO>
+                <PRECIO>1.25E2</PRECIO>
+              </Precio>
+              <Precio diffgr:id="Precio5" msdata:rowOrder="4">
+                <AUTONUMERADO>105</AUTONUMERADO>
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-PR-02            </CODIGOUNICO>
+              </Precio>
+              <Precio diffgr:id="Precio6" msdata:rowOrder="5">
+                <AUTONUMERADO>101</AUTONUMERADO>
+                <NROLISTAPRECIO>2</NROLISTAPRECIO>
+                <CODIGOUNICO>SINT-PR-01            </CODIGOUNICO>
+                <CODIGOFAMILIA>F1    </CODIGOFAMILIA>
+                <CODIGOGRUPO>G01   </CODIGOGRUPO>
+                <CODIGOSUBGRUPO>S001  </CODIGOSUBGRUPO>
+                <SIMBOLO>MS1</SIMBOLO>
+                <PRECIO>100.123456789012</PRECIO>
+              </Precio>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarPreciosResult>
+    </ListarPreciosResponse>
+  </soap:Body>
+</soap:Envelope>

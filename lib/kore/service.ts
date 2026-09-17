@@ -8,6 +8,13 @@ import { buildCuentaFilterFields, fetchKoreCuentas } from "./cuentas.ts";
 import type { KoreCuenta, KoreCuentaFilters } from "./cuentas.ts";
 import { buildMarcaModeloFilterFields, fetchKoreMarcasModelos } from "./marcas-modelos.ts";
 import type { KoreMarcaModelo, KoreMarcaModeloFilters } from "./marcas-modelos.ts";
+import {
+  buildPrecioFilterFields,
+  buildPreciosxArticuloFields,
+  fetchKorePrecios,
+  fetchKorePreciosxArticulo,
+} from "./precios.ts";
+import type { KoreListaPrecioArticulo, KorePrecio, KorePrecioFilters } from "./precios.ts";
 import { buildStockFilterFields, fetchKoreStock } from "./stock.ts";
 import type { KoreStock, KoreStockFilters } from "./stock.ts";
 import { fetchKoreFamilias, fetchKoreGrupos, fetchKoreSubgrupos } from "./taxonomia.ts";
@@ -100,4 +107,30 @@ export async function listKoreStock(
   // Fail-fast: filtros inválidos o ausentes fallan antes de leer config o crear el cliente.
   buildStockFilterFields(filters);
   return fetchKoreStock(clientFrom(options), filters);
+}
+
+/**
+ * Precios de un artículo por lista (sin lista 1, según documentación), tal cual
+ * los devuelve KORE. Código obligatorio; inválido falla antes de salir a red.
+ */
+export async function listKorePreciosxArticulo(
+  codigoUnico: string,
+  options: KoreServiceOptions = {},
+): Promise<KoreListaPrecioArticulo[]> {
+  // Fail-fast: código inválido falla antes de leer config o crear el cliente.
+  buildPreciosxArticuloFields(codigoUnico);
+  return fetchKorePreciosxArticulo(clientFrom(options), codigoUnico);
+}
+
+/**
+ * Precios de una lista para un rango de códigos, tal cual los devuelve KORE.
+ * Requiere nroListaPrecio y al menos un código; si no, falla antes de salir a red.
+ */
+export async function listKorePrecios(
+  filters: KorePrecioFilters,
+  options: KoreServiceOptions = {},
+): Promise<KorePrecio[]> {
+  // Fail-fast: filtros inválidos o incompletos fallan antes de leer config o crear el cliente.
+  buildPrecioFilterFields(filters);
+  return fetchKorePrecios(clientFrom(options), filters);
 }

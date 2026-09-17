@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarPreciosxArticulo (KORE-16/18, SOAP 1.2); listas, monedas, precios y nombres sinteticos. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarPreciosxArticuloResponse xmlns="http://tempuri.org/">
+      <ListarPreciosxArticuloResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="ListaPrecio">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="NroListaPrecio" type="xs:int" minOccurs="0" />
+                        <xs:element name="Moneda" type="xs:string" minOccurs="0" />
+                        <xs:element name="Precio" type="xs:decimal" minOccurs="0" />
+                        <xs:element name="PrecioIVA" type="xs:decimal" minOccurs="0" />
+                        <xs:element name="NombreListaPrecio" type="xs:string" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <ListaPrecio diffgr:id="ListaPrecio1" msdata:rowOrder="0">
+                <NroListaPrecio>2</NroListaPrecio>
+                <Moneda>MS1</Moneda>
+                <Precio>100.5000</Precio>
+                <PrecioIVA>122.6100</PrecioIVA>
+                <NombreListaPrecio>LISTA SINTETICA A             </NombreListaPrecio>
+              </ListaPrecio>
+              <ListaPrecio diffgr:id="ListaPrecio2" msdata:rowOrder="1">
+                <NroListaPrecio>3</NroListaPrecio>
+                <Moneda>MS2 </Moneda>
+                <Precio>0.0000</Precio>
+                <PrecioIVA>0.0000</PrecioIVA>
+                <NombreListaPrecio>LISTA SINTETICA B             </NombreListaPrecio>
+              </ListaPrecio>
+              <ListaPrecio diffgr:id="ListaPrecio3" msdata:rowOrder="2">
+                <NroListaPrecio>0</NroListaPrecio>
+                <Moneda />
+                <Precio>-12.5</Precio>
+                <PrecioIVA>-15.25</PrecioIVA>
+                <NombreListaPrecio>   </NombreListaPrecio>
+              </ListaPrecio>
+              <ListaPrecio diffgr:id="ListaPrecio4" msdata:rowOrder="3">
+                <NroListaPrecio>-7</NroListaPrecio>
+                <Moneda>   </Moneda>
+                <Precio>7</Precio>
+                <PrecioIVA>+8.540</PrecioIVA>
+                <NombreListaPrecio />
+              </ListaPrecio>
+              <ListaPrecio diffgr:id="ListaPrecio5" msdata:rowOrder="4">
+              </ListaPrecio>
+              <ListaPrecio diffgr:id="ListaPrecio6" msdata:rowOrder="5">
+                <NroListaPrecio>2</NroListaPrecio>
+                <Moneda>MS1</Moneda>
+                <Precio>100.5000</Precio>
+                <PrecioIVA>122.6100</PrecioIVA>
+                <NombreListaPrecio>LISTA SINTETICA A             </NombreListaPrecio>
+              </ListaPrecio>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarPreciosxArticuloResult>
+    </ListarPreciosxArticuloResponse>
+  </soap:Body>
+</soap:Envelope>
