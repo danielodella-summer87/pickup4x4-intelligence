@@ -12,7 +12,7 @@ import {
 } from "react";
 import type { DatasetWarning, PickupDataset } from "@/lib/excel/build-dataset";
 import { parseLoadDatasetApiBody } from "@/lib/data/coerce-pickup-dataset";
-import { resolveLegacyHydration, resolveServerLoadOutcome, type DatasetStatus } from "@/lib/data/dataset-hydration";
+import { resolveHydrationAction, resolveLegacyHydration, resolveServerLoadOutcome, type DatasetStatus } from "@/lib/data/dataset-hydration";
 import type { DatasetProvenance } from "@/lib/data/mixed-dataset";
 import {
   clearSessionExcelDataset,
@@ -104,22 +104,27 @@ function logHydration(message: string, detail?: unknown): void {
   }
 }
 
-function initialStatus(): DatasetStatus {
-  if (!SOURCE_RESOLUTION.ok) return "error";
-  return SOURCE_RESOLUTION.mode === "mock" ? "ready" : "loading";
+function statusForAction(action: ReturnType<typeof resolveHydrationAction>): DatasetStatus {
+  if (action === "clear-unauthenticated") return "unauthenticated";
+  if (action === "config-error") return "error";
+  return action === "mock-ready" ? "ready" : "loading";
 }
 
-export function DatasetProvider({ children }: { children: ReactNode }) {
+/**
+ * `isAuthenticated` lo calcula el layout raíz (server) desde la cookie de sesión. Es la
+ * dependencia que hace que login y logout invaliden el dataset.
+ */
+export function DatasetProvider({ children, isAuthenticated }: { children: ReactNode; isAuthenticated: boolean }) {
   const resolution = SOURCE_RESOLUTION;
   const dataMode: DataMode | null = resolution.ok ? resolution.mode : null;
   const dataSources: DomainSources | null = resolution.ok ? resolution.sources : null;
   const configError = resolution.ok ? null : `${resolution.code}: ${resolution.message}`;
-  const isLegacyMode = dataMode === "legacy";
-  const usesServerDataset = dataMode === "legacy" || dataMode === "mixed";
+  const isLegacyMode = dataMode === "legacy" && isAuthenticated;
+  const hydrationAction = resolveHydrationAction({ isAuthenticated, configOk: resolution.ok, mode: dataMode });
 
   const [dataset, setDatasetState] = useState<PickupDataset | null>(null);
-  const [source, setSource] = useState<DatasetSource>(dataMode === "mock" ? "mock" : "none");
-  const [status, setStatus] = useState<DatasetStatus>(initialStatus);
+  const [source, setSource] = useState<DatasetSource>(hydrationAction === "mock-ready" ? "mock" : "none");
+  const [status, setStatus] = useState<DatasetStatus>(() => statusForAction(hydrationAction));
   const [provenance, setProvenance] = useState<DatasetProvenance | null>(null);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [warnings, setWarnings] = useState<DatasetWarning[]>([]);
@@ -128,7 +133,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   >(null);
   const [hasLocalPersistence, setHasLocalPersistence] = useState(false);
   const [hasSupabasePersistence, setHasSupabasePersistence] = useState(false);
-  const [isStorageHydrated, setIsStorageHydrated] = useState(!usesServerDataset);
+  const [isStorageHydrated, setIsStorageHydrated] = useState(hydrationAction !== "load-from-server");
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [supabaseConnection, setSupabaseConnection] =
@@ -142,19 +147,37 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   const supabaseResolvedRef = useRef(false);
 
   useEffect(() => {
-    if (!resolution.ok) {
-      logHydration("configuración de fuentes inválida — sin datos", resolution.code);
+    // Una acción por fase (sesión + configuración): determinística, sin polling ni reintentos.
+    supabaseResolvedRef.current = false;
+
+    if (hydrationAction === "clear-unauthenticated") {
+      // Sin sesión no se pide nada (evita el 401 que antes quedaba pegado tras el login).
+      // El estado ya nace vacío: el layout remonta el provider al cambiar la sesión, así que
+      // tampoco queda en memoria el dataset privado anterior (logout).
+      logHydration("sin sesión — sin carga y sin datos visibles");
+      clearSessionExcelDataset();
       return;
     }
-    if (resolution.mode === "mock") {
+
+    if (hydrationAction === "config-error") {
+      logHydration("configuración de fuentes inválida — sin datos", resolution.ok ? null : resolution.code);
+      return;
+    }
+
+    if (hydrationAction === "mock-ready") {
       logHydration("fuente mock explícita — sin carga del servidor");
       return;
     }
 
+    if (!resolution.ok) return;
+
     let cancelled = false;
     const controller = new AbortController();
-    // Red de seguridad: la carga no puede quedar colgada indefinidamente.
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    // Red de seguridad: la carga no puede quedar colgada indefinidamente. Se alinea con el
+    // presupuesto del endpoint (`maxDuration = 60` en load-dataset): con el dataset actual
+    // (~16 MB, ~17 s) un corte menor abortaba cargas legítimas. Sin reintentos: si falla,
+    // el estado queda en error explícito.
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     void (async () => {
       const mode: "legacy" | "mixed" = resolution.mode === "mixed" ? "mixed" : "legacy";
@@ -335,7 +358,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [resolution]);
+  }, [resolution, hydrationAction]);
 
   const setDataset = useCallback(
     async (next: PickupDataset): Promise<DatasetSetResult> => {
@@ -350,7 +373,9 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
               ? "La fuente activa es mock (explícita): la importación de Excel está deshabilitada."
               : dataMode === "mixed"
                 ? "El catálogo activo es KORE: la importación de Excel (catálogo legacy) está deshabilitada en este modo."
-                : "Configuración de fuentes inválida: la importación está deshabilitada.",
+                : !isAuthenticated
+                  ? "Sesión no válida: la importación está deshabilitada."
+                  : "Configuración de fuentes inválida: la importación está deshabilitada.",
         };
         setLastPersistResult(blocked);
         return blocked;
@@ -379,7 +404,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
 
       return persistResult;
     },
-    [isLegacyMode, dataMode],
+    [isLegacyMode, dataMode, isAuthenticated],
   );
 
   const saveToSupabase = useCallback(async (): Promise<SupabaseDatasetSaveResult> => {

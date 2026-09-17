@@ -14,7 +14,38 @@ import type { DataMode, DomainSources } from "./sources.ts";
 
 export type LegacyOrigin = "supabase" | "excel-session" | "excel-local";
 
-export type DatasetStatus = "loading" | "ready" | "empty" | "error";
+/** `unauthenticated`: no hay sesión, así que no se pide ni se muestra ningún dataset. */
+export type DatasetStatus = "loading" | "ready" | "empty" | "error" | "unauthenticated";
+
+/** Entradas que deciden qué hace la hidratación del dataset (KORE-31). */
+export type HydrationPhase = {
+  isAuthenticated: boolean;
+  configOk: boolean;
+  mode: DataMode | null;
+};
+
+export type HydrationAction =
+  /** Sin sesión: limpiar el estado (nada privado queda visible) y NO pedir datos. */
+  | "clear-unauthenticated"
+  /** Configuración de fuentes inválida: error explícito, sin datos. */
+  | "config-error"
+  /** Fuente mock explícita: datos de ejemplo, sin request al servidor. */
+  | "mock-ready"
+  /** legacy o mixed con sesión: cargar desde el servidor. */
+  | "load-from-server";
+
+/**
+ * Decide la acción de hidratación. Es pura y determinística: la misma fase da la misma
+ * acción, así que usarla como dependencia del efecto no genera loops ni requests repetidas.
+ *
+ * Sin sesión no se hace ninguna request (evita el 401 previo al login que quedaba pegado)
+ * y el estado privado anterior se descarta (logout).
+ */
+export function resolveHydrationAction(phase: HydrationPhase): HydrationAction {
+  if (!phase.isAuthenticated) return "clear-unauthenticated";
+  if (!phase.configOk) return "config-error";
+  return phase.mode === "mock" ? "mock-ready" : "load-from-server";
+}
 
 export type LegacyHydrationInput = {
   supabase: { ok: boolean; hasDataset: boolean; errorMessage?: string | null };

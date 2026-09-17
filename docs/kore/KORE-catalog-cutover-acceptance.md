@@ -97,7 +97,12 @@ Consumidores reales ejecutados sobre la ruta real `load-dataset`.
 - Contradice a KORE como source-of-truth y reintroduce artículos que KORE marca como no
   operables.
 
-**Estado:** `PENDING` (requiere confirmación humana).
+**Estado: `CONFIRMED` (KORE-31).** El operador confirmó `SOURCE_AUTHORITATIVE`:
+
+- `DESHABILITADO` de KORE gobierna la disponibilidad actual/seleccionable.
+- **No** elimina ni oculta automáticamente ventas, aplicaciones, campañas ni referencias
+  históricas.
+- `LEGACY_COMPAT` **no se implementa**; tampoco excepciones por artículo.
 
 ## 5. Rehearsal autenticado (KORE-29: bloqueado)
 
@@ -267,7 +272,7 @@ lectura:
 - Todas las llamadas a `/api/` posteriores al login respondieron 200. Los 401 en consola
   corresponden a las pruebas previas al login.
 
-### Hallazgo: `NON_BLOCKING_UI_ISSUE` — estado obsoleto tras el login
+### Hallazgo (KORE-30, corregido en KORE-31): estado obsoleto tras el login
 
 - **Qué pasa:** `LoginForm` navega con `router.push()` + `router.refresh()`, que no
   remontan el `DatasetProvider` del layout raíz. El provider conserva el 401 obtenido en
@@ -275,11 +280,7 @@ lectura:
 - **Alcance:** preexistente e independiente de la fuente (antes de KORE-27 mostraba mock
   en silencio; ahora es un error explícito). No muestra datos incorrectos.
 - **Workaround:** recargar la página (F5) después del login.
-- **Corrección sugerida (no aplicada en KORE-30, requiere re-login para verificar):**
-  navegación completa tras el login, o re-fetch del provider cuando la carga previa
-  terminó en 401.
-- **Detalle menor:** en modo mixto ese cartel dice "fuente legacy no disponible" aunque el
-  catálogo sea KORE.
+- **Corregido en KORE-31** (ver §11).
 
 ## 10. Gates
 
@@ -295,3 +296,87 @@ lectura:
 - El default productivo **sigue `legacy`**: KORE-30 no activó nada.
 - Con la política confirmada, el cutover permanente queda en
   `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE=kore` + rebuild, sin cambios de código ni de esquema.
+
+## 11. Fix de hidratación tras el login (KORE-31)
+
+### Causa raíz
+
+1. Sin sesión, el `DatasetProvider` del layout raíz ya pedía `/api/supabase/load-dataset`
+   y recibía 401 → estado `error` (`LEGACY_UNAVAILABLE`).
+2. `LoginForm` navegaba con `router.push` + `router.refresh`. Eso vuelve a renderizar los
+   server components, pero **no** remonta el provider ni cambia sus dependencias
+   (`useEffect` con `[resolution]`).
+3. El estado de error quedaba pegado hasta un reload manual.
+
+El mismo hueco existía al revés: tras `logout`, el dataset privado seguía en memoria.
+
+### Fix
+
+El dataset ahora **depende de la sesión**, reutilizando la cookie firmada que ya valida
+`proxy.ts` (sin segunda capa de auth, sin `location.reload()`, sin polling ni reintentos):
+
+| Archivo | Cambio |
+|---|---|
+| `lib/auth/request-session.ts` (nuevo) | `isRequestAuthenticated()` server-only: valida la cookie de sesión de la request |
+| `app/layout.tsx` | layout async: calcula `isAuthenticated` y lo pasa a `DatasetProvider` |
+| `lib/data/dataset-hydration.ts` | `resolveHydrationAction()` puro + estado `unauthenticated` |
+| `contexts/DatasetContext.tsx` | `isAuthenticated` como prop; la acción de hidratación es dependencia del efecto |
+
+Comportamiento resultante:
+
+| Transición | Efecto |
+|---|---|
+| Sin sesión | **No se pide nada** (ya no hay 401 que quede pegado) y no queda visible ningún dataset |
+| No autenticado → autenticado | `router.refresh` re-renderiza el layout → cambia `isAuthenticated` → el efecto recarga el dataset |
+| Autenticado → no autenticado (logout) | Estado limpiado: dataset, provenance, oportunidades y copia de sesión del Excel |
+| Carga post-login fallida | Error explícito (sin mock ni cruce de fuentes) |
+
+- La acción de hidratación es determinística: la misma fase produce la misma acción, así
+  que no hay loops ni requests repetidas.
+- El default de fuentes **no cambió**: `catalog=legacy` salvo configuración de build.
+
+### Rehearsal autenticado (KORE-31)
+
+Build temporal `catalog=kore` (variable solo del proceso de build), `next start` local en
+`127.0.0.1`, login y logout hechos **por el operador**; Claude no manejó credenciales.
+
+| Paso | Resultado |
+|---|---|
+| App sin sesión | `/dashboard` → `/login`; `/api/supabase/load-dataset` → 401; **0 requests de dataset** (sin sesión no se pide nada) |
+| Logout desde la UI | Redirect a `/login`, sin datos privados visibles, API 401, sin requests nuevas |
+| Login manual | Navegación client-side (una sola navegación completa: `/login`) |
+| Carga tras el login | **Automática**, 1 request, 200 en 9,6 s. **Sin recarga manual** |
+| "Sin datos · fuente legacy no disponible" persistente | **No aparece** |
+| `/dashboard` | PASS · "Catálogo KORE · ventas, clientes y aplicaciones legacy", tablas cargadas |
+| `/articulos` | PASS · "10.547 resultados · Mostrando primeros 100", 100 filas |
+| `/distribuidor` | PASS · 298 botones vs 297 seleccionables esperados (1 es de acción), **0 inactivos** |
+| Requests de `load-dataset` en toda la sesión | 2 (una prueba manual + la automática del login) → **sin loop** |
+| Errores de servidor / overlays de runtime | ninguno |
+
+**Ajuste de timeout (encontrado en este rehearsal).** El primer intento post-login se
+abortó a los 30 s: el corte del cliente era menor que el presupuesto del endpoint
+(`maxDuration = 60`) y el dataset actual tarda ~16,6 s (16 MB), con picos mayores cuando
+coincide con el login. Se alineó el corte del cliente a 60 s. Sin reintentos ni polling: si
+la carga falla de verdad, el estado queda en error explícito.
+
+Esto es una manifestación de `DATASET_PAYLOAD_TECH_DEBT` (`dataQuality` ≈ 10 MB de cada
+respuesta), no del catálogo KORE.
+
+## 12. Gates finales (KORE-31)
+
+| Gate | Resultado |
+|---|---|
+| `TECHNICAL_CUTOVER_GATE` | **PASS** |
+| `AUTHENTICATED_UI_GATE` | **PASS** |
+| `BUSINESS_ACTIVE_POLICY_GATE` | **CONFIRMED** (`SOURCE_AUTHORITATIVE`) |
+| `LOGIN_HYDRATION_GATE` | **PASS** |
+
+**Clasificación final: `READY_FOR_PERMANENT_CATALOG_CUTOVER`.**
+
+- El código está listo. **El cutover no está activado:** el default sigue `catalog=legacy`
+  y `.env.local` no cambió.
+- Activarlo es `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE=kore` en el entorno del build + rebuild,
+  sin cambios de código ni de esquema.
+- Al activarlo, recordar el impacto confirmado: `/distribuidor` deja de ofrecer los
+  artículos deshabilitados con aplicaciones y el buscador de propuestas excluye los 965
+  deshabilitados; la historia (ventas, aplicaciones, campañas) no se toca.
