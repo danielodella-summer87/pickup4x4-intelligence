@@ -99,9 +99,12 @@ Consumidores reales ejecutados sobre la ruta real `load-dataset`.
 
 **Estado:** `PENDING` (requiere confirmación humana).
 
-## 5. Rehearsal autenticado
+## 5. Rehearsal autenticado (KORE-29: bloqueado)
 
-**Resultado: `AUTHENTICATED_UI_VALIDATION_BLOCKED`.**
+> **KORE-30: destrabado.** El operador inició sesión manualmente y el rehearsal autenticado
+> se completó (ver §10). Lo que sigue es el estado de KORE-29.
+
+**Resultado en KORE-29: `AUTHENTICATED_UI_VALIDATION_BLOCKED`.**
 
 - **Qué se levantó:** `next start` local (puerto temporal) sobre el build B
   (`NEXT_PUBLIC_PICKUP_CATALOG_SOURCE=kore` solo para el proceso de build, sin cambios en
@@ -190,17 +193,105 @@ lectura:
   editable, igual que con legacy (que no persistía precio). No requiere
   pricing/stock → **no** aplica `PRICING_OR_STOCK_REQUIRED_FOR_PROPOSAL`.
 
-## 9. Gates
+## 9. Rehearsal autenticado (KORE-30)
+
+- **Login:** manual, hecho por el operador en el navegador local. Claude no leyó, copió ni
+  escribió contraseñas, ni fabricó cookies o tokens. La cookie de sesión es `httpOnly`
+  (no visible para JS).
+- **Build temporal:** `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE=kore` solo como variable del
+  proceso de build; `.env.local` sin cambios (hash verificado antes y después).
+- **Servidor:** `next start` en `127.0.0.1`, puerto local, detenido al terminar.
+- **Sin sesión** (antes del login): `/dashboard` → redirect a `/login`;
+  `/api/supabase/load-dataset` → 401, también con `?source=legacy|kore` y
+  `?catalogSource=legacy|kore`. La fuente no es override-able desde la request.
+
+### Resultado por ruta
+
+| Ruta | Render | Fuente mostrada | Observaciones |
+|---|---|---|---|
+| `/` | PASS | — | navegación completa, sin errores |
+| `/dashboard` | PASS | Catálogo KORE · resto legacy | KPIs y tablas OK; el aumento de catálogo no rompe cálculos |
+| `/articulos` | PASS | Catálogo KORE · resto legacy | ver detalle abajo |
+| `/clientes` | PASS | Catálogo KORE · resto legacy | 100 filas visibles; clientes siguen legacy |
+| `/ventas` | PASS | Catálogo KORE · resto legacy | 70 filas; la venta huérfana conocida no rompe ni crea artículo |
+| `/distribuidor` | PASS | — | 298 botones renderizados vs 297 seleccionables esperados (1 es de acción); **0 inactivos**; selección funciona |
+| `/vehiculos` | PASS | Catálogo KORE · resto legacy | 793 modelos; conserva aplicaciones de artículos inactivos |
+| `/oportunidades` | PASS | Catálogo KORE · resto legacy | oportunidades legacy visibles |
+| `/campanas/articulos` | PASS | Catálogo KORE · resto legacy | sin ejecutar campañas |
+| Editor de propuestas | PASS | — | buscador: 25 resultados, **0 inactivos** (había 11 candidatos inactivos para ese término); sin precio inventado; nada guardado |
+
+### `/articulos` en detalle
+
+| Verificación | Resultado |
+|---|---|
+| Fuente | `catalog=kore`, resto legacy |
+| loader = repository | 10547 = 10547 |
+| Códigos distintos | 10547 |
+| Claves en conflicto presentes (verificado por hash, sin exponer códigos) | 0 |
+| Artículos `missing` | 0 (no hay resolved+missing en la fuente) |
+| Campos del artículo | `codigoUnico`, `descripcion`, `rubro`, `categoria`, `activo` (sin stock/precio/marca inventados) |
+| Inactivos listados (consulta) | 965, sin romper la vista |
+| Límite visual | "10.547 resultados · Mostrando primeros 100", 100 filas |
+| Filtro sin aplicaciones | "5.036 de 10.547 resultados", todas las filas con 0 aplicaciones |
+| Filtro con aplicaciones | ninguna fila con 0 aplicaciones |
+| Filtro por rubro | un único rubro en las filas |
+| Búsqueda sin coincidencias | 0 filas + estado vacío explícito |
+| Artículos con 0 ventas / 0 aplicaciones | soportados |
+
+### Semántica de `activo` verificada en UI
+
+- **`CURRENT_SELECTABLE_CATALOG`:** `/distribuidor` y el buscador de propuestas no
+  ofrecen ningún artículo inactivo.
+- **`HISTORICAL_REFERENCE`:** ventas, aplicaciones (incluidas las de artículos
+  inactivos, visibles en `/vehiculos`), campañas y oportunidades siguen presentes.
+- Ninguna pantalla usa `activo` para borrar u ocultar historia.
+
+### Performance (sesión autenticada)
+
+| Medición | Valor |
+|---|---|
+| `load-dataset` (navegador) | 16,76 MB; 9,4–13,0 s por carga completa de página |
+| `/articulos` hasta tabla renderizada | ~6,9 s después del `load-dataset` |
+| `/dashboard` hasta contenido | ~8,3 s |
+| Comparación con KORE-28/29 | mismos bytes; sin regresión atribuible al catálogo KORE |
+
+`DATASET_PAYLOAD_TECH_DEBT` sigue vigente: `dataQuality` son ~10 MB de cada respuesta.
+
+### Seguridad (durante el rehearsal)
+
+- Sin service role en los chunks del cliente. La única coincidencia es el **nombre**
+  `SUPABASE_SERVICE_ROLE_KEY` dentro de un mensaje de ayuda al usuario, no un valor.
+- Sin `kore_raw_*`, `source_variant_key`, `content_hash`, `identity_status` ni payloads
+  de conflictos en la respuesta ni en los chunks.
+- La cookie de sesión no es accesible por JS; no se exportaron cookies ni tokens.
+- Todas las llamadas a `/api/` posteriores al login respondieron 200. Los 401 en consola
+  corresponden a las pruebas previas al login.
+
+### Hallazgo: `NON_BLOCKING_UI_ISSUE` — estado obsoleto tras el login
+
+- **Qué pasa:** `LoginForm` navega con `router.push()` + `router.refresh()`, que no
+  remontan el `DatasetProvider` del layout raíz. El provider conserva el 401 obtenido en
+  `/login` y la app muestra "Sin datos · fuente legacy no disponible" hasta recargar.
+- **Alcance:** preexistente e independiente de la fuente (antes de KORE-27 mostraba mock
+  en silencio; ahora es un error explícito). No muestra datos incorrectos.
+- **Workaround:** recargar la página (F5) después del login.
+- **Corrección sugerida (no aplicada en KORE-30, requiere re-login para verificar):**
+  navegación completa tras el login, o re-fetch del provider cuando la carga previa
+  terminó en 401.
+- **Detalle menor:** en modo mixto ese cartel dice "fuente legacy no disponible" aunque el
+  catálogo sea KORE.
+
+## 10. Gates
 
 | Gate | Resultado | Motivo |
 |---|---|---|
 | `TECHNICAL_CUTOVER_GATE` | **PASS** | loader = repository; sin fallbacks; conflictos en cuarentena; joins medidos; historia intacta; boundary y bundles limpios; builds A/B/A2 OK; tests 64 + 56 + 790 |
+| `AUTHENTICATED_UI_GATE` | **PASS** (KORE-30) | 10 rutas validadas con sesión real del operador; sin fallback mock/legacy; conflictos e inactivos correctos; 1 hallazgo no bloqueante (§10) |
 | `BUSINESS_ACTIVE_POLICY_GATE` | **PENDING** | falta confirmación humana de `SOURCE_AUTHORITATIVE` (§4) |
-| `AUTHENTICATED_UI_GATE` | **BLOCKED** | sin sesión autorizada; no se ingresaron credenciales (§5) |
 
-**Clasificación final: `NOT_READY_FOR_PERMANENT_CATALOG_CUTOVER`.**
+**Clasificación final: `READY_TECHNICALLY_PENDING_BUSINESS_CONFIRMATION`.**
 
-- No aplica `READY_TECHNICALLY_PENDING_BUSINESS_CONFIRMATION`: además de la decisión de
-  negocio, falta la validación autenticada de UI.
-- Con ambos resueltos (UI autenticada PASS y política CONFIRMED), el cutover permanente
-  queda en `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE=kore` + rebuild, sin cambios de código.
+- Lo único pendiente es la decisión humana sobre la política de `activo`.
+- El default productivo **sigue `legacy`**: KORE-30 no activó nada.
+- Con la política confirmada, el cutover permanente queda en
+  `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE=kore` + rebuild, sin cambios de código ni de esquema.
