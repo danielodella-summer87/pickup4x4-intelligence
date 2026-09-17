@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture SANITIZADA: estructura real de ListarStock (KORE-13/14, SOAP 1.2); codigos, ubicaciones, cantidades y estados sinteticos con padding a derecha. -->
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <soap:Body>
+    <ListarStockResponse xmlns="http://tempuri.org/">
+      <ListarStockResult>
+        <DataSet xmlns="">
+          <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+            <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+              <xs:complexType>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                  <xs:element name="Stock">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="CODIGOUNICO" type="xs:string" minOccurs="0" />
+                        <xs:element name="CANTIDAD" type="xs:double" minOccurs="0" />
+                        <xs:element name="CODIGOUBICACION" type="xs:string" minOccurs="0" />
+                        <xs:element name="NROESTADO" type="xs:unsignedByte" minOccurs="0" />
+                        <xs:element name="UBICACION" type="xs:string" minOccurs="0" />
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:complexType>
+            </xs:element>
+          </xs:schema>
+          <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+            <NewDataSet xmlns="">
+              <Stock diffgr:id="Stock1" msdata:rowOrder="0">
+                <CODIGOUNICO>SINT-ST-01            </CODIGOUNICO>
+                <CANTIDAD>12</CANTIDAD>
+                <CODIGOUBICACION>UB-1      </CODIGOUBICACION>
+                <NROESTADO>1</NROESTADO>
+                <UBICACION>UBICACION SINTETICA A         </UBICACION>
+              </Stock>
+              <Stock diffgr:id="Stock2" msdata:rowOrder="1">
+                <CODIGOUNICO>SINT-ST-01            </CODIGOUNICO>
+                <CANTIDAD>-3.5</CANTIDAD>
+                <CODIGOUBICACION>UB-1      </CODIGOUBICACION>
+                <NROESTADO>2</NROESTADO>
+                <UBICACION>UBICACION SINTETICA A         </UBICACION>
+              </Stock>
+              <Stock diffgr:id="Stock3" msdata:rowOrder="2">
+                <CODIGOUNICO>SINT-ST-01            </CODIGOUNICO>
+                <CANTIDAD>0</CANTIDAD>
+                <CODIGOUBICACION />
+                <NROESTADO>0</NROESTADO>
+                <UBICACION>   </UBICACION>
+              </Stock>
+              <Stock diffgr:id="Stock4" msdata:rowOrder="3">
+                <CODIGOUNICO>000123                </CODIGOUNICO>
+                <CANTIDAD>0.25</CANTIDAD>
+                <CODIGOUBICACION>     </CODIGOUBICACION>
+                <NROESTADO>255</NROESTADO>
+                <UBICACION></UBICACION>
+              </Stock>
+              <Stock diffgr:id="Stock5" msdata:rowOrder="4">
+                <CODIGOUNICO>000123                </CODIGOUNICO>
+              </Stock>
+              <Stock diffgr:id="Stock6" msdata:rowOrder="5">
+                <CODIGOUNICO>SINT-ST-01            </CODIGOUNICO>
+                <CANTIDAD>12</CANTIDAD>
+                <CODIGOUBICACION>UB-1      </CODIGOUBICACION>
+                <NROESTADO>1</NROESTADO>
+                <UBICACION>UBICACION SINTETICA A         </UBICACION>
+              </Stock>
+            </NewDataSet>
+          </diffgr:diffgram>
+        </DataSet>
+      </ListarStockResult>
+    </ListarStockResponse>
+  </soap:Body>
+</soap:Envelope>

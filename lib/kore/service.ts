@@ -8,6 +8,8 @@ import { buildCuentaFilterFields, fetchKoreCuentas } from "./cuentas.ts";
 import type { KoreCuenta, KoreCuentaFilters } from "./cuentas.ts";
 import { buildMarcaModeloFilterFields, fetchKoreMarcasModelos } from "./marcas-modelos.ts";
 import type { KoreMarcaModelo, KoreMarcaModeloFilters } from "./marcas-modelos.ts";
+import { buildStockFilterFields, fetchKoreStock } from "./stock.ts";
+import type { KoreStock, KoreStockFilters } from "./stock.ts";
 import { fetchKoreFamilias, fetchKoreGrupos, fetchKoreSubgrupos } from "./taxonomia.ts";
 import type { KoreFamilia, KoreGrupo, KoreSubgrupo } from "./taxonomia.ts";
 import { fetchKoreVendedores } from "./vendedores.ts";
@@ -85,4 +87,17 @@ export async function listKoreMarcasModelos(
   // Fail-fast: filtros inválidos o ausentes fallan antes de leer config o crear el cliente.
   buildMarcaModeloFilterFields(filters);
   return fetchKoreMarcasModelos(clientFrom(options), filters);
+}
+
+/**
+ * Filas de stock tal cual las devuelve KORE (sin sumar ni interpretar estados).
+ * Requiere al menos un filtro efectivo; sin filtros falla antes de salir a red.
+ */
+export async function listKoreStock(
+  filters: KoreStockFilters,
+  options: KoreServiceOptions = {},
+): Promise<KoreStock[]> {
+  // Fail-fast: filtros inválidos o ausentes fallan antes de leer config o crear el cliente.
+  buildStockFilterFields(filters);
+  return fetchKoreStock(clientFrom(options), filters);
 }

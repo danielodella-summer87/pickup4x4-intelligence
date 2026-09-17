@@ -18,10 +18,12 @@ export {
   listKoreFamilias,
   listKoreGrupos,
   listKoreMarcasModelos,
+  listKoreStock,
   listKoreSubgrupos,
   listKoreVendedores,
 } from "./service.ts";
 export type { KoreServiceOptions } from "./service.ts";
+export type { KoreStock, KoreStockFilters } from "./stock.ts";
 export type { KoreMarcaModelo, KoreMarcaModeloFilters } from "./marcas-modelos.ts";
 export type { KoreFamilia, KoreGrupo, KoreSubgrupo } from "./taxonomia.ts";
 export type { KoreArticulo, KoreArticuloFilters } from "./articulos.ts";

@@ -15,6 +15,7 @@ export const KORE_READ_ONLY_OPERATIONS = [
   "ListarGrupos",
   "ListarSubgrupos",
   "ListarMarcasModelos",
+  "ListarStock",
 ] as const;
 
 export type KoreReadOnlyOperation = (typeof KORE_READ_ONLY_OPERATIONS)[number];
