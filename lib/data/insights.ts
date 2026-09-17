@@ -1,7 +1,4 @@
-import {
-  mockPickupDataToActive,
-  type ActivePickupData,
-} from "@/lib/data/pickup-data";
+import type { ActivePickupData } from "@/lib/data/pickup-data";
 import type { DatasetWarning } from "@/lib/excel/build-dataset";
 import type { DataQualityReport } from "@/lib/excel/data-quality";
 import type { SmartNormalizationReport } from "@/lib/excel/normalization";
@@ -17,8 +14,6 @@ import type { SolicitudPresupuesto } from "@/lib/models/solicitud";
 import type { Venta, VentaItem } from "@/lib/models/venta";
 
 type PickupData = ActivePickupData;
-
-const defaultPickupData = mockPickupDataToActive();
 
 const STOCK_BAJO_UMBRAL = 10;
 
@@ -91,54 +86,54 @@ export function formatCondicionVenta(tipoComprobante: Venta["tipoComprobante"]):
   return labels[tipoComprobante];
 }
 
-function buildClienteMap(data: PickupData = defaultPickupData) {
+function buildClienteMap(data: PickupData) {
   return new Map(data.clientes.map((cliente) => [cliente.numeroCuenta, cliente]));
 }
 
-function buildArticuloMap(data: PickupData = defaultPickupData) {
+function buildArticuloMap(data: PickupData) {
   return new Map(data.articulos.map((articulo) => [articulo.codigoUnico, articulo]));
 }
 
 export function getClienteByNumeroCuenta(
   numeroCuenta: string,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): Cliente | undefined {
   return buildClienteMap(data).get(numeroCuenta);
 }
 
-export function calcularTotalVentas(data: PickupData = defaultPickupData): number {
+export function calcularTotalVentas(data: PickupData): number {
   return data.ventas.reduce((total, venta) => total + venta.importeTotal, 0);
 }
 
-export function calcularCantidadClientes(data: PickupData = defaultPickupData): number {
+export function calcularCantidadClientes(data: PickupData): number {
   return data.clientes.length;
 }
 
-export function calcularCantidadArticulos(data: PickupData = defaultPickupData): number {
+export function calcularCantidadArticulos(data: PickupData): number {
   return data.articulos.filter((articulo) => articulo.activo).length;
 }
 
-export function calcularSolicitudesAbiertas(data: PickupData = defaultPickupData): number {
+export function calcularSolicitudesAbiertas(data: PickupData): number {
   return data.solicitudes.filter(
     (solicitud) => solicitud.estado === "pendiente" || solicitud.estado === "enviado",
   ).length;
 }
 
-export function calcularClientesActivos(data: PickupData = defaultPickupData): number {
+export function calcularClientesActivos(data: PickupData): number {
   return data.clientes.filter((cliente) => cliente.estado === "activo").length;
 }
 
-export function calcularArticulosConStock(data: PickupData = defaultPickupData): number {
+export function calcularArticulosConStock(data: PickupData): number {
   return getArticulosConStock(data).length;
 }
 
-export function calcularArticulosBajoStock(data: PickupData = defaultPickupData): number {
+export function calcularArticulosBajoStock(data: PickupData): number {
   return data.articulos.filter(
     (articulo) => articulo.activo && (articulo.stock ?? 0) > 0 && (articulo.stock ?? 0) < STOCK_BAJO_UMBRAL,
   ).length;
 }
 
-export function calcularOportunidadesPrioritarias(data: PickupData = defaultPickupData): number {
+export function calcularOportunidadesPrioritarias(data: PickupData): number {
   return data.oportunidades.filter((oportunidad) => oportunidad.prioridad === "alta").length;
 }
 
@@ -151,7 +146,7 @@ export type TopClienteVentas = {
 
 export function getTopClientesPorVentas(
   limit = 5,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): TopClienteVentas[] {
   const clienteMap = buildClienteMap(data);
   const totales = new Map<string, number>();
@@ -182,7 +177,7 @@ export type TopArticuloCantidad = {
 
 export function getTopArticulosPorCantidad(
   limit = 5,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): TopArticuloCantidad[] {
   const articuloMap = buildArticuloMap(data);
   const totales = new Map<string, number>();
@@ -211,7 +206,7 @@ export type VentasPorLocalidad = {
 };
 
 export function getVentasPorLocalidad(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): VentasPorLocalidad[] {
   const clienteMap = buildClienteMap(data);
   const agrupado = new Map<string, { totalVentas: number; cantidadComprobantes: number }>();
@@ -232,7 +227,7 @@ export function getVentasPorLocalidad(
 }
 
 export function getClientesDormidosOBajaActividad(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): Cliente[] {
   const cuentasConVentas = new Set(data.ventas.map((venta) => venta.numeroCuenta));
 
@@ -244,14 +239,14 @@ export function getClientesDormidosOBajaActividad(
   );
 }
 
-export function getArticulosConStock(data: PickupData = defaultPickupData): Articulo[] {
+export function getArticulosConStock(data: PickupData): Articulo[] {
   return data.articulos.filter(
     (articulo) => articulo.activo && (articulo.stock ?? 0) > 0,
   );
 }
 
 export function getOportunidadesPorPrioridad(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): Record<OportunidadPrioridad, OportunidadComercial[]> {
   const orden: OportunidadPrioridad[] = ["alta", "media", "baja"];
   const agrupado: Record<OportunidadPrioridad, OportunidadComercial[]> = {
@@ -275,7 +270,7 @@ export function getOportunidadesPorPrioridad(
 
 export function getOportunidadesDestacadas(
   limit = 3,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): OportunidadComercial[] {
   const porPrioridad = getOportunidadesPorPrioridad(data);
   return [...porPrioridad.alta, ...porPrioridad.media, ...porPrioridad.baja].slice(
@@ -286,7 +281,7 @@ export function getOportunidadesDestacadas(
 
 export function contarAplicacionesPorCodigo(
   codigoUnico: string,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   return data.articuloAplicaciones.filter((ap) => ap.codigoUnico === codigoUnico).length;
 }
@@ -296,7 +291,7 @@ export type ArticuloConAplicaciones = Articulo & {
 };
 
 export function getArticulosConConteoAplicaciones(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): ArticuloConAplicaciones[] {
   return data.articulos.map((articulo) => ({
     ...articulo,
@@ -311,7 +306,7 @@ export type VentaEnriquecida = Venta & {
 };
 
 export function getVentasEnriquecidas(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): VentaEnriquecida[] {
   const clienteMap = buildClienteMap(data);
 
@@ -335,18 +330,18 @@ export function getVentasEnriquecidas(
     });
 }
 
-export function calcularTicketPromedio(data: PickupData = defaultPickupData): number {
+export function calcularTicketPromedio(data: PickupData): number {
   if (data.ventas.length === 0) return 0;
   return calcularTotalVentas(data) / data.ventas.length;
 }
 
-export function calcularUnidadesVendidas(data: PickupData = defaultPickupData): number {
+export function calcularUnidadesVendidas(data: PickupData): number {
   return data.ventaItems.reduce((total, item) => total + item.cantidad, 0);
 }
 
 export function resolverVehiculoPorAplicacion(
   codigoAplicacion: string | undefined,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): string {
   if (!codigoAplicacion) return "—";
 
@@ -379,7 +374,7 @@ export type SolicitudEnriquecida = SolicitudPresupuesto & {
 };
 
 export function getSolicitudesEnriquecidas(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): SolicitudEnriquecida[] {
   const clienteMap = buildClienteMap(data);
 
@@ -414,7 +409,7 @@ export function getImpactoEstimado(prioridad: OportunidadPrioridad): string {
 }
 
 export function getOportunidadesEnriquecidas(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): OportunidadEnriquecida[] {
   const clienteMap = buildClienteMap(data);
   const articuloMap = buildArticuloMap(data);
@@ -450,7 +445,7 @@ export type ModeloConAplicaciones = {
 };
 
 export function getModelosConAplicaciones(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): ModeloConAplicaciones[] {
   const articuloMap = buildArticuloMap(data);
   const modeloIds = [...new Set(data.articuloAplicaciones.map((ap) => ap.modeloId))];
@@ -480,7 +475,7 @@ export function getModelosConAplicaciones(
   });
 }
 
-export function getResumenClientes(data: PickupData = defaultPickupData) {
+export function getResumenClientes(data: PickupData) {
   const dormidos = data.clientes.filter((c) => c.estado === "dormido").length;
   const activos = calcularClientesActivos(data);
   const total = calcularCantidadClientes(data);
@@ -597,25 +592,25 @@ export type CommercialDashboardMeta = {
 };
 
 export function calcularTotalRegistrosVenta(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   return data.ventas.length;
 }
 
 export function calcularTotalArticulosUnicos(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   return data.articulos.length;
 }
 
 export function calcularTotalAplicaciones(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   return data.articuloAplicaciones.length;
 }
 
 export function getClientesPorLocalidad(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): ClientesPorLocalidad[] {
   const agrupado = new Map<string, number>();
 
@@ -630,7 +625,7 @@ export function getClientesPorLocalidad(
 }
 
 export function getVentasPorMes(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): VentasPorMes[] {
   if (!ventasTienenFechasConfiables(data.ventas)) {
     return [];
@@ -661,7 +656,7 @@ export type ActividadComercialRegistrada = {
 };
 
 export function getActividadComercialRegistrada(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): ActividadComercialRegistrada {
   const ventasConItems = new Set(data.ventaItems.map((item) => item.ventaId));
   const lineasSinItem = data.ventas.filter((v) => !ventasConItems.has(v.id)).length;
@@ -676,7 +671,7 @@ export function getActividadComercialRegistrada(
 
 export function getTopClientesPorCompras(
   limit = 5,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): TopClienteCompras[] {
   const clienteMap = buildClienteMap(data);
   const compras = new Map<string, number>();
@@ -701,7 +696,7 @@ export function getTopClientesPorCompras(
 
 export function getTopArticulosPorFrecuencia(
   limit = 5,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): TopArticuloFrecuencia[] {
   const articuloMap = buildArticuloMap(data);
   const veces = new Map<string, number>();
@@ -742,7 +737,7 @@ function buildMarcaModeloMaps(data: PickupData) {
 
 export function getTopMarcasPorAplicaciones(
   limit = 5,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): RankedCount[] {
   const { marcaMap, modeloMap } = buildMarcaModeloMaps(data);
   const totales = new Map<string, number>();
@@ -763,7 +758,7 @@ export function getTopMarcasPorAplicaciones(
 
 export function getTopModelosPorAplicaciones(
   limit = 5,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): RankedCount[] {
   const { marcaMap, modeloMap } = buildMarcaModeloMaps(data);
   const totales = new Map<string, number>();
@@ -784,7 +779,7 @@ export function getTopModelosPorAplicaciones(
 
 export function getAplicacionesPorMarcaModelo(
   limit = 8,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): AplicacionPorMarcaModelo[] {
   const { marcaMap, modeloMap } = buildMarcaModeloMaps(data);
   const totales = new Map<string, AplicacionPorMarcaModelo>();
@@ -809,27 +804,27 @@ export function getAplicacionesPorMarcaModelo(
 }
 
 export function contarClientesSinVentas(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   return getClientesSinVentas(data).length;
 }
 
 export function getClientesSinVentas(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): Cliente[] {
   const cuentasConVentas = new Set(data.ventas.map((v) => v.numeroCuenta));
   return data.clientes.filter((c) => !cuentasConVentas.has(c.numeroCuenta));
 }
 
 export function contarVentasSinArticulo(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   const ventasConItems = new Set(data.ventaItems.map((item) => item.ventaId));
   return data.ventas.filter((venta) => !ventasConItems.has(venta.id)).length;
 }
 
 export function contarArticulosSinAplicaciones(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): number {
   const codigosConAplicacion = new Set(
     data.articuloAplicaciones.map((ap) => ap.codigoUnico),
@@ -910,7 +905,7 @@ function buildAlertasNormalizacion(meta?: CommercialDashboardMeta): string[] {
 }
 
 export function buildCommercialDashboardInsights(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
   meta?: CommercialDashboardMeta,
 ): CommercialDashboardInsights {
   const resumenCalidad = meta?.dataQuality

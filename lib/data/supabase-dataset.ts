@@ -239,19 +239,3 @@ export async function saveDatasetToSupabase(
     };
   }
 }
-
-export async function clearSupabaseDataset(): Promise<{
-  ok: boolean;
-  errorMessage?: string;
-}> {
-  try {
-    const res = await fetch("/api/supabase/clear-dataset", { method: "POST" });
-    const body = (await res.json()) as { ok: boolean; errorMessage?: string };
-    return { ok: body.ok, errorMessage: body.errorMessage };
-  } catch (error) {
-    return {
-      ok: false,
-      errorMessage: error instanceof Error ? error.message : "Error al limpiar Supabase",
-    };
-  }
-}

@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useDataset, type DatasetSource } from "@/contexts/DatasetContext";
+import { useDataset, type DatasetSource, type DatasetStatus } from "@/contexts/DatasetContext";
 import type { DatasetWarning } from "@/lib/excel/build-dataset";
 import {
+  emptyActivePickupData,
   mockPickupDataToActive,
   pickupDatasetToActiveData,
   type ActivePickupData,
 } from "@/lib/data/pickup-data";
+import type { DataMode, DomainSources } from "@/lib/data/sources";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 
 function logActiveDataset(message: string, detail?: unknown): void {
@@ -21,9 +23,16 @@ function logActiveDataset(message: string, detail?: unknown): void {
 export type ActiveDataset = {
   data: ActivePickupData;
   source: DatasetSource;
+  dataMode: DataMode | null;
+  dataSources: DomainSources | null;
+  status: DatasetStatus;
+  configError: string | null;
   generatedAt: Date | null;
   warnings: DatasetWarning[];
+  /** true solo con la fuente mock elegida explícitamente. */
   isMock: boolean;
+  /** true cuando no hay datos que mostrar (legacy vacío, error o configuración inválida). */
+  isEmpty: boolean;
   isExcel: boolean;
   isSupabase: boolean;
   isPersistedLocally: boolean;
@@ -37,6 +46,10 @@ export function useActiveDataset(): ActiveDataset {
   const {
     dataset,
     source,
+    dataMode,
+    dataSources,
+    status,
+    configError,
     generatedAt,
     warnings,
     hasLocalPersistence,
@@ -48,36 +61,23 @@ export function useActiveDataset(): ActiveDataset {
   } = useDataset();
 
   const data = useMemo(() => {
-    if (source === "supabase" && dataset) {
-      return pickupDatasetToActiveData(dataset);
-    }
+    if (dataMode === "mock") return mockPickupDataToActive();
+    if (dataMode === "legacy" && dataset) return pickupDatasetToActiveData(dataset);
+    // Cargando, legacy vacío, error o configuración inválida: vacío explícito, nunca mock.
+    return emptyActivePickupData();
+  }, [dataMode, dataset]);
 
-    if (dataset) {
-      return pickupDatasetToActiveData(dataset);
-    }
-
-    if (!isStorageHydrated) {
-      return mockPickupDataToActive();
-    }
-
-    if (source === "excel" || source === "supabase") {
-      logActiveDataset("source real pero dataset=null — mock temporal", { source });
-    }
-
-    return mockPickupDataToActive();
-  }, [dataset, source, isStorageHydrated]);
+  const isEmpty = status === "empty" || status === "error";
 
   useEffect(() => {
-    logActiveDataset("source actual y conteos", {
+    logActiveDataset("fuente y conteos", {
+      dataMode,
+      dataSources,
+      status,
       source,
       isStorageHydrated,
       isSupabaseLoaded,
       hasDataset: dataset !== null,
-      isMock: source === "mock",
-      isExcel: source === "excel",
-      isSupabase: source === "supabase",
-      isPersistedLocally: source === "excel" && hasLocalPersistence,
-      isPersistedInSupabase: source === "supabase" && hasSupabasePersistence,
       counts: dataset
         ? {
             clientes: dataset.clientes.length,
@@ -87,21 +87,19 @@ export function useActiveDataset(): ActiveDataset {
           }
         : null,
     });
-  }, [
-    dataset,
-    source,
-    hasLocalPersistence,
-    hasSupabasePersistence,
-    isStorageHydrated,
-    isSupabaseLoaded,
-  ]);
+  }, [dataset, dataMode, dataSources, status, source, isStorageHydrated, isSupabaseLoaded]);
 
   return {
     data,
     source,
+    dataMode,
+    dataSources,
+    status,
+    configError,
     generatedAt,
     warnings,
-    isMock: source === "mock",
+    isMock: dataMode === "mock",
+    isEmpty,
     isExcel: source === "excel",
     isSupabase: source === "supabase",
     isPersistedLocally: source === "excel" && hasLocalPersistence,
@@ -117,16 +115,19 @@ export function formatDatasetSourceLabel(
   options?: { persistedLocally?: boolean; inMemoryOnly?: boolean },
 ): string {
   if (source === "supabase") {
-    return "Supabase";
+    return "Legacy · Supabase";
   }
   if (source === "excel") {
     if (options?.persistedLocally) {
-      return "Excel (persistido local)";
+      return "Legacy · Excel (persistido local)";
     }
     if (options?.inMemoryOnly) {
-      return "Excel (solo en memoria)";
+      return "Legacy · Excel (solo en memoria)";
     }
-    return "Excel";
+    return "Legacy · Excel";
   }
-  return "Mock";
+  if (source === "mock") {
+    return "Mock (explícito)";
+  }
+  return "Sin datos";
 }

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  saveDatasetToSupabaseServer,
-  validateDatasetCountsForImport,
-} from "@/lib/data/supabase-dataset-server";
+import { validateDatasetCountsForImport } from "@/lib/data/dataset-import-validation";
+import { saveDatasetToSupabaseServer } from "@/lib/data/supabase-dataset-server";
 import type { PickupDataset } from "@/lib/excel/build-dataset";
 import { isValidPickupDataset } from "@/lib/data/excel-dataset-persistence";
 import { validateSupabaseServiceEnv } from "@/lib/supabase/validate-service-env";
@@ -106,6 +104,7 @@ export async function POST(request: Request) {
     ventaItems: dataset.ventaItems.length,
     articulos: dataset.articulos.length,
     aplicaciones: dataset.aplicaciones.length,
+    advertencias: countsCheck.warnings,
   });
 
   const generatedAt = body.generatedAt ? new Date(body.generatedAt) : new Date();

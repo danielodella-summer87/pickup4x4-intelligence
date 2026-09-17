@@ -1,13 +1,8 @@
-import {
-  mockPickupDataToActive,
-  type ActivePickupData,
-} from "@/lib/data/pickup-data";
+import type { ActivePickupData } from "@/lib/data/pickup-data";
 import type { Articulo } from "@/lib/models/articulo";
 import type { VehiculoMarca, VehiculoModelo } from "@/lib/models/vehiculo";
 
 type PickupData = ActivePickupData;
-
-const defaultPickupData = mockPickupDataToActive();
 
 const DESCRIPCIONES_NO_USABLES = new Set([
   "",
@@ -104,7 +99,7 @@ function contarModelosDistintosPorCodigo(data: PickupData): Map<string, number> 
 }
 
 export function getArticulosAltaRotacion(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): Set<string> {
   const ventas = contarVentasPorCodigo(data);
   const alta = new Set<string>();
@@ -166,7 +161,7 @@ function toArticuloMostrador(
 }
 
 export function getMarcasDisponibles(
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): VehiculoMarca[] {
   const marcaIdsConAplicacion = new Set<string>();
   const modeloPorId = new Map(data.vehiculoModelos.map((m) => [m.id, m]));
@@ -183,7 +178,7 @@ export function getMarcasDisponibles(
 
 export function getModelosPorMarca(
   marcaId: string,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): VehiculoModelo[] {
   const modeloIdsConAplicacion = new Set(
     getAplicacionesValidas(data)
@@ -227,7 +222,7 @@ function matchesBusqueda(articulo: ArticuloMostrador, busqueda: string): boolean
 export function getArticulosPorVehiculo(
   marcaId: string,
   modeloId: string,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
   filtros: FiltrosMostrador = {},
 ): ArticuloMostrador[] {
   const articuloMap = buildArticuloMap(data);
@@ -274,14 +269,14 @@ export function getArticulosPorVehiculo(
 
 export function getMarcaNombre(
   marcaId: string,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): string {
   return data.vehiculoMarcas.find((m) => m.id === marcaId)?.nombre ?? "—";
 }
 
 export function getModeloNombre(
   modeloId: string,
-  data: PickupData = defaultPickupData,
+  data: PickupData,
 ): string {
   return data.vehiculoModelos.find((m) => m.id === modeloId)?.nombre ?? "—";
 }

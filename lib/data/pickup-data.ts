@@ -34,6 +34,22 @@ export function pickupDatasetToActiveData(dataset: PickupDataset): ActivePickupD
   };
 }
 
+/** Dataset vacío explícito (legacy vacío, cargando o error). Nunca se reemplaza por mock. */
+export function emptyActivePickupData(): ActivePickupData {
+  return {
+    vehiculoMarcas: [],
+    vehiculoModelos: [],
+    clientes: [],
+    articulos: [],
+    articuloAplicaciones: [],
+    ventas: [],
+    ventaItems: [],
+    solicitudes: [],
+    oportunidades: [],
+  };
+}
+
+/** Datos de ejemplo. Solo para la fuente mock elegida explícitamente (lib/data/sources.ts). */
 export function mockPickupDataToActive(): ActivePickupData {
   return {
     vehiculoMarcas: [...mockPickupData.vehiculoMarcas],

@@ -109,7 +109,7 @@ export default function DashboardPage() {
     hasSupabasePersistence,
     isStorageHydrated,
   } = useDataset();
-  const { data, source: activeSource, isSupabase } = useActiveDataset();
+  const { data, source: activeSource, isSupabase, status: datasetStatus } = useActiveDataset();
   const sourceHint = formatDatasetSourceLabel(activeSource, {
     persistedLocally: hasLocalPersistence,
     inMemoryOnly:
@@ -159,8 +159,16 @@ export default function DashboardPage() {
             ) : null}
             {activeSource === "mock" && isStorageHydrated ? (
               <span className="ml-2 text-slate-600">
-                · datos de ejemplo hasta importar Excel
+                · datos de ejemplo (fuente mock explícita)
               </span>
+            ) : null}
+            {datasetStatus === "empty" ? (
+              <span className="ml-2 text-amber-400/90">
+                · fuente legacy vacía: importá Excel para ver datos
+              </span>
+            ) : null}
+            {datasetStatus === "error" ? (
+              <span className="ml-2 text-rose-400/90">· fuente legacy no disponible</span>
             ) : null}
           </p>
           <Link href="/importar" className={primaryCtaClass}>

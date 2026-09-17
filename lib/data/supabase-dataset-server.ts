@@ -476,30 +476,6 @@ export async function saveDatasetToSupabaseServer(
   };
 }
 
-/** Validación de conteos antes de persistir (usado por la API). */
-export function validateDatasetCountsForImport(
-  dataset: PickupDataset,
-): { ok: true } | { ok: false; errorMessage: string; technicalDetail: string } {
-  const empty: string[] = [];
-  if (dataset.clientes.length === 0) empty.push("clientes");
-  if (dataset.ventas.length === 0 && dataset.ventaItems.length === 0) {
-    empty.push("ventas (cabeceras o líneas)");
-  }
-  if (dataset.articulos.length === 0) empty.push("artículos");
-  if (dataset.aplicaciones.length === 0) empty.push("aplicaciones");
-
-  if (empty.length > 0) {
-    const detail = `Recibido: clientes=${dataset.clientes.length}, ventas=${dataset.ventas.length}, ventaItems=${dataset.ventaItems.length}, articulos=${dataset.articulos.length}, aplicaciones=${dataset.aplicaciones.length}`;
-    return {
-      ok: false,
-      errorMessage: `Dataset vacío en: ${empty.join(", ")}`,
-      technicalDetail: detail,
-    };
-  }
-
-  return { ok: true };
-}
-
 export async function loadDatasetFromSupabaseServer(): Promise<SupabaseDatasetLoadResult> {
   let client: SupabaseClient<Database>;
   try {

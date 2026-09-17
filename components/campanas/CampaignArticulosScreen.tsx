@@ -393,7 +393,7 @@ type CampaignArticulosScreenProps = {
 };
 
 export function CampaignArticulosScreen({ preset }: CampaignArticulosScreenProps) {
-  const { data, source, isMock, isPersistedLocally, isStorageHydrated, supabaseError } =
+  const { data, source, isMock, isEmpty, isPersistedLocally, isStorageHydrated, supabaseError } =
     useActiveDataset();
   const sourceLabel = formatDatasetSourceLabel(source, {
     persistedLocally: isPersistedLocally,
@@ -401,7 +401,7 @@ export function CampaignArticulosScreen({ preset }: CampaignArticulosScreenProps
   // Fuente real con datos pero sin ventas: se pueden validar códigos pero no
   // detectar compradores históricos hasta importar el Diario de Ventas.
   const datasetSinVentas =
-    isStorageHydrated && !isMock && data.ventaItems.length === 0;
+    isStorageHydrated && !isMock && !isEmpty && data.ventaItems.length === 0;
 
   const [meta, setMeta] = useState<CampaignMeta>(preset?.meta ?? metaInicial);
   const [articulos, setArticulos] = useState<CampaignArticuloInput[]>([]);
@@ -866,13 +866,17 @@ export function CampaignArticulosScreen({ preset }: CampaignArticulosScreenProps
             <span className="rounded-full bg-sky-500/15 px-2.5 py-1 text-sky-300">
               Cargando datos reales… (puede tardar unos segundos con catálogos grandes)
             </span>
-          ) : isMock && supabaseError ? (
+          ) : isEmpty && supabaseError ? (
             <span className="rounded-full bg-rose-500/15 px-2.5 py-1 text-rose-300">
               Error al cargar fuente de datos: {supabaseError}
             </span>
+          ) : isEmpty ? (
+            <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-300">
+              Sin datos: la fuente legacy está vacía. Importá tus Excel reales.
+            </span>
           ) : isMock ? (
             <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-300">
-              Datos de ejemplo (mock): importá tus Excel reales para resultados válidos.
+              Datos de ejemplo (fuente mock explícita): no usar para campañas reales.
             </span>
           ) : null}
         </div>

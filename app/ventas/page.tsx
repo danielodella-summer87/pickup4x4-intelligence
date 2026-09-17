@@ -38,7 +38,7 @@ const filtrosIniciales: VentasFiltros = {
 };
 
 export default function VentasPage() {
-  const { data, source, isExcel, isMock, isPersistedLocally } = useActiveDataset();
+  const { data, source, isExcel, isMock, isEmpty, isPersistedLocally } = useActiveDataset();
   const sourceLabel = formatDatasetSourceLabel(source, {
     persistedLocally: isPersistedLocally,
   });
@@ -182,7 +182,7 @@ export default function VentasPage() {
                     : "Importá tu planilla Excel para ver el historial de ventas."
                 }
                 action={
-                  isMock ? (
+                  isEmpty ? (
                     <Link href="/importar" className={primaryCtaClass}>
                       Importar datos
                     </Link>

@@ -118,6 +118,7 @@ export default function OportunidadesPage() {
     data,
     source,
     isExcel,
+    isMock,
     isSupabase,
     isPersistedLocally,
     oportunidadesSupabase,
@@ -153,7 +154,9 @@ export default function OportunidadesPage() {
     ? "Supabase"
     : isExcel
       ? "Excel importado"
-      : "Demo";
+      : isMock
+        ? "Demo (mock explícito)"
+        : "Sin datos";
 
   const sinDatosComerciales =
     data.clientes.length === 0 &&

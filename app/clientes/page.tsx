@@ -44,7 +44,7 @@ function estadoBadgeClass(estadoLabel: string) {
 }
 
 export default function ClientesPage() {
-  const { data, source, isExcel, isMock, isPersistedLocally } = useActiveDataset();
+  const { data, source, isExcel, isMock, isEmpty, isPersistedLocally } = useActiveDataset();
   const sourceLabel = formatDatasetSourceLabel(source, {
     persistedLocally: isPersistedLocally,
   });
@@ -161,7 +161,7 @@ export default function ClientesPage() {
                     : "Importá tu planilla Excel para cargar la cartera de clientes."
                 }
                 action={
-                  isMock ? (
+                  isEmpty ? (
                     <Link href="/importar" className={primaryCtaClass}>
                       Importar datos
                     </Link>

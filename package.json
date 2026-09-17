@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:kore": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/kore/**/*.test.ts\"",
     "test:kore-sync": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/kore-sync/**/*.test.ts\"",
+    "test:data": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/data/**/*.test.ts\" \"lib/kore-catalog/**/*.test.ts\"",
     "kore:sync:catalog-shadow": "node --env-file=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/kore-sync-catalog-shadow.ts",
     "campania": "bash scripts/campania.sh",
     "campania:build": "node scripts/build-campania.cjs",

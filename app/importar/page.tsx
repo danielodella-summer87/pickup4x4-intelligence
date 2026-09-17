@@ -1191,8 +1191,9 @@ export default function ImportarPage() {
     isSavingToSupabase,
     saveToSupabase,
     setDataset,
-    clearDataset,
     clearLocalDataset,
+    dataMode,
+    configError,
   } = useDataset();
   const [generateSummary, setGenerateSummary] = useState<DatasetGenerateSummary | null>(
     null,
@@ -1319,6 +1320,11 @@ export default function ImportarPage() {
       }
 
       const persistResult = await setDataset(dataset);
+      if (dataMode !== "legacy") {
+        setApplyError(persistResult.errorMessage ?? "La fuente activa no admite importación.");
+        setDatasetBuildProgress({ active: false, percent: 0, message: "" });
+        return;
+      }
       const at = new Date();
 
       setGenerateSummary({
@@ -1377,8 +1383,21 @@ export default function ImportarPage() {
           <div className="mt-4 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100/95">
             <strong className="font-semibold text-sky-200">Respaldo en la nube:</strong>{" "}
             la copia local del navegador no reemplaza a Supabase. Sin guardar en la nube,
-            el despliegue en Vercel seguirá en Mock.
+            el despliegue en Vercel seguirá sin datos (la fuente legacy vacía no se
+            reemplaza por datos de ejemplo).
           </div>
+
+          {dataMode === "mock" ? (
+            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              Fuente mock activa por configuración explícita: la importación está
+              deshabilitada.
+            </div>
+          ) : null}
+          {configError ? (
+            <div className="mt-4 rounded-lg border border-rose-500/35 bg-rose-950/40 px-4 py-3 text-sm text-rose-200">
+              Configuración de fuentes inválida ({configError}). No se cargan datos.
+            </div>
+          ) : null}
 
           <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-400">
             <span>Fuente activa del sistema:</span>
@@ -1436,14 +1455,7 @@ export default function ImportarPage() {
                 onClick={clearLocalDataset}
                 className={secondaryCtaClass}
               >
-                Borrar dataset local
-              </button>
-              <button
-                type="button"
-                onClick={clearDataset}
-                className={secondaryCtaClass}
-              >
-                Volver a datos mock
+                Borrar copia local del navegador
               </button>
             </div>
           ) : null}
@@ -1709,15 +1721,6 @@ export default function ImportarPage() {
                   ? "Podés generar el dataset. Revisá las observaciones cuando tengas tiempo."
                   : "Construye el dataset normalizado y aplícalo al sistema (se guarda en localStorage de este navegador)."}
           </p>
-          {source === "excel" ? (
-            <button
-              type="button"
-              onClick={clearDataset}
-              className={`${secondaryCtaClass} mt-4`}
-            >
-              Volver a datos mock
-            </button>
-          ) : null}
         </div>
 
         {applyError ? (
@@ -1749,7 +1752,8 @@ export default function ImportarPage() {
                     : " No se pudo guardar en el almacenamiento del navegador (tamaño o cuota)."}
                 </p>
                 <p className="mt-2 text-amber-200/80">
-                  Si recargás la página sin persistencia, volverás a datos mock.
+                  Si recargás la página sin persistencia, se vuelve a la fuente legacy
+                  (Supabase); si está vacía, el sistema queda sin datos.
                 </p>
               </div>
             )}
