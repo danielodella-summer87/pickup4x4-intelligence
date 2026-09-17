@@ -6,6 +6,8 @@ import { parseKoreConfig } from "./config.ts";
 import type { KoreEnv } from "./config.ts";
 import { buildCuentaFilterFields, fetchKoreCuentas } from "./cuentas.ts";
 import type { KoreCuenta, KoreCuentaFilters } from "./cuentas.ts";
+import { buildMarcaModeloFilterFields, fetchKoreMarcasModelos } from "./marcas-modelos.ts";
+import type { KoreMarcaModelo, KoreMarcaModeloFilters } from "./marcas-modelos.ts";
 import { fetchKoreFamilias, fetchKoreGrupos, fetchKoreSubgrupos } from "./taxonomia.ts";
 import type { KoreFamilia, KoreGrupo, KoreSubgrupo } from "./taxonomia.ts";
 import { fetchKoreVendedores } from "./vendedores.ts";
@@ -73,4 +75,14 @@ export async function listKoreGrupos(options: KoreServiceOptions = {}): Promise<
 /** Catálogo completo sin filtros; no dispara requests adicionales. */
 export async function listKoreSubgrupos(options: KoreServiceOptions = {}): Promise<KoreSubgrupo[]> {
   return fetchKoreSubgrupos(clientFrom(options));
+}
+
+/** Requiere al menos un filtro de código con contenido; sin filtros falla antes de salir a red. */
+export async function listKoreMarcasModelos(
+  filters: KoreMarcaModeloFilters,
+  options: KoreServiceOptions = {},
+): Promise<KoreMarcaModelo[]> {
+  // Fail-fast: filtros inválidos o ausentes fallan antes de leer config o crear el cliente.
+  buildMarcaModeloFilterFields(filters);
+  return fetchKoreMarcasModelos(clientFrom(options), filters);
 }

@@ -12,12 +12,21 @@ import {
 import type { XmlElement } from "./xml.ts";
 
 /**
- * Sobre SOAP 1.1 de KoreStandard.asmx (document/literal, namespace tempuri).
- * Contrato verificado contra el WSDL real y la documentación oficial Kore Standard.
+ * Sobres SOAP 1.1 (por defecto) y SOAP 1.2 de KoreStandard.asmx (document/literal,
+ * namespace tempuri). Contrato verificado contra el WSDL real (bindings soap y
+ * soap12) y la documentación oficial Kore Standard.
  */
 
 export const KORE_SOAP_NAMESPACE = "http://tempuri.org/";
 const SOAP11_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/";
+const SOAP12_ENVELOPE_NAMESPACE = "http://www.w3.org/2003/05/soap-envelope";
+
+export type KoreSoapVersion = "1.1" | "1.2";
+export const KORE_DEFAULT_SOAP_VERSION: KoreSoapVersion = "1.1";
+
+export function isKoreSoapVersion(value: unknown): value is KoreSoapVersion {
+  return value === "1.1" || value === "1.2";
+}
 
 export const SOAP_FAULT_CODE_MAX_LENGTH = 100;
 export const SOAP_FAULT_MESSAGE_MAX_LENGTH = 300;
@@ -41,6 +50,25 @@ export function soapActionFor(operation: KoreReadOnlyOperation): string {
   return `"${KORE_SOAP_NAMESPACE}${operation}"`;
 }
 
+/**
+ * Headers HTTP según versión SOAP. 1.1: `text/xml` + cabecera `SOAPAction`.
+ * 1.2: `application/soap+xml` con la acción dentro del Content-Type (sin SOAPAction).
+ */
+export function soapRequestHeaders(
+  operation: KoreReadOnlyOperation,
+  soapVersion: KoreSoapVersion = KORE_DEFAULT_SOAP_VERSION,
+): Record<string, string> {
+  if (soapVersion === "1.2") {
+    return {
+      "Content-Type": `application/soap+xml; charset=utf-8; action=${soapActionFor(operation)}`,
+    };
+  }
+  return {
+    "Content-Type": "text/xml; charset=utf-8",
+    SOAPAction: soapActionFor(operation),
+  };
+}
+
 /** `<Data>` sin namespace: KORE no lo reconoce si hereda tempuri. */
 export function buildCredentialsDoc(
   companyNumber: string,
@@ -62,15 +90,21 @@ export function buildCredentialsDoc(
   );
 }
 
-export function buildSoapEnvelope(operation: KoreReadOnlyOperation, docXml: string): string {
+export function buildSoapEnvelope(
+  operation: KoreReadOnlyOperation,
+  docXml: string,
+  soapVersion: KoreSoapVersion = KORE_DEFAULT_SOAP_VERSION,
+): string {
+  const [prefix, namespace] =
+    soapVersion === "1.2" ? ["soap", SOAP12_ENVELOPE_NAMESPACE] : ["soapenv", SOAP11_ENVELOPE_NAMESPACE];
   return (
     '<?xml version="1.0" encoding="utf-8"?>' +
-    `<soapenv:Envelope xmlns:soapenv="${SOAP11_ENVELOPE_NAMESPACE}" xmlns:tem="${KORE_SOAP_NAMESPACE}">` +
-    "<soapenv:Header/>" +
-    "<soapenv:Body>" +
+    `<${prefix}:Envelope xmlns:${prefix}="${namespace}" xmlns:tem="${KORE_SOAP_NAMESPACE}">` +
+    `<${prefix}:Header/>` +
+    `<${prefix}:Body>` +
     `<tem:${operation}><tem:doc>${docXml}</tem:doc></tem:${operation}>` +
-    "</soapenv:Body>" +
-    "</soapenv:Envelope>"
+    `</${prefix}:Body>` +
+    `</${prefix}:Envelope>`
   );
 }
 
@@ -105,11 +139,14 @@ function parseSoapBody(xmlText: string, operation: string): XmlElement {
   return body;
 }
 
+/** SOAP 1.1: faultcode/faultstring. SOAP 1.2: Code/Value y Reason/Text. */
 function readSoapFault(body: XmlElement, redact: Redactor): SoapFault | null {
   const fault = firstChildElement(body, "Fault");
   if (!fault) return null;
-  const code = firstChildElement(fault, "faultcode");
-  const message = firstChildElement(fault, "faultstring");
+  const code12 = firstChildElement(fault, "Code");
+  const reason12 = firstChildElement(fault, "Reason");
+  const code = firstChildElement(fault, "faultcode") ?? (code12 && firstChildElement(code12, "Value"));
+  const message = firstChildElement(fault, "faultstring") ?? (reason12 && firstChildElement(reason12, "Text"));
   return {
     code: sanitize(code ? textContent(code) : "", redact, SOAP_FAULT_CODE_MAX_LENGTH) || "desconocido",
     message: sanitize(message ? textContent(message) : "", redact, SOAP_FAULT_MESSAGE_MAX_LENGTH),

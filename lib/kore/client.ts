@@ -5,17 +5,24 @@ import type { KoreReadOnlyOperation } from "./operations.ts";
 import { createRedactor } from "./redact.ts";
 import type { Redactor } from "./redact.ts";
 import {
+  KORE_DEFAULT_SOAP_VERSION,
   buildCredentialsDoc,
   buildSoapEnvelope,
   extractOperationResult,
-  soapActionFor,
+  isKoreSoapVersion,
   soapFaultError,
+  soapRequestHeaders,
   tryReadSoapFault,
 } from "./soap.ts";
-import type { KoreDocField } from "./soap.ts";
+import type { KoreDocField, KoreSoapVersion } from "./soap.ts";
 import type { XmlElement } from "./xml.ts";
 
-export type { KoreDocField } from "./soap.ts";
+export type { KoreDocField, KoreSoapVersion } from "./soap.ts";
+
+/** Opciones por llamada. `soapVersion` por defecto "1.1" (integraciones existentes). */
+export type KoreCallOptions = {
+  soapVersion?: KoreSoapVersion;
+};
 
 /**
  * Reemplazo del texto libre de KORE (faultcode/faultstring, detalle de red)
@@ -26,7 +33,8 @@ export type { KoreDocField } from "./soap.ts";
 export const KORE_SENSITIVE_DETAIL_OMITTED = "[detalle omitido: filtros con PII]";
 
 /**
- * Cliente SOAP 1.1 genérico y READ-ONLY para KoreStandard.asmx.
+ * Cliente SOAP genérico y READ-ONLY para KoreStandard.asmx: SOAP 1.1 por
+ * defecto, SOAP 1.2 opcional por llamada.
  *
  * - Solo operaciones de la allowlist (se valida antes de salir a red).
  * - Un único POST por llamada: sin reintentos y sin seguir redirecciones
@@ -62,8 +70,13 @@ export type KoreClient = {
   /**
    * Devuelve el elemento `<{operation}Result>` ya validado (sin Fault).
    * `docFields` agrega tags (filtros) dentro de `<Data>`, después de las credenciales.
+   * `options.soapVersion` elige el binding (por defecto SOAP 1.1).
    */
-  call(operation: string, docFields?: readonly KoreDocField[]): Promise<XmlElement>;
+  call(
+    operation: string,
+    docFields?: readonly KoreDocField[],
+    options?: KoreCallOptions,
+  ): Promise<XmlElement>;
 };
 
 function readCauseCode(error: unknown): string | undefined {
@@ -175,12 +188,19 @@ export function createKoreClient(options: KoreClientOptions): KoreClient {
   async function call(
     operation: string,
     docFields: readonly KoreDocField[] = [],
+    options: KoreCallOptions = {},
   ): Promise<XmlElement> {
     assertReadOnlyOperation(operation);
+
+    const soapVersion = options.soapVersion ?? KORE_DEFAULT_SOAP_VERSION;
+    if (!isKoreSoapVersion(soapVersion)) {
+      throw new KoreError({ kind: "invalid_argument", operation, message: "Versión SOAP no soportada" });
+    }
 
     const requestBody = buildSoapEnvelope(
       operation,
       buildCredentialsDoc(config.companyNumber, config.secretKey, docFields),
+      soapVersion,
     );
 
     // Con filtros PII en la llamada, ningún texto provisto por KORE llega a los errores.
@@ -202,10 +222,7 @@ export function createKoreClient(options: KoreClientOptions): KoreClient {
         method: "POST",
         redirect: "manual",
         cache: "no-store",
-        headers: {
-          "Content-Type": "text/xml; charset=utf-8",
-          SOAPAction: soapActionFor(operation),
-        },
+        headers: soapRequestHeaders(operation, soapVersion),
         body: requestBody,
         signal: controller.signal,
       });
