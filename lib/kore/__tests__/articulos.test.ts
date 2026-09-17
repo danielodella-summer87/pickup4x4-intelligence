@@ -190,18 +190,23 @@ describe("ListarArticulos: identidad", () => {
     });
   }
 
-  it("duplicado exacto → invalid_data", async () => {
-    const xml = inRow(OK, 3, "<CODIGOUNICO>A&amp;B-12/X.Ñ#</CODIGOUNICO>", "<CODIGOUNICO>SINT-0001</CODIGOUNICO>");
-    const error = assertKoreError(await errorFrom(articulosFrom(xml)), "invalid_data");
-    assert.equal(error.message, "Articulo row 3: duplicate CODIGOUNICO");
-    assertNoCommercialData(error);
+  // REGRESIÓN KORE-25: una respuesta real de ListarArticulos contuvo codigoUnico
+  // normalizados repetidos y el XSD real no declara clave única. El parser ya no
+  // impone unicidad: preserva todas las filas en orden (la identidad es de la sync).
+  it("codigoUnico repetido (duplicado exacto y colisión tras trim con contenido distinto) → filas preservadas en orden", async () => {
+    const rows = await articulosFrom(readFixture("listar-articulos.duplicate-codigo.xml"));
+    assert.equal(rows.length, 5);
+    assert.deepEqual(rows.map((row) => row.codigoUnico), ["SINT-0001", "00042", "A&B-12/X.Ñ#", "SINT-0001", "SINT-0001"]);
+    assert.deepEqual(rows[3], rows[0], "duplicado exacto preservado sin deduplicar");
+    assert.equal(rows[4].codigoUnicoRaw, "SINT-0001      ");
+    assert.notEqual(rows[4].descripcion, rows[0].descripcion);
   });
 
-  it("colisión solo después de trim → invalid_data (unicidad sobre codigoUnico normalizado)", async () => {
+  it("colisión solo después de trim ya no es invalid_data", async () => {
     const xml = inRow(OK, 3, "<CODIGOUNICO>A&amp;B-12/X.Ñ#</CODIGOUNICO>", "<CODIGOUNICO>00042</CODIGOUNICO>");
-    const error = assertKoreError(await errorFrom(articulosFrom(xml)), "invalid_data");
-    assert.equal(error.message, "Articulo row 3: duplicate CODIGOUNICO");
-    assertNoCommercialData(error);
+    const rows = await articulosFrom(xml);
+    assert.deepEqual([rows[1].codigoUnico, rows[2].codigoUnico], ["00042", "00042"]);
+    assert.notEqual(rows[1].codigoUnicoRaw, rows[2].codigoUnicoRaw);
   });
 });
 

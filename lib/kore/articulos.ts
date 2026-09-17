@@ -11,8 +11,11 @@ import type { XmlElement } from "./xml.ts";
  * minOccurs=0. KORE devuelve CODIGOUNICO con padding de whitespace.
  *
  * Reglas:
- * - codigoUnicoRaw: exactamente como llega. codigoUnico: raw.trim(), obligatorio,
- *   único (la unicidad se valida sobre el valor normalizado). Siempre string.
+ * - codigoUnicoRaw: exactamente como llega. codigoUnico: raw.trim(), obligatorio.
+ *   Siempre string. NO se valida unicidad (KORE-25): el XSD real no declara clave
+ *   única y una respuesta real contuvo codigoUnico normalizados repetidos. Se
+ *   preservan todas las filas en orden; la identidad la decide explícitamente la
+ *   capa de sync (lib/kore-sync), nunca este parser.
  * - Taxonomía (familia/grupo/subgrupo): tag ausente → raw y normalizado null (sin
  *   relación observable); presente → raw exacto y normalizado = raw.trim(), que puede
  *   ser "" (relaciona con el blank KORE taxonomy record). Nunca number. Relaciones
@@ -192,13 +195,8 @@ export function normalizeArticuloRow(row: DataSetRow, rowNumber: number): KoreAr
 
 export function parseListarArticulosResult(result: XmlElement): KoreArticulo[] {
   const rows = readDataSetRows(result, TABLE, OPERATION, { expectedFields: KORE_ARTICULO_FIELDS });
-  const seen = new Set<string>();
-  return rows.map((row, index) => {
-    const articulo = normalizeArticuloRow(row, index + 1);
-    if (seen.has(articulo.codigoUnico)) throw invalidData(index + 1, "duplicate", "CODIGOUNICO");
-    seen.add(articulo.codigoUnico);
-    return articulo;
-  });
+  // Sin validación de unicidad: ver reglas (KORE-25). Filas preservadas en orden.
+  return rows.map((row, index) => normalizeArticuloRow(row, index + 1));
 }
 
 export async function fetchKoreArticulos(
