@@ -1393,6 +1393,12 @@ export default function ImportarPage() {
               deshabilitada.
             </div>
           ) : null}
+          {dataMode === "mixed" ? (
+            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              Catálogo KORE activo por configuración: la importación de Excel (catálogo
+              legacy) está deshabilitada. Ventas, clientes y aplicaciones siguen en legacy.
+            </div>
+          ) : null}
           {configError ? (
             <div className="mt-4 rounded-lg border border-rose-500/35 bg-rose-950/40 px-4 py-3 text-sm text-rose-200">
               Configuración de fuentes inválida ({configError}). No se cargan datos.

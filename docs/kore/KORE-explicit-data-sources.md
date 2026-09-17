@@ -7,29 +7,35 @@
 
 Definidas en `lib/data/sources.ts`.
 
+> **Actualizado en KORE-28** (ver `KORE-catalog-cutover-rehearsal.md`): `kore` quedó habilitada
+> para el catálogo, leyendo el catálogo KORE normalizado persistido; `shadow` quedó como solo
+> observación. El default sigue siendo `legacy`.
+
 | Fuente | Qué es | Estado en la app |
 |---|---|---|
 | `legacy` | Tablas Supabase cargadas desde Excel (+ copia local del Excel importado) | **DEFAULT** en todos los dominios |
 | `mock` | Datos de ejemplo | Solo explícita y para todos los dominios a la vez |
-| `shadow` | Tablas `kore_*` vía repository server-side | Definida; bloqueada para la UI (`CUTOVER_NOT_ENABLED`) |
-| `kore` | KORE en vivo | Definida; bloqueada (`CUTOVER_NOT_ENABLED`; TRANSPORT_SECURITY_BLOCKER) |
+| `kore` | Catálogo KORE normalizado persistido (`kore_articulos` resolved + activo, taxonomía activa) vía loader server-side. Nunca SOAP desde la app | Solo dominio catálogo; modo `mixed` |
+| `shadow` | Observación/comparación de `kore_*` | Nunca fuente visible (`SHADOW_OBSERVATION_ONLY`) |
 
-| Dominio | Fuentes habilitadas hoy | Pendientes de cutover |
-|---|---|---|
-| `catalog` | legacy, mock | shadow, kore |
-| `sales` | legacy, mock | — (ventas = legacy) |
-| `customers` | legacy, mock | — |
-| `applications` | legacy, mock | — |
+| Dominio | Fuentes habilitadas |
+|---|---|
+| `catalog` | legacy, mock, kore |
+| `sales` | legacy, mock (ventas = legacy) |
+| `customers` | legacy, mock |
+| `applications` | legacy, mock |
 
 ### Configuración
 
 | Variable | Valores | Default |
 |---|---|---|
-| `NEXT_PUBLIC_PICKUP_DATA_SOURCE` | `legacy` \| `mock` | `legacy` |
-| `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE` | `legacy` \| `mock` (`shadow`/`kore` → error hasta cutover) | la global |
+| `NEXT_PUBLIC_PICKUP_DATA_SOURCE` | `legacy` | `mock` | `legacy` |
+| `NEXT_PUBLIC_PICKUP_CATALOG_SOURCE` | `legacy` | `mock` | `kore` (`shadow` → error) | la global |
+
+Las variables se inyectan en **build** (servidor y cliente): cambiarlas exige un rebuild.
 
 Una configuración inválida (valor desconocido, mock mezclado con datos reales, fuente no
-permitida para el dominio o sin cutover) es un **error explícito**: no se cargan datos y
+permitida para el dominio o shadow como fuente visible) es un **error explícito**: no se cargan datos y
 no se cae a otra fuente.
 
 ## Sin fallback silencioso

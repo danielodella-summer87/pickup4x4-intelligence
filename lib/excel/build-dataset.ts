@@ -17,7 +17,7 @@ import {
   NormalizationRegistry,
   type SmartNormalizationReport,
 } from "@/lib/excel/normalization";
-import type { Articulo, ArticuloAplicacion } from "@/lib/models/articulo";
+import type { Articulo, ArticuloAplicacion, CatalogTaxonomy } from "@/lib/models/articulo";
 import type { Cliente } from "@/lib/models/cliente";
 import type { OportunidadComercial } from "@/lib/models/oportunidad";
 import type { SolicitudPresupuesto } from "@/lib/models/solicitud";
@@ -75,6 +75,8 @@ export type PickupDataset = {
   smartNormalization: SmartNormalizationReport;
   applicationAudit?: ApplicationAuditReport;
   stats: PickupDatasetStats;
+  /** Taxonomía de la fuente del catálogo (solo catálogo KORE, KORE-28). */
+  catalogTaxonomy?: CatalogTaxonomy;
 };
 
 export type BuildPickupDatasetParams = {

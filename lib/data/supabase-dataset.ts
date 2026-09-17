@@ -1,6 +1,4 @@
 import type { PickupDataset } from "@/lib/excel/build-dataset";
-import type { ActivePickupData } from "@/lib/data/pickup-data";
-import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 import type { SupabaseDatasetSaveResult } from "@/lib/data/supabase-dataset-server";
 
 export type { SupabaseDatasetSaveResult, SupabaseDatasetLoadResult } from "@/lib/data/supabase-dataset-server";
@@ -22,16 +20,6 @@ function logImportError(message: string, detail?: unknown): void {
     console.error(`[SupabaseImport] ${message}`);
   }
 }
-
-type LoadApiResponse = {
-  ok: boolean;
-  dataset: PickupDataset | null;
-  activeData: ActivePickupData | null;
-  oportunidades: OportunidadDetectada[];
-  generatedAt: string | null;
-  importacionId?: string;
-  errorMessage?: string;
-};
 
 type ImportApiResponse = SupabaseDatasetSaveResult & {
   httpStatus?: number;
@@ -55,75 +43,6 @@ function recommendationForFailure(
     return "El dataset es muy grande para una sola petición. Contactá soporte o reducí el volumen de prueba.";
   }
   return "Supabase rechazó la inserción. Revisá permisos, columnas del esquema o service role.";
-}
-
-/**
- * Carga el dataset desde la API server-side (service role).
- */
-export async function loadDatasetFromSupabase(): Promise<{
-  ok: boolean;
-  dataset: PickupDataset | null;
-  oportunidades: OportunidadDetectada[];
-  generatedAt: Date | null;
-  importacionId?: string;
-  errorMessage?: string;
-}> {
-  logImport("GET /api/supabase/load-dataset");
-
-  try {
-    const res = await fetch("/api/supabase/load-dataset", {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    const body = (await res.json()) as LoadApiResponse;
-    logImport("respuesta load status", res.status);
-    logImport("respuesta load body", body);
-
-    if (!res.ok || !body.ok) {
-      return {
-        ok: false,
-        dataset: null,
-        oportunidades: [],
-        generatedAt: null,
-        errorMessage: body.errorMessage ?? `HTTP ${res.status}`,
-      };
-    }
-
-    if (!body.dataset) {
-      logImport("Supabase vacío (ok sin dataset)");
-      return {
-        ok: true,
-        dataset: null,
-        oportunidades: [],
-        generatedAt: null,
-      };
-    }
-
-    logImport("dataset recibido", {
-      clientes: body.dataset.clientes?.length,
-      ventas: body.dataset.ventas?.length,
-      articulos: body.dataset.articulos?.length,
-      aplicaciones: body.dataset.aplicaciones?.length,
-    });
-
-    return {
-      ok: true,
-      dataset: body.dataset,
-      oportunidades: body.oportunidades ?? [],
-      generatedAt: body.generatedAt ? new Date(body.generatedAt) : null,
-      importacionId: body.importacionId,
-    };
-  } catch (error) {
-    logImportError("error load", error);
-    return {
-      ok: false,
-      dataset: null,
-      oportunidades: [],
-      generatedAt: null,
-      errorMessage: error instanceof Error ? error.message : "Error de red al cargar Supabase",
-    };
-  }
 }
 
 /**

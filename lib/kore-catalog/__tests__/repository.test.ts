@@ -5,80 +5,9 @@ import {
   KORE_CATALOG_COLUMNS,
   KoreCatalogIntegrityError,
   createKoreCatalogRepository,
-  type CatalogCountQuery,
-  type CatalogFilters,
-  type CatalogSelectQuery,
-  type KoreCatalogReader,
 } from "../repository.ts";
 import { createSupabaseCatalogReader } from "../supabase-reader.ts";
-
-type Row = Record<string, unknown>;
-
-function row(code: string, overrides: Row = {}): Row {
-  return {
-    id: `id-${code}`,
-    codigo_unico: code,
-    descripcion: `ARTICULO SINT ${code}`,
-    observaciones: "",
-    codigo_familia: "F1",
-    codigo_grupo: "G1",
-    codigo_subgrupo: null,
-    familia_id: "fam-1",
-    grupo_id: null,
-    subgrupo_id: null,
-    basico: 1,
-    minimo: 0,
-    exento: 0,
-    deshabilitado: 0,
-    controla_stock: 1,
-    raw_id: `raw-${code}`,
-    identity_status: "resolved",
-    missing_since: null,
-    last_seen_at: "2099-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
-
-/** Tabla sintética: aplica los filtros como lo haría PostgREST. */
-class FakeReader implements KoreCatalogReader {
-  readonly selects: CatalogSelectQuery[] = [];
-  readonly counts: CatalogCountQuery[] = [];
-  rows: Row[];
-  ignoreFilters = false;
-  constructor(rows: Row[]) {
-    this.rows = rows;
-  }
-  private apply(filters: CatalogFilters): Row[] {
-    if (this.ignoreFilters) return this.rows;
-    return this.rows.filter(
-      (r) =>
-        filters.eq.every(([column, value]) => r[column] === value) &&
-        filters.isNull.every((column) => r[column] === null) &&
-        filters.notNull.every((column) => r[column] !== null),
-    );
-  }
-  async select(query: CatalogSelectQuery) {
-    this.selects.push(query);
-    return this.apply(query.filters)
-      .sort((a, b) => String(a.codigo_unico).localeCompare(String(b.codigo_unico)))
-      .slice(query.from, query.to + 1);
-  }
-  async count(query: CatalogCountQuery) {
-    this.counts.push(query);
-    return this.apply(query.filters).length;
-  }
-}
-
-function catalog(): Row[] {
-  return [
-    row("SINT-A"),
-    row("SINT-B"),
-    row("SINT-C", { missing_since: "2099-01-02T00:00:00Z" }),
-    // Cuarentena: contenido null por check de identidad.
-    row("SINT-CONFLICT-1", { identity_status: "conflict", raw_id: null, descripcion: null, observaciones: null, codigo_familia: null, familia_id: null }),
-    row("SINT-CONFLICT-2", { identity_status: "conflict", raw_id: null, descripcion: null, observaciones: null, codigo_familia: null, familia_id: null }),
-  ];
-}
+import { FakeReader, catalog, row } from "./fixtures.ts";
 
 describe("repository catálogo KORE: solo artículos aptos", () => {
   it("filtro único de elegibilidad: identity_status = resolved AND missing_since IS NULL", () => {

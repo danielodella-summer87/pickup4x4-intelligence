@@ -8,13 +8,16 @@
  *   de la query, no por la UI.
  * - Fail-closed: si una fila devuelta viola los invariantes (estado, missing, raw_id,
  *   contenido), se lanza KoreCatalogIntegrityError; nunca se descarta en silencio.
- * - No escribe, no llama KORE, no ejecuta sync. No es cutover: ningún módulo de UI lo usa.
+ * - No escribe, no llama KORE, no ejecuta sync. Solo lo consume el loader server-side del
+ *   dataset activo (catalog=kore); nunca la UI directamente.
  *
  * Este archivo no depende de Next ni de Supabase (testeable con node --test). La entrada
  * de aplicación es `@/lib/kore-catalog` (server-only).
  */
 
 export const KORE_CATALOG_TABLE = "kore_articulos";
+export const KORE_TAXONOMY_TABLES = ["kore_familias", "kore_grupos", "kore_subgrupos"] as const;
+export type KoreCatalogTable = typeof KORE_CATALOG_TABLE | (typeof KORE_TAXONOMY_TABLES)[number];
 export const KORE_CATALOG_PAGE_SIZE = 1000;
 
 /** Columnas expuestas (sin hashes, variantes RAW ni metadata interna de sync). */
@@ -54,7 +57,7 @@ export const ELIGIBLE_ARTICLE_FILTERS: CatalogFilters = Object.freeze({
 });
 
 export type CatalogSelectQuery = {
-  table: typeof KORE_CATALOG_TABLE;
+  table: KoreCatalogTable;
   columns: readonly string[];
   filters: CatalogFilters;
   orderBy: string;
@@ -63,7 +66,7 @@ export type CatalogSelectQuery = {
 };
 
 export type CatalogCountQuery = {
-  table: typeof KORE_CATALOG_TABLE;
+  table: KoreCatalogTable;
   filters: CatalogFilters;
 };
 
@@ -157,7 +160,28 @@ export function toEligibleArticle(row: Record<string, unknown>): KoreCatalogArti
   };
 }
 
+/** Taxonomía KORE activa (missing_since IS NULL), solo códigos y descripciones. */
+export type KoreTaxonomy = {
+  familias: { codigoFamilia: string; descripcion: string }[];
+  grupos: { codigoFamilia: string; codigoGrupo: string; descripcion: string }[];
+  subgrupos: { codigoFamilia: string; codigoGrupo: string; codigoSubgrupo: string; descripcion: string }[];
+};
+
+/** Filtro de taxonomía activa. */
+export const ACTIVE_TAXONOMY_FILTERS: CatalogFilters = Object.freeze({
+  eq: Object.freeze([]),
+  isNull: Object.freeze(["missing_since"]),
+  notNull: Object.freeze([]),
+});
+
+function activeTaxonomyRow(row: Record<string, unknown>): Record<string, unknown> {
+  if (row.missing_since !== null) throw new KoreCatalogIntegrityError("missing_since");
+  return row;
+}
+
 export type KoreCatalogRepository = {
+  /** Taxonomía activa (familias, grupos, subgrupos con missing_since IS NULL). */
+  listActiveTaxonomy(): Promise<KoreTaxonomy>;
   /** Todos los artículos aptos (paginado, orden estable por codigo_unico). */
   listEligibleArticles(): Promise<KoreCatalogArticle[]>;
   /** Un artículo apto por código normalizado; null si no existe o no es apto (p. ej. en conflicto). */
@@ -171,7 +195,34 @@ export function createKoreCatalogRepository(reader: KoreCatalogReader, pageSize 
     throw new RangeError("pageSize inválido");
   }
 
+  async function readAll(table: KoreCatalogTable, columns: readonly string[], filters: CatalogFilters, orderBy: string): Promise<Record<string, unknown>[]> {
+    const rows: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const page = await reader.select({ table, columns, filters, orderBy, from, to: from + pageSize - 1 });
+      rows.push(...page);
+      if (page.length < pageSize) return rows;
+    }
+  }
+
   return {
+    async listActiveTaxonomy() {
+      const [familias, grupos, subgrupos] = await Promise.all([
+        readAll("kore_familias", ["id", "codigo_familia", "descripcion", "missing_since"], ACTIVE_TAXONOMY_FILTERS, "codigo_familia"),
+        readAll("kore_grupos", ["id", "codigo_familia", "codigo_grupo", "descripcion", "missing_since"], ACTIVE_TAXONOMY_FILTERS, "id"),
+        readAll("kore_subgrupos", ["id", "codigo_familia", "codigo_grupo", "codigo_subgrupo", "descripcion", "missing_since"], ACTIVE_TAXONOMY_FILTERS, "id"),
+      ]);
+      return {
+        familias: familias.map(activeTaxonomyRow).map((row) => ({ codigoFamilia: text(row, "codigo_familia"), descripcion: text(row, "descripcion") })),
+        grupos: grupos.map(activeTaxonomyRow).map((row) => ({ codigoFamilia: text(row, "codigo_familia"), codigoGrupo: text(row, "codigo_grupo"), descripcion: text(row, "descripcion") })),
+        subgrupos: subgrupos.map(activeTaxonomyRow).map((row) => ({
+          codigoFamilia: text(row, "codigo_familia"),
+          codigoGrupo: text(row, "codigo_grupo"),
+          codigoSubgrupo: text(row, "codigo_subgrupo"),
+          descripcion: text(row, "descripcion"),
+        })),
+      };
+    },
+
     async listEligibleArticles() {
       const articles: KoreCatalogArticle[] = [];
       for (let from = 0; ; from += pageSize) {

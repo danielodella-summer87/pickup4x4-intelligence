@@ -9,7 +9,8 @@ import {
   pickupDatasetToActiveData,
   type ActivePickupData,
 } from "@/lib/data/pickup-data";
-import type { DataMode, DomainSources } from "@/lib/data/sources";
+import type { DatasetProvenance } from "@/lib/data/mixed-dataset";
+import type { CatalogSourceId, DataMode, DomainSources } from "@/lib/data/sources";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 
 function logActiveDataset(message: string, detail?: unknown): void {
@@ -26,6 +27,10 @@ export type ActiveDataset = {
   dataMode: DataMode | null;
   dataSources: DomainSources | null;
   status: DatasetStatus;
+  /** Procedencia por dominio informada por el servidor (null en mock o antes de cargar). */
+  provenance: DatasetProvenance | null;
+  /** Fuente del catálogo visible (legacy | mock | kore). Consultar por dominio, no por dataset. */
+  catalogSource: CatalogSourceId | null;
   configError: string | null;
   generatedAt: Date | null;
   warnings: DatasetWarning[];
@@ -34,7 +39,10 @@ export type ActiveDataset = {
   /** true cuando no hay datos que mostrar (legacy vacío, error o configuración inválida). */
   isEmpty: boolean;
   isExcel: boolean;
+  /** Datos del servidor (Supabase): legacy puro o mixto (catálogo KORE + resto legacy). */
   isSupabase: boolean;
+  /** Catálogo KORE + ventas/clientes/aplicaciones legacy. */
+  isMixed: boolean;
   isPersistedLocally: boolean;
   isPersistedInSupabase: boolean;
   isStorageHydrated: boolean;
@@ -49,6 +57,7 @@ export function useActiveDataset(): ActiveDataset {
     dataMode,
     dataSources,
     status,
+    provenance,
     configError,
     generatedAt,
     warnings,
@@ -62,7 +71,7 @@ export function useActiveDataset(): ActiveDataset {
 
   const data = useMemo(() => {
     if (dataMode === "mock") return mockPickupDataToActive();
-    if (dataMode === "legacy" && dataset) return pickupDatasetToActiveData(dataset);
+    if ((dataMode === "legacy" || dataMode === "mixed") && dataset) return pickupDatasetToActiveData(dataset);
     // Cargando, legacy vacío, error o configuración inválida: vacío explícito, nunca mock.
     return emptyActivePickupData();
   }, [dataMode, dataset]);
@@ -95,15 +104,18 @@ export function useActiveDataset(): ActiveDataset {
     dataMode,
     dataSources,
     status,
+    provenance,
+    catalogSource: provenance?.sources.catalog ?? dataSources?.catalog ?? null,
     configError,
     generatedAt,
     warnings,
     isMock: dataMode === "mock",
     isEmpty,
     isExcel: source === "excel",
-    isSupabase: source === "supabase",
+    isSupabase: source === "supabase" || source === "mixed",
+    isMixed: source === "mixed",
     isPersistedLocally: source === "excel" && hasLocalPersistence,
-    isPersistedInSupabase: source === "supabase" && hasSupabasePersistence,
+    isPersistedInSupabase: (source === "supabase" || source === "mixed") && hasSupabasePersistence,
     isStorageHydrated,
     supabaseError,
     oportunidadesSupabase,
@@ -125,6 +137,9 @@ export function formatDatasetSourceLabel(
       return "Legacy · Excel (solo en memoria)";
     }
     return "Legacy · Excel";
+  }
+  if (source === "mixed") {
+    return "Catálogo KORE · ventas, clientes y aplicaciones legacy";
   }
   if (source === "mock") {
     return "Mock (explícito)";

@@ -1,13 +1,15 @@
 /**
- * Fuentes de datos explícitas por dominio (KORE-27).
+ * Fuentes de datos explícitas por dominio (KORE-27 / KORE-28).
  *
  * legacy  → tablas Supabase cargadas desde Excel (+ copia local del Excel importado).
  *           DEFAULT para todos los dominios.
  * mock    → datos de ejemplo. Solo si se elige EXPLÍCITAMENTE, y para todos los dominios a la
  *           vez (no se mezclan datos de ejemplo con datos reales).
- * shadow  → tablas kore_* (repository server-side). Definida, pero bloqueada para la app
- *           hasta un cutover explícito.
- * kore    → KORE en vivo. Definida, pero bloqueada (TRANSPORT_SECURITY_BLOCKER: HTTP sin TLS).
+ * kore    → catálogo KORE NORMALIZADO ya persistido (kore_articulos resolved + activos y
+ *           taxonomía activa), leído server-side vía @/lib/kore-catalog. La app nunca llama
+ *           SOAP KORE. Habilitada SOLO para el dominio catálogo.
+ * shadow  → observación/comparación de las tablas kore_*. Nunca es catálogo visible: pedirla
+ *           como fuente de un dominio es un error explícito.
  *
  * Nunca hay fallback silencioso entre fuentes: una configuración inválida es un error
  * explícito, y "legacy vacío" es un estado explícito (no se reemplaza por mock).
@@ -23,8 +25,11 @@ export type DataDomain = (typeof DATA_DOMAINS)[number];
 /** Ventas nunca vienen de shadow/kore: siguen en legacy (o mock explícito). */
 export type SalesSourceId = Extract<DataSourceId, "legacy" | "mock">;
 
+/** Catálogo visible: legacy, mock explícito o KORE normalizado. Nunca shadow. */
+export type CatalogSourceId = Extract<DataSourceId, "legacy" | "mock" | "kore">;
+
 export type DomainSources = Readonly<{
-  catalog: DataSourceId;
+  catalog: CatalogSourceId;
   sales: SalesSourceId;
   customers: Extract<DataSourceId, "legacy" | "mock">;
   applications: Extract<DataSourceId, "legacy" | "mock">;
@@ -39,28 +44,28 @@ export const DEFAULT_DOMAIN_SOURCES: DomainSources = Object.freeze({
   applications: "legacy",
 });
 
-/** Fuentes que cada dominio admite en la app HOY (sin cutover). */
+/** Fuentes que cada dominio admite en la app. */
 export const ENABLED_SOURCES_BY_DOMAIN: Readonly<Record<DataDomain, readonly DataSourceId[]>> = Object.freeze({
-  catalog: ["legacy", "mock"],
+  catalog: ["legacy", "mock", "kore"],
   sales: ["legacy", "mock"],
   customers: ["legacy", "mock"],
   applications: ["legacy", "mock"],
 });
 
-/** Fuentes definidas para un dominio pero pendientes de cutover explícito. */
-export const PENDING_CUTOVER_SOURCES_BY_DOMAIN: Readonly<Record<DataDomain, readonly DataSourceId[]>> = Object.freeze({
-  catalog: ["shadow", "kore"],
-  sales: [],
-  customers: [],
-  applications: [],
-});
+/** Fuentes que existen solo como observación (nunca datos visibles). */
+export const OBSERVATION_ONLY_SOURCES: readonly DataSourceId[] = Object.freeze(["shadow"]);
 
-export type DataMode = "legacy" | "mock";
+/**
+ * legacy → todos los dominios legacy.
+ * mixed  → catálogo KORE normalizado + ventas/clientes/aplicaciones legacy.
+ * mock   → todos los dominios mock (explícito).
+ */
+export type DataMode = "legacy" | "mixed" | "mock";
 
 export type DataSourceConfigErrorCode =
   | "UNKNOWN_DATA_SOURCE"
   | "SOURCE_NOT_ALLOWED_FOR_DOMAIN"
-  | "CUTOVER_NOT_ENABLED"
+  | "SHADOW_OBSERVATION_ONLY"
   | "MIXED_MOCK_NOT_ALLOWED";
 
 export type DataSourceResolution =
@@ -81,12 +86,12 @@ function parseSource(raw: string | null | undefined): DataSourceId | "" | null {
 
 function checkDomain(domain: DataDomain, source: DataSourceId): DataSourceResolution | null {
   if (ENABLED_SOURCES_BY_DOMAIN[domain].includes(source)) return null;
-  if (PENDING_CUTOVER_SOURCES_BY_DOMAIN[domain].includes(source)) {
+  if (OBSERVATION_ONLY_SOURCES.includes(source)) {
     return {
       ok: false,
-      code: "CUTOVER_NOT_ENABLED",
+      code: "SHADOW_OBSERVATION_ONLY",
       domain,
-      message: `La fuente "${source}" para ${domain} está definida pero no habilitada (sin cutover).`,
+      message: `"${source}" es solo observación/comparación: no puede ser la fuente visible de ${domain}.`,
     };
   }
   return {
@@ -131,9 +136,11 @@ export function resolveDataSources(env: DataSourceEnv = {}): DataSourceResolutio
     };
   }
 
-  return {
-    ok: true,
-    mode: mockDomains.length > 0 ? "mock" : "legacy",
-    sources: Object.freeze(requested) as DomainSources,
-  };
+  const mode: DataMode = mockDomains.length > 0 ? "mock" : requested.catalog === "kore" ? "mixed" : "legacy";
+  return { ok: true, mode, sources: Object.freeze(requested) as DomainSources };
+}
+
+/** Misma configuración que usa la app (valores inyectados en build por Next). */
+export function sameDomainSources(a: DomainSources, b: DomainSources): boolean {
+  return DATA_DOMAINS.every((domain) => a[domain] === b[domain]);
 }

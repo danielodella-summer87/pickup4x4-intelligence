@@ -4,7 +4,8 @@
  * Expone solo artículos aptos: identity_status = 'resolved' AND missing_since IS NULL.
  * Las claves en cuarentena por conflicto de identidad nunca salen de aquí.
  *
- * No es cutover: la UI sigue usando la fuente legacy (lib/data/sources.ts). `server-only`
+ * Único consumidor: el loader server-side del dataset activo (lib/data/active-dataset-server.ts)
+ * cuando la app se construye con catalog=kore (default: legacy). `server-only`
  * hace fallar el build si este módulo llega a un Client Component.
  */
 import "server-only";
@@ -13,7 +14,7 @@ import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createKoreCatalogRepository, type KoreCatalogRepository } from "./repository.ts";
 import { createSupabaseCatalogReader } from "./supabase-reader.ts";
 
-export type { KoreCatalogArticle, KoreCatalogCounts, KoreCatalogRepository } from "./repository.ts";
+export type { KoreCatalogArticle, KoreCatalogCounts, KoreCatalogRepository, KoreTaxonomy } from "./repository.ts";
 export { ELIGIBLE_ARTICLE_FILTERS, KoreCatalogIntegrityError } from "./repository.ts";
 export { KoreCatalogReadError } from "./supabase-reader.ts";
 

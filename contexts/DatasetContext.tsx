@@ -12,7 +12,8 @@ import {
 } from "react";
 import type { DatasetWarning, PickupDataset } from "@/lib/excel/build-dataset";
 import { parseLoadDatasetApiBody } from "@/lib/data/coerce-pickup-dataset";
-import { resolveLegacyHydration, type DatasetStatus } from "@/lib/data/dataset-hydration";
+import { resolveLegacyHydration, resolveServerLoadOutcome, type DatasetStatus } from "@/lib/data/dataset-hydration";
+import type { DatasetProvenance } from "@/lib/data/mixed-dataset";
 import {
   clearSessionExcelDataset,
   type DatasetPersistResult,
@@ -29,19 +30,21 @@ import {
   saveDatasetToSupabase,
   type SupabaseDatasetSaveResult,
 } from "@/lib/data/supabase-dataset";
-import { resolveDataSources, type DataMode, type DomainSources } from "@/lib/data/sources";
+import { configuredDataSources } from "@/lib/data/source-config";
+import type { DataMode, DomainSources } from "@/lib/data/sources";
 import { type SupabaseConnectionStatus } from "@/lib/supabase/connection";
 import type { OportunidadDetectada } from "@/lib/models/oportunidad";
 
 /**
  * Origen concreto del dataset activo:
  * - supabase / excel → fuente legacy (tablas Supabase o Excel importado en este navegador)
+ * - mixed           → catálogo KORE normalizado + ventas/clientes/aplicaciones legacy (servidor)
  * - mock            → fuente mock elegida EXPLÍCITAMENTE (NEXT_PUBLIC_PICKUP_DATA_SOURCE=mock)
  * - none            → sin datos (legacy vacío, cargando, error o configuración inválida)
  *
  * No existe fallback silencioso legacy vacío → mock.
  */
-export type DatasetSource = "supabase" | "excel" | "mock" | "none";
+export type DatasetSource = "supabase" | "excel" | "mixed" | "mock" | "none";
 
 export type { DatasetPersistResult, DatasetStatus };
 
@@ -50,11 +53,13 @@ export type DatasetSetResult = DatasetPersistResult;
 type DatasetContextValue = {
   dataset: PickupDataset | null;
   source: DatasetSource;
-  /** legacy | mock según configuración explícita; null si la configuración es inválida. */
+  /** legacy | mixed | mock según configuración explícita; null si la configuración es inválida. */
   dataMode: DataMode | null;
   /** Fuente resuelta por dominio (catalog, sales, customers, applications). */
   dataSources: DomainSources | null;
   status: DatasetStatus;
+  /** Procedencia por dominio informada por el servidor (catálogo, joins); null en mock. */
+  provenance: DatasetProvenance | null;
   configError: string | null;
   generatedAt: Date | null;
   warnings: DatasetWarning[];
@@ -80,10 +85,7 @@ const DatasetContext = createContext<DatasetContextValue | null>(null);
  * Configuración de fuentes. `process.env.NEXT_PUBLIC_*` se inyecta en build; sin valores,
  * todos los dominios usan legacy.
  */
-const SOURCE_RESOLUTION = resolveDataSources({
-  dataSource: process.env.NEXT_PUBLIC_PICKUP_DATA_SOURCE,
-  catalogSource: process.env.NEXT_PUBLIC_PICKUP_CATALOG_SOURCE,
-});
+const SOURCE_RESOLUTION = configuredDataSources();
 
 const EMPTY_SAVE_COUNTS = {
   clientes: 0,
@@ -113,10 +115,12 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   const dataSources: DomainSources | null = resolution.ok ? resolution.sources : null;
   const configError = resolution.ok ? null : `${resolution.code}: ${resolution.message}`;
   const isLegacyMode = dataMode === "legacy";
+  const usesServerDataset = dataMode === "legacy" || dataMode === "mixed";
 
   const [dataset, setDatasetState] = useState<PickupDataset | null>(null);
   const [source, setSource] = useState<DatasetSource>(dataMode === "mock" ? "mock" : "none");
   const [status, setStatus] = useState<DatasetStatus>(initialStatus);
+  const [provenance, setProvenance] = useState<DatasetProvenance | null>(null);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [warnings, setWarnings] = useState<DatasetWarning[]>([]);
   const [oportunidadesSupabase, setOportunidadesSupabase] = useState<
@@ -124,7 +128,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   >(null);
   const [hasLocalPersistence, setHasLocalPersistence] = useState(false);
   const [hasSupabasePersistence, setHasSupabasePersistence] = useState(false);
-  const [isStorageHydrated, setIsStorageHydrated] = useState(!isLegacyMode);
+  const [isStorageHydrated, setIsStorageHydrated] = useState(!usesServerDataset);
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [supabaseConnection, setSupabaseConnection] =
@@ -143,7 +147,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (resolution.mode === "mock") {
-      logHydration("fuente mock explícita — sin carga legacy");
+      logHydration("fuente mock explícita — sin carga del servidor");
       return;
     }
 
@@ -153,7 +157,8 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     void (async () => {
-      logHydration("intentando cargar legacy (Supabase)");
+      const mode: "legacy" | "mixed" = resolution.mode === "mixed" ? "mixed" : "legacy";
+      logHydration(mode === "mixed" ? "cargando dataset mixto (catálogo KORE + resto legacy)" : "intentando cargar legacy (Supabase)");
       let supabaseOk = false;
       let supabaseErrorMessage: string | null = null;
 
@@ -172,6 +177,9 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         logHydration("respuesta load-dataset", {
           httpStatus: res.status,
           ok: parsed.ok,
+          status: parsed.status,
+          errorCode: parsed.errorCode,
+          provenance: parsed.provenance?.sources ?? null,
           hasDataset: Boolean(parsed.dataset),
           clientes: parsed.dataset?.clientes.length,
           ventas: parsed.dataset?.ventas.length,
@@ -179,11 +187,22 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
           aplicaciones: parsed.dataset?.aplicaciones.length,
         });
 
-        if (res.ok && parsed.ok && parsed.dataset) {
+        const outcome = resolveServerLoadOutcome(mode, resolution.sources, {
+          httpOk: res.ok,
+          ok: parsed.ok,
+          status: parsed.status,
+          errorCode: parsed.errorCode,
+          hasDataset: parsed.dataset !== null,
+          provenanceSources: parsed.provenance?.sources ?? null,
+          errorMessage: parsed.errorMessage ?? (res.ok ? null : `HTTP ${res.status}`),
+        });
+
+        if (outcome.kind === "apply" && parsed.dataset) {
           const loadedAt = parsed.generatedAt ?? new Date();
           supabaseResolvedRef.current = true;
           setDatasetState(parsed.dataset);
-          setSource("supabase");
+          setProvenance(parsed.provenance);
+          setSource(outcome.source);
           setStatus("ready");
           setGeneratedAt(loadedAt);
           setWarnings(parsed.dataset.warnings ?? []);
@@ -197,14 +216,39 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
             connected: true,
             message: "Conexión con Supabase establecida",
           });
-          setSessionExcelDataset(parsed.dataset, loadedAt);
+          // Solo legacy puro: la copia de sesión es un respaldo legacy. Un dataset mixto nunca se
+          // guarda localmente (luego podría servirse como "legacy" sin serlo).
+          if (outcome.persistSessionCopy) setSessionExcelDataset(parsed.dataset, loadedAt);
           setIsStorageHydrated(true);
-          logHydration("legacy (Supabase) OK");
+          logHydration(outcome.source === "mixed" ? "dataset mixto OK" : "legacy (Supabase) OK");
           return;
         }
 
-        if (!res.ok || !parsed.ok) {
-          supabaseErrorMessage = parsed.errorMessage ?? `HTTP ${res.status}`;
+        if (outcome.kind === "final") {
+          supabaseResolvedRef.current = true;
+          logHydration(`estado final explícito: ${outcome.status}`, outcome.code);
+          setDatasetState(null);
+          setProvenance(parsed.provenance);
+          setSource("none");
+          setStatus(outcome.status);
+          setGeneratedAt(null);
+          setWarnings([]);
+          setOportunidadesSupabase(null);
+          setHasLocalPersistence(false);
+          setHasSupabasePersistence(false);
+          setIsSupabaseLoaded(false);
+          setSupabaseError(outcome.status === "error" ? [outcome.code, outcome.message].filter(Boolean).join(": ") : null);
+          setSupabaseConnection({
+            configured: res.status !== 503,
+            connected: res.ok,
+            message: outcome.status === "error" ? outcome.code : "Sin datos",
+          });
+          setIsStorageHydrated(true);
+          return;
+        }
+
+        if (outcome.kind === "continue-legacy" && !outcome.supabaseOk) {
+          supabaseErrorMessage = outcome.errorMessage ?? `HTTP ${res.status}`;
           setSupabaseError(supabaseErrorMessage);
           setSupabaseConnection({
             configured: res.status !== 503,
@@ -232,6 +276,15 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         setSupabaseError(supabaseErrorMessage);
         setSupabaseConnection({ configured: true, connected: false, message: supabaseErrorMessage });
         logHydration(aborted ? "Supabase timeout" : "Supabase error de red", supabaseErrorMessage);
+        if (mode === "mixed") {
+          // Sin fallback a copias locales (catálogo legacy) ni a mock.
+          supabaseResolvedRef.current = true;
+          setDatasetState(null);
+          setSource("none");
+          setStatus("error");
+          setIsStorageHydrated(true);
+          return;
+        }
       } finally {
         clearTimeout(timeoutId);
       }
@@ -295,7 +348,9 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
           errorMessage:
             dataMode === "mock"
               ? "La fuente activa es mock (explícita): la importación de Excel está deshabilitada."
-              : "Configuración de fuentes inválida: la importación está deshabilitada.",
+              : dataMode === "mixed"
+                ? "El catálogo activo es KORE: la importación de Excel (catálogo legacy) está deshabilitada en este modo."
+                : "Configuración de fuentes inválida: la importación está deshabilitada.",
         };
         setLastPersistResult(blocked);
         return blocked;
@@ -403,6 +458,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       dataMode,
       dataSources,
       status,
+      provenance,
       configError,
       generatedAt,
       warnings,
@@ -426,6 +482,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       dataMode,
       dataSources,
       status,
+      provenance,
       configError,
       generatedAt,
       warnings,

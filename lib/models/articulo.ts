@@ -14,6 +14,16 @@ export interface Articulo {
   activo: boolean;
 }
 
+/**
+ * Taxonomía del catálogo (familia → grupo → subgrupo) tal como la publica la fuente del
+ * catálogo. Solo presente cuando el catálogo viene de KORE (KORE-28); legacy no la persiste.
+ */
+export type CatalogTaxonomy = {
+  familias: { codigoFamilia: string; descripcion: string }[];
+  grupos: { codigoFamilia: string; codigoGrupo: string; descripcion: string }[];
+  subgrupos: { codigoFamilia: string; codigoGrupo: string; codigoSubgrupo: string; descripcion: string }[];
+};
+
 /** Confianza comercial del match marca/modelo (0–1). */
 export type ApplicationValidationStatus = "valid" | "review" | "excluded";
 

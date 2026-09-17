@@ -7,8 +7,9 @@ import {
   DATA_SOURCES,
   DEFAULT_DOMAIN_SOURCES,
   ENABLED_SOURCES_BY_DOMAIN,
-  PENDING_CUTOVER_SOURCES_BY_DOMAIN,
+  OBSERVATION_ONLY_SOURCES,
   resolveDataSources,
+  sameDomainSources,
 } from "../sources.ts";
 
 describe("fuentes explícitas por dominio", () => {
@@ -42,21 +43,40 @@ describe("fuentes explícitas por dominio", () => {
     }
   });
 
-  it("shadow/kore para catálogo: definidos pero bloqueados hasta cutover", () => {
-    assert.deepEqual([...PENDING_CUTOVER_SOURCES_BY_DOMAIN.catalog], ["shadow", "kore"]);
-    for (const catalogSource of ["shadow", "kore"]) {
-      const result = resolveDataSources({ catalogSource });
+  it("catalog=kore → modo mixed con provenance por dominio (resto legacy)", () => {
+    const result = resolveDataSources({ catalogSource: "kore" });
+    assert.ok(result.ok);
+    assert.equal(result.mode, "mixed");
+    assert.deepEqual(result.sources, { catalog: "kore", sales: "legacy", customers: "legacy", applications: "legacy" });
+    assert.ok(sameDomainSources(result.sources, { catalog: "kore", sales: "legacy", customers: "legacy", applications: "legacy" }));
+    assert.ok(!sameDomainSources(result.sources, DEFAULT_DOMAIN_SOURCES));
+    assert.deepEqual([...ENABLED_SOURCES_BY_DOMAIN.catalog], ["legacy", "mock", "kore"]);
+  });
+
+  it("shadow sigue siendo solo observación: nunca catálogo visible", () => {
+    assert.deepEqual([...OBSERVATION_ONLY_SOURCES], ["shadow"]);
+    for (const env of [{ catalogSource: "shadow" }, { dataSource: "shadow" }]) {
+      const result = resolveDataSources(env);
       assert.ok(!result.ok);
-      assert.deepEqual([result.code, result.domain], ["CUTOVER_NOT_ENABLED", "catalog"]);
     }
+    const catalog = resolveDataSources({ catalogSource: "shadow" });
+    assert.ok(!catalog.ok);
+    assert.deepEqual([catalog.code, catalog.domain], ["SHADOW_OBSERVATION_ONLY", "catalog"]);
+  });
+
+  it("DEFAULT obligatorio: sin override el catálogo sigue legacy (no kore)", () => {
+    const result = resolveDataSources({});
+    assert.ok(result.ok);
+    assert.deepEqual([result.mode, result.sources.catalog], ["legacy", "legacy"]);
   });
 
   it("ventas = legacy: nunca shadow ni kore, por ninguna combinación", () => {
-    for (const dataSource of ["shadow", "kore"]) {
-      const result = resolveDataSources({ dataSource });
-      assert.ok(!result.ok);
-      assert.equal(result.code, "SOURCE_NOT_ALLOWED_FOR_DOMAIN");
-    }
+    const koreGlobal = resolveDataSources({ dataSource: "kore" });
+    assert.ok(!koreGlobal.ok);
+    assert.deepEqual([koreGlobal.code, koreGlobal.domain], ["SOURCE_NOT_ALLOWED_FOR_DOMAIN", "sales"]);
+    const shadowGlobal = resolveDataSources({ dataSource: "shadow" });
+    assert.ok(!shadowGlobal.ok);
+    assert.deepEqual([shadowGlobal.code, shadowGlobal.domain], ["SHADOW_OBSERVATION_ONLY", "sales"]);
     for (const dataSource of [undefined, "legacy", "mock", "shadow", "kore", "x"]) {
       for (const catalogSource of [undefined, "legacy", "mock", "shadow", "kore", "x"]) {
         const result = resolveDataSources({ dataSource, catalogSource });
