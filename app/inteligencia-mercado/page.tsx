@@ -144,7 +144,7 @@ export default function InteligenciaMercadoPage() {
     void refresh();
   }, [refresh]);
 
-  // Los datos se leen directo de Supabase desde el navegador (sin polling ni
+  // Los datos se leen mediante la API administrativa (sin polling ni
   // realtime). Sin esto, una respuesta nueva enviada en otra pestaña no
   // aparece hasta recargar manualmente la página.
   useEffect(() => {

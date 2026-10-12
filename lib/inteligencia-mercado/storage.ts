@@ -1,17 +1,15 @@
 /**
  * Acceso desde el panel admin (cliente del navegador, clave pública).
- * Lee/edita investigaciones y LEE respuestas. La inserción de respuestas la
+ * Las lecturas pasan por la API admin; la edición de investigaciones usa el cliente público. La inserción de respuestas la
  * hace la API con service role (ver lib/inteligencia-mercado/server.ts).
  */
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
   DbMercadoInvestigacion,
-  DbMercadoRespuesta,
 } from "@/lib/supabase/types";
 import {
   dbRowToInvestigacion,
-  dbRowToRespuesta,
   investigacionToDbInsert,
 } from "@/lib/inteligencia-mercado/mappers";
 import type {
@@ -46,26 +44,32 @@ function err(message: string): Err {
   return { ok: false, errorMessage: friendly(message) };
 }
 
+/** Lectura administrativa mediante el servidor, sin acceso anon a las tablas. */
+async function loadAdminData<T extends object>(
+  tipo: string | URLSearchParams,
+): Promise<Ok<T> | Err> {
+  const params = typeof tipo === "string" ? new URLSearchParams({ tipo }) : tipo;
+  try {
+    const res = await fetch(`/api/inteligencia-mercado/datos?${params}`, {
+      cache: "no-store",
+    });
+    const data = await res.json() as Ok<T> | (Err & { error?: string });
+    if (!res.ok || !data.ok) {
+      const failure = data as Err & { error?: string };
+      return err(failure.errorMessage ?? failure.error ?? "No se pudieron cargar los datos.");
+    }
+    return data;
+  } catch {
+    return err("No se pudo conectar con el servidor.");
+  }
+}
+
 // ── Investigaciones ──────────────────────────────────────────────────────-
 
 export async function loadInvestigaciones(): Promise<
   Ok<{ investigaciones: Investigacion[] }> | Err
 > {
-  if (!isSupabaseConfigured()) return err(NOT_CONFIGURED);
-  const client = createSupabaseBrowserClient();
-  if (!client) return err("No se pudo inicializar el cliente de Supabase.");
-
-  const { data, error } = await client
-    .from("mercado_investigaciones")
-    .select("*")
-    .order("updated_at", { ascending: false });
-
-  if (error) return err(error.message);
-
-  const investigaciones = (data ?? []).map((row) =>
-    dbRowToInvestigacion(row as DbMercadoInvestigacion),
-  );
-  return { ok: true, investigaciones };
+  return loadAdminData<{ investigaciones: Investigacion[] }>("investigaciones");
 }
 
 export async function saveInvestigacion(
@@ -125,34 +129,16 @@ export async function deleteInvestigacion(id: string): Promise<Ok<object> | Err>
 }
 
 // ── Respuestas ────────────────────────────────────────────────────────────-
-// La lectura es directa a Supabase (clave anon). La edición/borrado, en
-// cambio, pasa por Route Handlers con service role (misma razón que el
-// insert desde la landing): mercado_respuestas no da insert/update/delete a
-// anon a propósito. Ver supabase/migrations/20260629_inteligencia_mercado.sql.
+// Lectura y edición de respuestas mediante la API administrativa protegida.
 
 export async function loadRespuestas(options?: {
   investigacionId?: string;
 }): Promise<Ok<{ respuestas: Respuesta[] }> | Err> {
-  if (!isSupabaseConfigured()) return err(NOT_CONFIGURED);
-  const client = createSupabaseBrowserClient();
-  if (!client) return err("No se pudo inicializar el cliente de Supabase.");
-
-  let query = client
-    .from("mercado_respuestas")
-    .select("*")
-    .order("created_at", { ascending: false });
-
+  const params = new URLSearchParams({ tipo: "respuestas" });
   if (options?.investigacionId) {
-    query = query.eq("investigacion_id", options.investigacionId);
+    params.set("investigacionId", options.investigacionId);
   }
-
-  const { data, error } = await query;
-  if (error) return err(error.message);
-
-  const respuestas = (data ?? []).map((row) =>
-    dbRowToRespuesta(row as DbMercadoRespuesta),
-  );
-  return { ok: true, respuestas };
+  return loadAdminData<{ respuestas: Respuesta[] }>(params);
 }
 
 export async function updateRespuestaAdmin(
